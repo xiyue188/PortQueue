@@ -14,7 +14,12 @@ builder.Services.AddPortQueueInfrastructure(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
+// 本地 HTTP 配置用于课程演示，避免没有 HTTPS 端口时产生误导性警告。
+// 部署到 HTTPS 环境时，通过配置重新开启重定向。
+if (app.Configuration.GetValue<bool>("EnableHttpsRedirection"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
 
 app.MapControllers();
