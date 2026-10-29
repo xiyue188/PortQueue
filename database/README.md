@@ -18,6 +18,8 @@ $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\
 & $sqlcmd -C -S '(localdb)\PortQueueDev' -i 'database\00_create_database.sql'
 ```
 
+这里的 `(localdb)\PortQueueDev` 是本机 LocalDB 实例名，`PortQueue` 是实例中的数据库名。实例停止时先执行 `SqlLocalDB start PortQueueDev`；实例启动和数据库创建是两个步骤。`00_create_database.sql` 不会创建 LocalDB 实例，只会在 SQL Server 连接成功后创建数据库。
+
 当前项目不把连接密码写入脚本。若 LocalDB 无法启动，请安装 SQL Server Developer 或 Express 并在本地配置连接字符串；不要因为客户端工具不同而改动关系模型。
 
 ## 物理设计原则

@@ -21,6 +21,39 @@ pnpm install
 
 `.sql` 文件不是 PowerShell 可直接执行的程序。把 `database/00_create_database.sql` 直接输入终端不会运行其中的 T-SQL；必须通过 SQL Server 客户端执行。SQL Server 扩展不是必需品，但在 VS Code 中最直观，`sqlcmd` 更适合重复执行和保存命令结果。
 
+### 先区分 LocalDB 实例和数据库
+
+本项目涉及两个名称：
+
+- `(localdb)\PortQueueDev` 是 SQL Server LocalDB **实例**，相当于运行数据库引擎的本机容器。
+- `PortQueue` 是该实例中的 **数据库**，其中包含 21 张表、3 个视图和其他数据库对象。
+
+`database/00_create_database.sql` 只负责在已经连接到 SQL Server 的情况下创建 `PortQueue` 数据库，不能创建 LocalDB 实例。LocalDB 实例由 Windows 的 `SqlLocalDB` 工具管理。实例停止时，VS Code 会提示“指定的 LocalDB 实例不存在/不可访问”，即使数据库文件仍然存在。
+
+检查和启动实例：
+
+```powershell
+SqlLocalDB info
+SqlLocalDB info PortQueueDev
+SqlLocalDB start PortQueueDev
+```
+
+如果 `SqlLocalDB info PortQueueDev` 显示 `State: Running`，再进行 VS Code 连接。只有在确实显示实例不存在时，才需要创建实例；当前本机的 `PortQueueDev` 已经存在，不要重复创建：
+
+```powershell
+SqlLocalDB create PortQueueDev 15.0
+SqlLocalDB start PortQueueDev
+```
+
+实例启动后，验证数据库是否存在：
+
+```powershell
+$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d master -Q "SELECT name FROM sys.databases WHERE name = N'PortQueue';" -b
+```
+
+如果能返回 `PortQueue`，说明之前的数据库仍然可用；此时只需在 VS Code 中连接，不要重新运行建表脚本。
+
 ### 方式一：使用 VS Code SQL Server 扩展
 
 项目已经在 `.vscode/extensions.json` 推荐 `ms-mssql.mssql`。安装后：

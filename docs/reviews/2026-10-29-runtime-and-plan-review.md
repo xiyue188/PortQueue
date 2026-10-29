@@ -34,3 +34,7 @@
 ## 下一阶段准入条件
 
 进入阶段 1 前保持当前工作区干净；阶段 1 只补数据库对象和数据库验收，不同时开发完整 API 与前端页面。阶段 1 review 通过后，才进入阶段 2 的预约查询真实闭环。
+
+## LocalDB 连接问题补充
+
+本机曾出现 VS Code 扩展提示 LocalDB 实例不可访问。检查确认当前 Windows 用户 `FXY\admin` 下的 `PortQueueDev` 实例存在但处于 `Stopped`。启动实例后，`sqlcmd` 成功连接并返回 `PortQueue`、21 张表和 3 个视图。原因是 LocalDB 实例生命周期独立于数据库脚本：脚本创建数据库，`SqlLocalDB` 管理实例；以后连接前先执行 `SqlLocalDB start PortQueueDev` 即可。
