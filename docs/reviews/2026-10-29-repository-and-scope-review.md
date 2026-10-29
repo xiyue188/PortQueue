@@ -34,6 +34,17 @@
 - `dotnet build`、`dotnet test` 和前端生产构建可重复执行。
 - README、文件职责索引和启动手册明确说明当前 Mock 边界，不把原型描述成已联调系统。
 
+## 实际验收结果
+
+- 四个中文小提交已建立，`git diff --cached --check` 和提交后工作区检查通过。
+- `dotnet build PortQueue.sln --configuration Release` 通过，0 个警告、0 个错误。
+- `dotnet test PortQueue.sln --configuration Release --no-restore` 通过，健康接口测试 1/1。
+- `npm --prefix web/port-queue-web run build` 通过，Vue 类型检查和 Vite 生产构建均完成；Vite 对当前单页原型体积给出优化提示，但不影响本阶段验收。
+- `database/06_smoke_tests.sql` 通过：21 张表、3 个视图、2 个过滤唯一索引。
+- `database/07_business_smoke_test.sql` 通过：预约 `COMPLETED`、队列 `LEFT`、计划 `COMPLETED`、5 个事件、1 条队列视图记录、1 条当前计划记录。
+- `database/08_constraint_smoke_tests.sql` 通过：错误字典子类型被拒绝；测试业务数据已回滚。
+- GitHub 远程为空状态下首次推送成功，`main` 已跟踪 `origin/main`，工作区保持干净。
+
 ## 下一阶段范围
 
 只实现预约查询：数据库查询视图/SQL、后端 DTO 与 GET 接口、一个真实数据来源的前端列表，以及成功和数据库不可用两条测试。预约审核、锚地队列、泊位计划和报表继续留在后续阶段，待本阶段 review 通过后再开始。
