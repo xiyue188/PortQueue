@@ -1,3 +1,6 @@
+/*
+ * 调度总览的全局视觉层。业务数据和状态转换不应写入样式文件。
+ */
 :root {
   font-family: Inter, "Microsoft YaHei", sans-serif;
   color: #edf3f7;

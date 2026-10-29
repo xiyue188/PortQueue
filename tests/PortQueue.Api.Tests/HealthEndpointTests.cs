@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace PortQueue.Api.Tests;
 
+/// <summary>
+/// 验证 API 最小启动闭环，避免把数据库连接问题误判为 Web 进程未启动。
+/// </summary>
 public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;

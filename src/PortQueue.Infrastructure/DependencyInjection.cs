@@ -4,6 +4,9 @@ using PortQueue.Infrastructure.Database;
 
 namespace PortQueue.Infrastructure;
 
+/// <summary>
+/// 基础设施层的依赖注入入口；业务服务不在这里编排。
+/// </summary>
 public static class DependencyInjection
 {
     public static IServiceCollection AddPortQueueInfrastructure(
