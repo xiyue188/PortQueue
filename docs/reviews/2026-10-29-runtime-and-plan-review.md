@@ -38,3 +38,7 @@
 ## LocalDB 连接问题补充
 
 本机曾出现 VS Code 扩展提示 LocalDB 实例不可访问。检查确认当前 Windows 用户 `FXY\admin` 下的 `PortQueueDev` 实例存在但处于 `Stopped`。启动实例后，`sqlcmd` 成功连接并返回 `PortQueue`、21 张表和 3 个视图。原因是 LocalDB 实例生命周期独立于数据库脚本：脚本创建数据库，`SqlLocalDB` 管理实例；以后连接前先执行 `SqlLocalDB start PortQueueDev` 即可。
+
+为避免用户在不同终端上下文中重复猜测，新增 `database/bootstrap-localdb.ps1`。它会先检查实例和数据库状态，再决定创建、启动或恢复，已有数据库只读验证，不做破坏性重建。
+
+脚本已在 Windows PowerShell 5.1 下实际验证：能够启动 `PortQueueDev`，识别已有 `PortQueue`，跳过建表脚本，并输出 21 张表、3 个视图。脚本使用 ASCII 输出，避免 Windows PowerShell 对无 BOM 中文脚本的编码误判。

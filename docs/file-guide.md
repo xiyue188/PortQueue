@@ -32,6 +32,7 @@
 | `06_smoke_tests.sql` | 检查结构对象是否存在和基本对象数量是否符合设计。 |
 | `07_business_smoke_test.sql` | 在事务中贯通一条核心业务链路，结束时回滚测试数据。 |
 | `08_constraint_smoke_tests.sql` | 验证错误字典类型等关键非法输入会被拒绝。 |
+| `bootstrap-localdb.ps1` | Windows 本机引导脚本：检查/创建/启动 LocalDB 实例，数据库不存在时恢复脚本，已有数据库只读验证。 |
 | `README.md` | 说明 SQL Server 环境、执行顺序、验证方式和常见故障。 |
 
 ## 后端

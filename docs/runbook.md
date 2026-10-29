@@ -54,6 +54,32 @@ $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\
 
 如果能返回 `PortQueue`，说明之前的数据库仍然可用；此时只需在 VS Code 中连接，不要重新运行建表脚本。
 
+### 一条命令完成本机准备
+
+如果你不确定实例是否存在、是否停止或数据库是否已经创建，直接在仓库根目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
+```
+
+脚本会自动完成以下判断：
+
+1. 检查 `PortQueueDev` 是否存在；不存在才创建。
+2. 检查实例是否运行；停止才启动。
+3. 检查 `PortQueue` 是否存在；不存在才按 `00` 至 `05` 恢复。
+4. 数据库已经存在时不执行建表脚本，不删除现有数据。
+5. 最后输出当前数据库、表数量和视图数量。
+
+正常结果应包含：
+
+```text
+current_database    PortQueue
+table_count         21
+view_count          3
+```
+
+这个脚本解决的是本地环境准备问题，不属于应用业务功能；它不会修改 21 个关系的设计。
+
 ### 方式一：使用 VS Code SQL Server 扩展
 
 项目已经在 `.vscode/extensions.json` 推荐 `ms-mssql.mssql`。安装后：

@@ -35,6 +35,14 @@ config/                    示例配置和本地开发说明
 4. 复制示例配置到本地配置文件，填入本机连接字符串；连接密码不提交到 Git。
 5. 先阅读 `docs/physical-design-and-operations.md` 和 `docs/acceptance-plan.md`，再实现功能。
 
+如果使用本机 LocalDB，首次准备或遇到实例连接错误时，先执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
+```
+
+它会区分 LocalDB 实例和 `PortQueue` 数据库，已有数据库不会重复恢复。
+
 ## 当前运行方式
 
 当前仓库已经具备可验证的 SQL Server 数据库基线、后端健康接口和前端调度总览原型。前端总览中的队列和指标仍是演示数据，并标注为“接口待联调”；预约业务接口将在下一阶段按验收计划逐步接入。
