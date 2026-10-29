@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp",
+    "Vue.volar",
+    "ms-mssql.mssql",
+    "EditorConfig.EditorConfig"
+  ]
+}

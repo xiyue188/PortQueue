@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "PortQueue.sln", "--configuration", "Debug"],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "backend: test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "PortQueue.sln", "--configuration", "Debug", "--no-restore"],
+      "problemMatcher": "$msCompile",
+      "group": "test"
+    },
+    {
+      "label": "frontend: build",
+      "type": "shell",
+      "command": "pnpm --dir web/port-queue-web run build",
+      "problemMatcher": []
+    }
+  ]
+}

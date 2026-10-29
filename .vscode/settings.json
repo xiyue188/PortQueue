@@ -1,0 +1,8 @@
+{
+  "files.encoding": "utf8",
+  "files.eol": "\\r\\n",
+  "editor.formatOnSave": true,
+  "dotnet.defaultSolution": "PortQueue.sln",
+  "sqltools.useNodeRuntime": false,
+  "typescript.tsdk": "web/port-queue-web/node_modules/typescript/lib"
+}
