@@ -25,6 +25,8 @@ web/port-queue-web/        Vue 前端
 config/                    示例配置和本地开发说明
 ```
 
+这是一个数据库优先的单仓库组织：`database/` 是独立的 SQL Server 部署与验收产物，放在根目录便于教师、数据库工具和脚本直接使用；`src/` 只放后端，`web/` 只放前端，`tests/` 与两者并列，`docs/` 保存设计和验收证据。没有把所有内容强行放到 `src/`，是为了让数据库脚本保持独立、可恢复、可审查。
+
 ## 开始前
 
 1. 安装 SQL Server Developer 或 Express，并确认可以从 VS Code 的 SQL Server 扩展或 `sqlcmd` 连接。
@@ -37,21 +39,23 @@ config/                    示例配置和本地开发说明
 
 当前仓库已经具备可验证的 SQL Server 数据库基线、后端健康接口和前端调度总览原型。前端总览中的队列和指标仍是演示数据，并标注为“接口待联调”；预约业务接口将在下一阶段按验收计划逐步接入。
 
-在 VS Code 的终端中分别启动后端和前端：
+数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
 ```powershell
-# 终端一：启动 ASP.NET Core API
+# 长期终端一：启动 ASP.NET Core API
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
 $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
 dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localhost:5180
 
-# 终端二：启动 Vue 开发服务器
-npm --prefix web/port-queue-web run dev
+# 长期终端二：启动 Vue 开发服务器
+pnpm --dir web/port-queue-web run dev
 ```
 
 启动后访问 `http://localhost:5173` 查看前端原型，访问 `http://localhost:5180/api/health` 查看后端健康接口。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库；当前健康接口本身不需要数据库连接，真实业务接口会在下一阶段加入。
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
+
+分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。
 
 ## 交付要求
 

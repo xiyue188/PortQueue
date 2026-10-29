@@ -12,42 +12,74 @@
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
 $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
 dotnet restore PortQueue.sln
-npm --prefix web/port-queue-web install
+pnpm install
 ```
 
-如果使用 pnpm，应按根目录 `package.json` 执行对应命令；当前构建验证也可使用 npm。不要提交 `node_modules/`、`.dotnet-cli-home/` 或 `.nuget-packages/`。
+项目以根目录 pnpm 工作区和根目录 lockfile 为准。若本机暂时没有 pnpm，可用 `npm --prefix web/port-queue-web install` 和对应的 npm 命令作为临时替代；不要提交 `node_modules/`、`.dotnet-cli-home/` 或 `.nuget-packages/`。
 
 ## 恢复数据库
 
-在 SQL Server 扩展、`sqlcmd` 或 SSMS 中依次执行：
+`.sql` 文件不是 PowerShell 可直接执行的程序。把 `database/00_create_database.sql` 直接输入终端不会运行其中的 T-SQL；必须通过 SQL Server 客户端执行。SQL Server 扩展不是必需品，但在 VS Code 中最直观，`sqlcmd` 更适合重复执行和保存命令结果。
 
-```text
-database/00_create_database.sql
-database/01_schema.sql
-database/02_views.sql
-database/03_triggers.sql
-database/04_procedures.sql
-database/05_seed_reference.sql
-```
+### 方式一：使用 VS Code SQL Server 扩展
 
-执行 `06_smoke_tests.sql` 检查对象数量，再执行 `07_business_smoke_test.sql` 和 `08_constraint_smoke_tests.sql`。后两个脚本会在测试事务中回滚业务数据。
+项目已经在 `.vscode/extensions.json` 推荐 `ms-mssql.mssql`。安装后：
 
-## 启动后端
+1. 在扩展面板安装 **SQL Server (mssql)**。
+2. 按 `Ctrl+Shift+P`，执行 `MS SQL: Connect`。
+3. 连接服务器 `(localdb)\PortQueueDev`，选择 Windows 身份验证。
+4. 打开一个 SQL 文件，确认数据库下拉框为 `PortQueue`（初始化脚本除外）。
+5. 点击编辑器右上角 **Run Query**，查看下方结果和错误消息。
+
+### 方式二：使用 sqlcmd（推荐用于可重复验收）
+
+先确认 `sqlcmd` 已在 PATH；如果没有，使用 `database/README.md` 中的完整路径。每条命令执行完都应看到命令输出或错误，不应只把文件路径当作命令输入：
 
 ```powershell
-$env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
-$env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
+$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d master -b -i 'database\00_create_database.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\01_schema.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\02_views.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\03_triggers.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\04_procedures.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\05_seed_reference.sql'
+```
+
+验证脚本：
+
+```powershell
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\06_smoke_tests.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\07_business_smoke_test.sql'
+& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\08_constraint_smoke_tests.sql'
+```
+
+`-E` 使用 Windows 身份验证，`-C` 信任本地开发证书，`-b` 让 SQL 错误返回失败状态。没有 `sqlcmd` 时可使用 SQL Server 扩展或 SSMS，执行顺序不变。
+
+### 数据库终端的作用
+
+数据库命令只需要在恢复或验证时执行一次，不需要保持一个“数据库终端”长期运行。数据库服务由 SQL Server/LocalDB 后台运行；命令执行结束后终端回到提示符是正常现象。
+
+## 三个 VS Code 终端分别做什么
+
+建议打开三个终端，职责不同：
+
+- **终端一：数据库操作**。按上面的 `sqlcmd` 命令恢复或测试数据库；脚本执行结束后可以关闭或继续使用。
+- **终端二：后端服务**。持续运行 ASP.NET Core，保持窗口不要关闭。
+- **终端三：前端开发服务器**。持续运行 Vite，保持窗口不要关闭。
+
+终端二执行：
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localhost:5180
 ```
 
-验证：打开 `http://localhost:5180/api/health`，应看到 `status` 为 `ok`。当前健康接口用于确认 Web API 进程启动；它不代表预约业务已经完成。
+看到 `Now listening on: http://localhost:5180` 和 `Application started` 就表示后端启动成功。截图中的这两行已经说明启动成功；`Failed to determine the https port for redirect` 只是 HTTP 启动配置与 HTTPS 重定向不一致的警告，本项目已经通过 Development 配置关闭本地重定向。
 
-## 启动前端
-
-在另一个 VS Code 终端执行：
+终端三执行：
 
 ```powershell
-npm --prefix web/port-queue-web run dev
+pnpm --dir web/port-queue-web run dev
 ```
 
 访问 `http://localhost:5173` 查看调度总览原型。当前页面展示演示队列和指标，页面底部明确写有“接口待联调”。这一步用于检查布局和演示交互，不应作为真实业务联调验收证据。
@@ -57,7 +89,7 @@ npm --prefix web/port-queue-web run dev
 ```powershell
 dotnet build PortQueue.sln --configuration Release
 dotnet test PortQueue.sln --configuration Release --no-restore
-npm --prefix web/port-queue-web run build
+pnpm --dir web/port-queue-web run build
 ```
 
 每次新阶段完成后，把上述命令结果、数据库脚本验证和未完成项记录在 `docs/reviews/`，再进行下一阶段。

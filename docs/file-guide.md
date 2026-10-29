@@ -60,7 +60,7 @@
 | `web/port-queue-web/src/styles.css` | 当前原型的视觉样式和响应式布局。 |
 | `web/port-queue-web/vite.config.ts` | Vite 插件、路径别名和开发服务器端口。 |
 | `web/port-queue-web/package.json` | 前端依赖和类型检查、构建、开发命令。 |
-| `web/port-queue-web/pnpm-lock.yaml` | 锁定前端依赖版本。 |
+| `pnpm-lock.yaml` | 在工作区根目录统一锁定前端依赖版本；不在 `web/port-queue-web` 再维护第二份 lockfile。 |
 
 ## 文档与配置
 
@@ -77,3 +77,11 @@
 ## 修改顺序
 
 涉及数据库业务的改动按以下顺序进行：先更新 `database/` 和设计文档，再更新应用层契约与基础设施，最后接入控制器和前端。每一阶段只实现一个可演示用例，并把验收证据写入 `docs/reviews/`。
+
+## 注释约定
+
+- C# 文件用 XML 注释说明公开类型和接口的业务职责；复杂事务或状态判断旁边说明原因。
+- Vue、TypeScript 和 CSS 文件在模块顶部说明模块边界；模板只保留对业务有帮助的注释。
+- SQL 文件在文件头说明模块、执行顺序和约束分工；重要过程按“输入—前置条件—事务动作—结果”分段。
+- JSON、项目文件和 lockfile 不添加会破坏格式的伪注释，配置含义统一写在 README、runbook 或文件名附近的文档中。
+- 注释解释“为什么”和“边界”，不重复描述显而易见的语法；注释必须随代码变更同步更新。
