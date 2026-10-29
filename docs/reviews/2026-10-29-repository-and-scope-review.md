@@ -44,6 +44,7 @@
 - `database/07_business_smoke_test.sql` 通过：预约 `COMPLETED`、队列 `LEFT`、计划 `COMPLETED`、5 个事件、1 条队列视图记录、1 条当前计划记录。
 - `database/08_constraint_smoke_tests.sql` 通过：错误字典子类型被拒绝；测试业务数据已回滚。
 - GitHub 远程为空状态下首次推送成功，`main` 已跟踪 `origin/main`，工作区保持干净。
+- 复核发现 `pnpm-workspace.yaml` 中 `esbuild` 构建许可是占位文本，已改为明确的 `true`；`pnpm --dir web/port-queue-web run build` 重新通过。Vite 仍提示当前原型单页包体较大，记录为后续真实页面拆分时的优化项。
 
 ## 下一阶段范围
 
