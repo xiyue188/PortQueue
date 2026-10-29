@@ -1,0 +1,8 @@
+packages:
+  - web/port-queue-web
+
+allowBuilds:
+  esbuild: set this to true or false
+
+onlyBuiltDependencies:
+  - esbuild

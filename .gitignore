@@ -1,0 +1,40 @@
+# .NET
+bin/
+obj/
+.dotnet-cli-home/
+.nuget-packages/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Node
+node_modules/
+web/port-queue-web/dist/
+web/port-queue-web/.vite/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+*.pfx
+*.key
+*.pem
+
+# Local database and generated artifacts
+*.mdf
+*.ldf
+*.bak
+*.trn
+coverage/
+test-results/
+artifacts/
+logs/
+
+# Editor and OS
+.vscode/*.code-workspace
+.vs/
+.idea/
+Thumbs.db
+Desktop.ini

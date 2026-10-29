@@ -1,0 +1,10 @@
+{
+  "name": "portqueue-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "web:dev": "pnpm --dir web/port-queue-web dev",
+    "web:build": "pnpm --dir web/port-queue-web build",
+    "web:typecheck": "pnpm --dir web/port-queue-web typecheck"
+  }
+}
