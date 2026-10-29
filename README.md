@@ -22,7 +22,6 @@ src/PortQueue.Application/ 应用服务、命令/查询契约和业务规则接�
 src/PortQueue.Infrastructure/ Dapper 仓储、SQL 连接和数据库适配
 tests/                     后端单元测试和接口测试
 web/port-queue-web/        Vue 前端
-scripts/                   数据生成、数据库校验和交付辅助脚本
 config/                    示例配置和本地开发说明
 ```
 
