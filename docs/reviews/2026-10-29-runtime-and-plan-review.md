@@ -41,4 +41,4 @@
 
 为避免用户在不同终端上下文中重复猜测，新增 `database/bootstrap-localdb.ps1`。它会先检查实例和数据库状态，再决定创建、启动或恢复，已有数据库只读验证，不做破坏性重建。
 
-脚本已在 Windows PowerShell 5.1 下实际验证：能够启动 `PortQueueDev`，识别已有 `PortQueue`，跳过建表脚本，并输出 21 张表、3 个视图。脚本使用 ASCII 输出，避免 Windows PowerShell 对无 BOM 中文脚本的编码误判。
+脚本已在 Windows PowerShell 5.1 下实际验证：能够启动 `PortQueueDev`，识别已有 `PortQueue`，跳过建表脚本，并输出 21 张表、3 个视图、5 个过程、6 个触发器和参考数据。脚本使用 ASCII 输出，避免 Windows PowerShell 对无 BOM 中文脚本的编码误判。
