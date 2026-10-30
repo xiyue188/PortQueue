@@ -67,8 +67,10 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 1. 检查 `PortQueueDev` 是否存在；不存在才创建。
 2. 检查实例是否运行；停止才启动。
 3. 检查 `PortQueue` 是否存在；不存在才按 `00` 至 `05` 恢复。
-4. 数据库已经存在时不执行建表脚本，不删除现有数据。
-5. 最后输出当前数据库、表数量和视图数量。
+4. 数据库登记不存在但旧 MDF/LDF 文件存在时，尝试安全附加旧数据库文件；附加失败立即停止，不删除文件。
+5. 数据库已经存在时不执行建表脚本，不删除现有数据；幂等参考种子会重新检查并补齐缺失的基础资料。
+6. 每一个 SQL 命令失败都会立即停止，不会继续执行后续脚本。
+7. 最后验证并输出表、视图、存储过程、触发器、索引和参考种子数据数量。
 
 正常结果应包含：
 
@@ -76,9 +78,12 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 current_database    PortQueue
 table_count         21
 view_count          3
+procedure_count     5
+trigger_count        6
+index_count         203
 ```
 
-这个脚本解决的是本地环境准备问题，不属于应用业务功能；它不会修改 21 个关系的设计。
+这个脚本解决的是本地环境准备问题，不属于应用业务功能；它不会修改 21 个关系的设计。旧文件无法附加时，脚本会明确报错并停止，不能继续往下执行。
 
 ### 方式一：使用 VS Code SQL Server 扩展
 
@@ -89,6 +94,17 @@ view_count          3
 3. 连接服务器 `(localdb)\PortQueueDev`，选择 Windows 身份验证。
 4. 打开一个 SQL 文件，确认数据库下拉框为 `PortQueue`（初始化脚本除外）。
 5. 点击编辑器右上角 **Run Query**，查看下方结果和错误消息。
+
+连接成功后，在左侧数据库树展开 `PortQueue`：
+
+- `Tables`：应看到 21 张基本表。
+- `Views`：应看到 `v_port_event`、`v_anchorage_queue`、`v_current_berth_plan`。
+- `Programmability > Stored Procedures`：应看到 5 个核心过程。
+- `Programmability > Database Triggers` 或各表的 `Triggers`：应看到 6 个业务触发器。
+- 展开任意表的 `Indexes`：可查看主键、唯一索引和查询索引。
+- 运行对象清单查询时，应看到约 203 个索引（包括主键、唯一索引和查询索引，数量随 SQL Server 版本的系统对象展示方式可能略有差异）。
+
+如果对象树没有及时刷新，在 `PortQueue` 数据库节点上右键选择 **Refresh**。也可以运行 `database/06_smoke_tests.sql`，结果面板会同时显示对象数量和参考种子数据行数。
 
 ### 方式二：使用 sqlcmd（推荐用于可重复验收）
 
