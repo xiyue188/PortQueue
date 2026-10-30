@@ -100,11 +100,29 @@ index_count         203
 - `Tables`：应看到 21 张基本表。
 - `Views`：应看到 `v_port_event`、`v_anchorage_queue`、`v_current_berth_plan`。
 - `Programmability > Stored Procedures`：应看到 5 个核心过程。
-- `Programmability > Database Triggers` 或各表的 `Triggers`：应看到 6 个业务触发器。
+- `Programmability > Database Triggers` 通常只展示数据库级 DDL 触发器，本项目没有这类对象，因此显示 `No items` 是正常的。
+- 6 个业务触发器是表级 DML 触发器，应在所属表的 `Triggers` 节点查看；如果扩展不显示表级节点，用 `sys.triggers` 查询确认。
 - 展开任意表的 `Indexes`：可查看主键、唯一索引和查询索引。
 - 运行对象清单查询时，应看到约 203 个索引（包括主键、唯一索引和查询索引，数量随 SQL Server 版本的系统对象展示方式可能略有差异）。
 
 如果对象树没有及时刷新，在 `PortQueue` 数据库节点上右键选择 **Refresh**。也可以运行 `database/06_smoke_tests.sql`，结果面板会同时显示对象数量和参考种子数据行数。
+
+确认表级触发器的查询：
+
+```sql
+SELECT
+    t.name AS trigger_name,
+    OBJECT_SCHEMA_NAME(t.parent_id) AS parent_schema,
+    OBJECT_NAME(t.parent_id) AS parent_table,
+    t.parent_class_desc,
+    t.is_disabled
+FROM sys.triggers AS t
+WHERE t.parent_class = 1
+  AND t.is_ms_shipped = 0
+ORDER BY t.name;
+```
+
+预期返回 6 行，`parent_class_desc` 为 `OBJECT_OR_COLUMN`。不要为了填充数据库级触发器节点而新增无业务意义的 DDL 触发器。
 
 ### 方式二：使用 sqlcmd（推荐用于可重复验收）
 
@@ -150,6 +168,14 @@ dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localh
 ```
 
 看到 `Now listening on: http://localhost:5180` 和 `Application started` 就表示后端启动成功。截图中的这两行已经说明启动成功；`Failed to determine the https port for redirect` 只是 HTTP 启动配置与 HTTPS 重定向不一致的警告，本项目已经通过 Development 配置关闭本地重定向。
+
+后端端口和前端端口不是同一个地址：
+
+- `http://localhost:5180/` 是 API 根路径，现在返回服务状态 JSON。
+- `http://localhost:5180/api/health` 是后端健康接口。
+- `http://localhost:5173/` 才是 Vue 前端页面。
+
+如果在浏览器打开 `http://localhost:5180/`，看到 JSON 或 API 响应，说明后端已启动；不要把后端端口当成前端页面地址。
 
 终端三执行：
 

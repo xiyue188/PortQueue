@@ -25,6 +25,16 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
+// 根路径用于本地启动确认，避免用户打开 API 端口时只看到无说明的 404。
+// 业务接口仍按 /api/* 提供，健康检查仍使用 /api/health。
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "PortQueue.Api",
+    status = "running",
+    health = "/api/health",
+    environment = app.Environment.EnvironmentName
+}));
+
 app.Run();
 
 public partial class Program;

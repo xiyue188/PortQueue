@@ -4,3 +4,7 @@ GET {{PortQueue.Api_HostAddress}}/api/health
 Accept: application/json
 
 ###
+GET {{PortQueue.Api_HostAddress}}/
+Accept: application/json
+
+###

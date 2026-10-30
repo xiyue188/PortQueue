@@ -22,4 +22,15 @@ public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Pr
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task RootEndpointReturnsStartupInformation()
+    {
+        using var response = await _client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("PortQueue.Api", body, StringComparison.Ordinal);
+        Assert.Contains("/api/health", body, StringComparison.Ordinal);
+    }
 }
