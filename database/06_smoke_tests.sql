@@ -22,6 +22,45 @@ FROM sys.indexes
 WHERE object_id IN (OBJECT_ID('dbo.anchorage_queue_entry'), OBJECT_ID('dbo.berth_plan_revision'))
   AND filter_definition IS NOT NULL;
 
+SELECT object_type, object_count
+FROM
+(
+    SELECT 'tables' AS object_type, COUNT(*) AS object_count
+    FROM sys.tables
+    WHERE schema_id = SCHEMA_ID('dbo') AND is_ms_shipped = 0
+    UNION ALL
+    SELECT 'views', COUNT(*)
+    FROM sys.views
+    WHERE schema_id = SCHEMA_ID('dbo')
+      AND name IN ('v_port_event', 'v_anchorage_queue', 'v_current_berth_plan')
+    UNION ALL
+    SELECT 'procedures', COUNT(*)
+    FROM sys.procedures
+    WHERE schema_id = SCHEMA_ID('dbo') AND is_ms_shipped = 0
+    UNION ALL
+    SELECT 'triggers', COUNT(*)
+    FROM sys.triggers
+    WHERE parent_class = 1 AND is_ms_shipped = 0
+    UNION ALL
+    SELECT 'indexes', COUNT(*)
+    FROM sys.indexes
+    WHERE object_id > 0 AND index_id > 0
+) AS object_summary
+ORDER BY object_type;
+
+SELECT 'reference_data' AS check_name, reference_table, row_count
+FROM
+(
+    SELECT 'role' AS reference_table, COUNT(*) AS row_count FROM dbo.role
+    UNION ALL SELECT 'dictionary_item', COUNT(*) FROM dbo.dictionary_item
+    UNION ALL SELECT 'port', COUNT(*) FROM dbo.port
+    UNION ALL SELECT 'terminal', COUNT(*) FROM dbo.terminal
+    UNION ALL SELECT 'anchorage', COUNT(*) FROM dbo.anchorage
+    UNION ALL SELECT 'berth', COUNT(*) FROM dbo.berth
+    UNION ALL SELECT 'berth_ship_type', COUNT(*) FROM dbo.berth_ship_type
+) AS reference_summary
+ORDER BY reference_table;
+
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'dbo'
