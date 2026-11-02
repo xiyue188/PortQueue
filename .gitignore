@@ -13,6 +13,10 @@ node_modules/
 web/port-queue-web/dist/
 web/port-queue-web/.vite/
 
+# Python database acceptance runner
+__pycache__/
+*.py[cod]
+
 # Local configuration and secrets
 .env
 .env.*
