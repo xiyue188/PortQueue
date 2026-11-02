@@ -1,13 +1,16 @@
 # PortQueue LocalDB bootstrap script
 #
 # Prepares (localdb)\PortQueueDev and restores PortQueue only when it is missing.
-# Existing databases are checked only; this script never deletes or rebuilds them.
+# Existing databases keep their schema/data; only missing reference rows are inserted.
+# This is environment preparation, not an automatic business-schema upgrade.
 # Run from the repository root:
 #   powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 [CmdletBinding()]
 param(
+    [ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,49}$')]
     [string]$InstanceName = 'PortQueueDev',
+    [ValidateSet('PortQueue')]
     [string]$DatabaseName = 'PortQueue'
 )
 
@@ -35,7 +38,7 @@ function Invoke-Checked([string]$executable, [string[]]$arguments, [string]$desc
 }
 
 function Invoke-Query([string]$query, [string]$database = 'master') {
-    $output = & $sqlCmd -C -S "(localdb)\$InstanceName" -E -d $database -h -1 -W -Q $query 2>&1 | Out-String
+    $output = & $sqlCmd -C -S "(localdb)\$InstanceName" -E -b -d $database -h -1 -W -Q $query 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "SQL query failed in database ${database}:`n$output"
     }
@@ -95,29 +98,31 @@ if ($databaseState -eq 'MISSING') {
         $attachQuery = "CREATE DATABASE [$DatabaseName] ON (FILENAME = N'$dataLiteral'), (FILENAME = N'$logLiteral') FOR ATTACH;"
         Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-Q', $attachQuery) "Attaching existing database files"
     } else {
-        Write-Host "Database $DatabaseName is missing and no old files were found; restoring scripts 00 through 05."
+        Write-Host "Database $DatabaseName is missing and no old files were found; restoring scripts 00 through 05 and 09."
         $scripts = @(
             '00_create_database.sql',
             '01_schema.sql',
             '02_views.sql',
             '03_triggers.sql',
-            '04_procedures.sql'
+            '04_procedures.sql',
+            '05_seed_reference.sql',
+            '09_permissions.sql'
         )
 
         foreach ($script in $scripts) {
             $scriptPath = Join-Path $PSScriptRoot $script
             Write-Host "Running $script"
-            Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-i', $scriptPath) "Running $script"
+            Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-f', '65001', '-i', $scriptPath) "Running $script"
         }
     }
 } elseif ($databaseState -eq 'EXISTS') {
     Write-Host "Database $DatabaseName already exists; preserving data and skipping schema restore."
 }
 
-# Reference data is intentionally idempotent, so refresh it for both a new and an existing database.
+# Insert missing reference rows after a new restore, safe attach or existing-database check.
+# Never overwrite stored procedures or load demo facts as a side effect of starting the environment.
 $seedPath = Join-Path $PSScriptRoot '05_seed_reference.sql'
-Write-Host "Running idempotent reference seed 05_seed_reference.sql"
-Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-i', $seedPath) "Running 05_seed_reference.sql"
+Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-f', '65001', '-i', $seedPath) "Running 05_seed_reference.sql"
 
 $verificationQuery = @"
 SET NOCOUNT ON;
@@ -125,9 +130,9 @@ DECLARE @table_count int = (SELECT COUNT(*) FROM sys.tables WHERE schema_id = SC
 DECLARE @view_count int = (SELECT COUNT(*) FROM sys.views WHERE schema_id = SCHEMA_ID(N'dbo') AND name IN (N'v_port_event', N'v_anchorage_queue', N'v_current_berth_plan'));
 DECLARE @procedure_count int = (SELECT COUNT(*) FROM sys.procedures WHERE schema_id = SCHEMA_ID(N'dbo') AND is_ms_shipped = 0);
 DECLARE @trigger_count int = (SELECT COUNT(*) FROM sys.triggers WHERE parent_class = 1 AND is_ms_shipped = 0);
-DECLARE @index_count int = (SELECT COUNT(*) FROM sys.indexes WHERE object_id > 0 AND index_id > 0);
-IF @table_count <> 21 OR @view_count <> 3 OR @procedure_count <> 5 OR @trigger_count <> 6
-    THROW 53001, 'PortQueue object verification failed.', 1;
+DECLARE @index_count int = (SELECT COUNT(*) FROM sys.indexes i JOIN sys.tables t ON t.object_id=i.object_id WHERE t.schema_id=SCHEMA_ID(N'dbo') AND t.is_ms_shipped=0 AND i.index_id>0);
+IF @table_count <> 21 OR @view_count <> 3 OR @procedure_count <> 7 OR @trigger_count <> 8
+    THROW 53001, 'PortQueue is not at stage 1. Apply 03, 04 and 09 explicitly; see database/README.md.', 1;
 SELECT DB_NAME() AS current_database, @table_count AS table_count, @view_count AS view_count, @procedure_count AS procedure_count, @trigger_count AS trigger_count, @index_count AS index_count;
 SELECT 'role' AS reference_table, COUNT(*) AS row_count FROM dbo.role
 UNION ALL SELECT 'dictionary_item', COUNT(*) FROM dbo.dictionary_item

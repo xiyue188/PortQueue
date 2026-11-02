@@ -1,5 +1,5 @@
 /*
-   模块：数据库级完整性保护。
+   模块：表级 DML 完整性保护（不是 Database Triggers 节点中的 DDL 触发器）。
    作用：保护字典船型引用、事件分类匹配和不可重复的执行事实。
    原则：触发器只承担跨表且必须由数据库兜底的约束，不替代业务过程。
 */
@@ -50,11 +50,37 @@ BEGIN
         LEFT JOIN dbo.dictionary_item AS d ON d.dictionary_item_id = i.ship_type_item_id
         WHERE d.dictionary_item_id IS NULL
            OR d.dictionary_type <> 'SHIP_TYPE'
-           OR (d.is_enabled = 0 AND old_row.berth_id IS NULL)
+           OR (d.is_enabled = 0 AND (old_row.berth_id IS NULL
+               OR (old_row.relation_status = 'DISABLED' AND i.relation_status = 'ENABLED')))
     )
     BEGIN
         THROW 51002, 'Berth ship type must reference an enabled SHIP_TYPE dictionary item.', 1;
     END;
+END;
+GO
+
+-- 字典代码属于历史引用的稳定语义；允许停用或改显示名称，禁止重解释标识。
+CREATE OR ALTER TRIGGER dbo.trg_dictionary_identity_guard
+ON dbo.dictionary_item
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM deleted d LEFT JOIN inserted i ON i.dictionary_item_id=d.dictionary_item_id
+        WHERE i.dictionary_item_id IS NULL OR i.dictionary_type<>d.dictionary_type OR i.item_code<>d.item_code)
+        THROW 51012, 'Dictionary identity, type and code cannot be deleted or reinterpreted.', 1;
+END;
+GO
+
+-- 审计只追加；正常业务过程与审计 INSERT 使用同一事务。
+CREATE OR ALTER TRIGGER dbo.trg_audit_append_only
+ON dbo.audit_log
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS(SELECT 1 FROM deleted)
+        THROW 51013, 'Audit records are append-only.', 1;
 END;
 GO
 

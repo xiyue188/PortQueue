@@ -8,6 +8,20 @@ GO
 
 SET NOCOUNT ON;
 
+-- 数量与约束状态是验收条件，不只打印一个看似正常的清单。
+IF (SELECT COUNT(*) FROM sys.tables WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>21
+    THROW 53020,'Expected 21 business tables.',1;
+IF (SELECT COUNT(*) FROM sys.views WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>3
+    THROW 53021,'Expected 3 business views.',1;
+IF (SELECT COUNT(*) FROM sys.procedures WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>7
+    THROW 53022,'Expected 7 business procedures.',1;
+IF (SELECT COUNT(*) FROM sys.triggers WHERE parent_class=1 AND is_ms_shipped=0)<>8
+    THROW 53023,'Expected 8 table triggers.',1;
+IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE is_disabled=1 OR is_not_trusted=1)
+    OR EXISTS(SELECT 1 FROM sys.check_constraints WHERE is_disabled=1 OR is_not_trusted=1)
+    OR EXISTS(SELECT 1 FROM sys.triggers WHERE is_disabled=1)
+    THROW 53024,'Disabled or untrusted database protection.',1;
+
 SELECT 'tables' AS check_name, COUNT(*) AS actual_value
 FROM sys.tables
 WHERE schema_id = SCHEMA_ID('dbo');
@@ -43,8 +57,8 @@ FROM
     WHERE parent_class = 1 AND is_ms_shipped = 0
     UNION ALL
     SELECT 'indexes', COUNT(*)
-    FROM sys.indexes
-    WHERE object_id > 0 AND index_id > 0
+    FROM sys.indexes i JOIN sys.tables t ON t.object_id=i.object_id
+    WHERE t.schema_id=SCHEMA_ID('dbo') AND t.is_ms_shipped=0 AND i.index_id>0
 ) AS object_summary
 ORDER BY object_type;
 

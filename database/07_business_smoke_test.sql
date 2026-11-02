@@ -83,9 +83,17 @@ VALUES
 DECLARE @revision_id bigint = SCOPE_IDENTITY();
 
 EXEC dbo.usp_confirm_berth_plan @berth_plan_id, @revision_id, @user_id;
+-- 此回滚夹具模拟历史确认记录；生产过程不能使用今天确认的版本解释过去的靠泊。
+UPDATE dbo.berth_plan_revision SET revised_at='2026-10-26',confirmed_at='2026-10-26'
+WHERE revision_id=@revision_id;
 EXEC dbo.usp_record_port_entry @appointment_id, '2026-10-27T02:10:00', @user_id, NULL;
 EXEC dbo.usp_record_berth_event @appointment_id, 'BERTHING', '2026-10-27T03:10:00', @revision_id, @user_id, NULL;
 EXEC dbo.usp_record_berth_event @appointment_id, 'UNBERTHING', '2026-10-27T05:10:00', @revision_id, @user_id, NULL;
+
+IF (SELECT appointment_status_code FROM dbo.arrival_appointment WHERE appointment_id=@appointment_id)<>'COMPLETED'
+    OR (SELECT COUNT(*) FROM dbo.v_port_event WHERE appointment_id=@appointment_id)<>5
+    OR (SELECT plan_status_code FROM dbo.berth_plan WHERE berth_plan_id=@berth_plan_id)<>'COMPLETED'
+    THROW 53025,'Business smoke test did not complete the expected path.',1;
 
 SELECT
     (SELECT appointment_status_code FROM dbo.arrival_appointment WHERE appointment_id = @appointment_id) AS appointment_status,
