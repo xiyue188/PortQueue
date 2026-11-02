@@ -16,7 +16,7 @@
 
 ## 实际证据
 
-当前 `(localdb)\PortQueueDev` 中已验证：
+当前 `(localdb)\PortQueueDev` 中已验证（阶段 1 升级前）：
 
 ```text
 database       PortQueue
@@ -24,7 +24,7 @@ tables         21
 views          3
 procedures     5
 triggers       6
-indexes        203
+indexes        203（旧查询包含系统对象；阶段 1 后业务表索引为 45）
 ```
 
 参考数据：
