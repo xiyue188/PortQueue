@@ -2,6 +2,8 @@
    模块：关系模式与物理约束。
    作用：把 21 个基本关系落实为表、主键、候选键、外键、值域和索引。
    原则：本文件只定义结构，不写业务流程数据。
+   部署边界：本文件只用于空的 PortQueue 数据库初始化，不是可重复升级脚本。
+   已有数据库请执行 database/README.md 中列出的增量对象脚本；不要再次执行本文件。
 */
 USE [PortQueue];
 GO
@@ -10,6 +12,29 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 GO
+
+/*
+   在第一张表之前阻止误操作。这样已有数据库不会逐表产生几十条
+   “对象已存在”错误，也不会让操作者误以为脚本正在进行部分升级。
+*/
+IF EXISTS
+(
+    SELECT 1
+    FROM sys.tables
+    WHERE schema_id = SCHEMA_ID(N'dbo')
+      AND name IN
+      (
+          N'role', N'dictionary_item', N'shipping_company', N'port', N'terminal',
+          N'anchorage', N'berth', N'berth_ship_type', N'ship', N'port_call',
+          N'arrival_appointment', N'berth_plan', N'berth_plan_revision',
+          N'anchorage_queue_entry', N'port_event', N'anchorage_event_link',
+          N'port_entry_event_link', N'berth_event_link', N'queue_adjustment_record',
+          N'user_account', N'audit_log'
+      )
+)
+BEGIN
+    THROW 53010, 'PortQueue already contains business tables. 01_schema.sql is a one-time install script; use the documented incremental scripts instead.', 1;
+END;
 
 CREATE TABLE dbo.role
 (

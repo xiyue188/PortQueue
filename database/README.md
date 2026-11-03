@@ -14,6 +14,8 @@
 
 建议在 SSMS、VS Code SQL Server 扩展或 `sqlcmd` 中按顺序执行。脚本中的 `GO` 是 SQL Server 客户端批处理分隔符，不是 T-SQL 语句。
 
+`01_schema.sql` 是空数据库的一次性建表脚本。对已经存在业务表的 `PortQueue` 再次执行时，脚本会在第一张表之前给出一条明确提示并停止，不会重复建表。已有数据库的对象更新请只执行“阶段 1 已有数据库升级”中的增量脚本；查看当前结构请执行 `06_smoke_tests.sql`，不要把 `01_schema.sql` 当作日常启动或升级命令。
+
 如果不确定本机 LocalDB 实例是否存在，优先执行仓库内的 `bootstrap-localdb.ps1`。它会检查并启动 `PortQueueDev`，只在 `PortQueue` 不存在时恢复 `00` 至 `05` 和 `09` 脚本；已有数据库不会重复建表，也不会自动加载业务演示数据。
 
 ## 本地连接示例
