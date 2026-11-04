@@ -78,7 +78,7 @@
 | `docs/decision-log.md` | 记录影响模型和技术路线的关键决策。 |
 | `docs/reviews/` | 每个里程碑的构建、测试、SQL 检查和深度 review 结论。 |
 | `config/` | 可提交的本地配置示例，不放密码、令牌和真实连接凭据。 |
-| `.vscode/` | VS Code 的任务、推荐扩展和项目级编辑设置。 |
+| `.vscode/` | VS Code 的任务、推荐扩展和项目级编辑设置；MSSQL 的编辑器错误诊断已关闭，避免扩展对 SQL Server `THROW` 等合法语法产生误报，真实校验由 SQL Server 和 `tests/database/check-sql.ps1` 负责。 |
 
 ## 修改顺序
 
