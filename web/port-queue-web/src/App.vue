@@ -13,7 +13,7 @@ const OverviewPrototype = defineAsyncComponent(() => import('./views/OverviewPro
     <div class="workspace-brand"><strong>PortQueue</strong><span>港口进港协同管理</span></div>
     <nav aria-label="工作区导航">
       <button type="button" :aria-current="activeView === 'appointments' ? 'page' : undefined" @click="activeView = 'appointments'">进港预约</button>
-      <button type="button" :aria-current="activeView === 'prototype' ? 'page' : undefined" @click="activeView = 'prototype'">总览原型</button>
+      <button type="button" :aria-current="activeView === 'prototype' ? 'page' : undefined" @click="activeView = 'prototype'">总览原型（静态）</button>
     </nav>
     <span class="workspace-context">课程设计演示</span>
   </header>

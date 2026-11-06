@@ -76,7 +76,9 @@ onMounted(() => { void load() })
         <button v-if="totalCount > 0" class="button" type="button" @click="load({ ...query, page: 1 })">返回第一页</button>
         <button v-else class="button" type="button" @click="reset">清除筛选</button>
       </div>
-      <div v-else class="table-scroll" tabindex="0" role="region" aria-label="预约结果表，可横向滚动">
+      <div v-else class="table-result">
+        <p class="table-scroll-hint">窄屏可在表格区域横向滚动。</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="预约结果表，可横向滚动">
         <table class="appointments-table">
           <caption class="sr-only">预约记录，按申请到港时间从近到远排列；同一时间按预约主键倒序。</caption>
           <thead><tr>
@@ -90,8 +92,8 @@ onMounted(() => { void load() })
                 <span class="cell-secondary">IMO {{ row.imoNo ?? '—' }}</span>
                 <span class="cell-secondary">MMSI {{ row.mmsi ?? '—' }}</span>
               </td>
-              <td class="date-cell"><span>{{ formatDate(row.requestedArrivalAt) }}</span>
-                <span class="cell-secondary">{{ formatDate(row.requestedDepartureAt) }}</span>
+              <td class="date-cell"><span class="date-line"><span class="date-label">到港</span>{{ formatDate(row.requestedArrivalAt) }}</span>
+                <span class="cell-secondary date-line"><span class="date-label">离港</span>{{ formatDate(row.requestedDepartureAt) }}</span>
               </td>
               <td><span class="appointment-status" :class="`status-${row.appointmentStatusCode.toLowerCase()}`">{{ statusLabel(row.appointmentStatusCode) }}</span></td>
               <td><span>{{ row.reviewerName ?? '—' }}</span><span class="cell-secondary">{{ formatDate(row.reviewedAt) }}</span></td>
@@ -102,6 +104,7 @@ onMounted(() => { void load() })
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
       <footer class="pagination">
         <p role="status" aria-live="polite">{{ loading ? '正在加载' : error ? '查询未完成' : `共 ${totalCount} 条记录` }}</p>
@@ -112,7 +115,7 @@ onMounted(() => { void load() })
             <option :value="20">20 条</option><option :value="50">50 条</option><option :value="100">100 条</option>
           </select>
           <button class="button" type="button" :disabled="loading || !!error || query.page <= 1" @click="load({ ...query, page: query.page - 1 })">上一页</button>
-          <span class="page-number">{{ query.page }} / {{ totalPages }}</span>
+          <span class="page-number" aria-live="polite" :aria-label="loading || error ? '页码暂不可用' : `第 ${query.page} 页，共 ${totalPages} 页`">{{ loading || error ? '—' : `${query.page} / ${totalPages}` }}</span>
           <button class="button" type="button" :disabled="loading || !!error || query.page >= totalPages" @click="load({ ...query, page: query.page + 1 })">下一页</button>
         </div>
       </footer>

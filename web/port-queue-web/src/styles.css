@@ -41,11 +41,11 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
 .field label { font-size: 13px; font-weight: 600; }
 .keyword-field { flex: 1; max-width: 500px; }
 .status-field { width: 180px; }
-.field input, .field select { width: 100%; height: 40px; border: 1px solid #aebdc3; border-radius: 3px; padding: 0 12px; color: var(--ink); background: #fff; font-size: 14px; }
+.field input, .field select { width: 100%; height: 44px; border: 1px solid #aebdc3; border-radius: 3px; padding: 0 12px; color: var(--ink); background: #fff; font-size: 14px; }
 .field input::placeholder { color: #687d88; }
 .field select { padding-right: 28px; }
 .form-actions { display: flex; gap: 10px; }
-.button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 17px; border: 1px solid #aebdc3; border-radius: 3px; background: #fff; color: var(--ink); font-size: 13px; white-space: nowrap; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 17px; border: 1px solid #aebdc3; border-radius: 3px; background: #fff; color: var(--ink); font-size: 13px; white-space: nowrap; }
 .button:hover:not(:disabled) { background: #edf2f3; border-color: #79909b; }
 .button-primary { color: #fff; background: #214b5e; border-color: #214b5e; }
 .button-primary:hover:not(:disabled) { background: #163c4f; border-color: #163c4f; }
@@ -69,6 +69,8 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
 .ship-name { font-size: 14px; font-weight: 600; }
 .cell-secondary { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
 .date-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.date-line { display: flex; align-items: baseline; gap: 9px; }
+.date-label { width: 29px; flex: 0 0 29px; color: #657982; font-size: 11px; }
 .appointment-status { display: inline-block; padding: 2px 8px; border-radius: 2px; white-space: nowrap; background: #edf1f3; color: #536771; font-size: 12px; font-weight: 600; }
 .status-pending { color: #805312; background: #faf0d9; }
 .status-approved { color: #28604b; background: #e8f3ec; }
@@ -79,6 +81,7 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
 .review-comment summary { color: #30576a; text-underline-offset: 3px; }
 .review-comment summary:hover { text-decoration: underline; }
 .review-comment p { margin: 8px 0 0; color: var(--muted); }
+.table-scroll-hint { display: none; margin: 0; padding: 8px 14px; color: var(--muted); background: #f7f9f9; border-bottom: 1px solid var(--line); font-size: 12px; }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 16px 22px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 .pagination p { margin: 0; }
 .pagination-controls { display: flex; align-items: center; gap: 12px; }
@@ -103,6 +106,7 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); ou
   .workspace-brand span { display: none; }
   .query-form { gap: 16px; padding: 20px; }
   .status-field { width: 155px; }
+  .table-scroll-hint { display: block; }
 }
 @media (max-width: 600px) {
   .workspace-header { min-height: 64px; padding: 0 16px; gap: 26px; }
