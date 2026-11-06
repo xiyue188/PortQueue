@@ -1,0 +1,20 @@
+### 预约查询人工验收。开发配置固定 5180；请求不执行写操作。
+@baseUrl = http://localhost:5180
+
+### 全部预约（包含未审核记录）
+GET {{baseUrl}}/api/appointments
+
+### 状态与关键词组合
+GET {{baseUrl}}/api/appointments?status=APPROVED&keyword=PQ-DEMO&page=1&pageSize=20
+
+### 两条一页，方便用少量样例验证分页
+GET {{baseUrl}}/api/appointments?page=2&pageSize=2
+
+### 无结果：200，空 items，totalCount=0
+GET {{baseUrl}}/api/appointments?keyword=not-existing-appointment
+
+### 参数错误：400，code=INVALID_QUERY
+GET {{baseUrl}}/api/appointments?page=0
+
+### 字面百分号，不作为任意字符串匹配
+GET {{baseUrl}}/api/appointments?keyword=%25

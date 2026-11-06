@@ -1,14 +1,34 @@
 using PortQueue.Infrastructure;
+using Microsoft.AspNetCore.Mvc;
+using PortQueue.Api.Errors;
 
 // 启动组合根只负责组装基础设施和 HTTP 管道，业务规则放在应用层与数据库过程。
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    // 自动模型绑定失败（如 page=abc）与业务参数错误采用相同契约。
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problem = new ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "查询条件无效，请检查后重试。",
+            Type = "about:blank"
+        };
+        problem.Extensions["code"] = "INVALID_QUERY";
+        problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+        var response = new BadRequestObjectResult(problem);
+        response.ContentTypes.Add("application/problem+json");
+        return response;
+    };
+});
 builder.Services.AddHealthChecks();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddPortQueueInfrastructure(builder.Configuration);
 
 var app = builder.Build();

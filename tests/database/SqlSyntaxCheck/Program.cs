@@ -3,7 +3,7 @@ using Microsoft.SqlServer.TransactSql.ScriptDom;
 // 仅静态解析 SQL Server 2019 语法，不连接 SQL Server，也不执行脚本。
 var parser = new TSql150Parser(initialQuotedIdentifiers: true);
 var failures = 0;
-foreach (var file in Directory.GetFiles(args[0], "*.sql").Order())
+foreach (var file in Directory.GetFiles(args[0], "*.sql", SearchOption.AllDirectories).Order())
 {
     using var reader = File.OpenText(file);
     parser.Parse(reader, out var errors);

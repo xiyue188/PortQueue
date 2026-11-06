@@ -19,4 +19,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- SQL 的唯一源文件在 database/，构建时嵌入，避免运行时依赖工作目录。 -->
+    <EmbeddedResource Include="../../database/queries/appointments.sql" LogicalName="PortQueue.Queries.Appointments.sql" />
+  </ItemGroup>
+
 </Project>
