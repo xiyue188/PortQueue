@@ -1,8 +1,6 @@
-// 前端应用入口：注册 Element Plus、全局样式并挂载总览组件。
+// 应用入口：挂载真实预约页面。组件库在实际使用时按需导入，避免全量注册。
 import { createApp } from 'vue'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
 import './styles.css'
 import App from './App.vue'
 
-createApp(App).use(ElementPlus).mount('#app')
+createApp(App).mount('#app')
