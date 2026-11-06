@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 ## 当前运行方式
 
-当前仓库已经具备可验证的 SQL Server 数据库基线、后端健康接口和前端调度总览原型。前端总览中的队列和指标仍是演示数据，并标注为“接口待联调”；预约业务接口将在下一阶段按验收计划逐步接入。
+当前仓库已经具备可验证的 SQL Server 数据库基线，以及一条真实的预约查询链路：SQL Server → Dapper → ASP.NET Core API → Vue 预约列表。旧调度总览仍保留为明确标注的静态原型，队列和指标不作为真实业务数据。
 
 数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端。使用 LocalDB 时，先确认 `(localdb)\PortQueueDev` 实例处于 Running；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
@@ -59,7 +59,7 @@ dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localh
 pnpm --dir web/port-queue-web run dev
 ```
 
-启动后访问 `http://localhost:5173` 查看前端原型，访问 `http://localhost:5180/api/health` 查看后端健康接口。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库；当前健康接口本身不需要数据库连接，真实业务接口会在下一阶段加入。
+启动后访问 `http://localhost:5173` 查看真实预约列表，访问 `http://localhost:5180/api/health` 查看后端健康接口。预约列表从本机 SQL Server 读取；数据库不可用时页面会显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库。
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
 

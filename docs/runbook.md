@@ -183,7 +183,9 @@ dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localh
 pnpm --dir web/port-queue-web run dev
 ```
 
-访问 `http://localhost:5173` 查看调度总览原型。当前页面展示演示队列和指标，页面底部明确写有“接口待联调”。这一步用于检查布局和演示交互，不应作为真实业务联调验收证据。
+访问 `http://localhost:5173` 查看真实预约列表。页面默认从 `/api/appointments` 查询 SQL Server 数据，支持状态、关键词和分页；“总览原型”入口仍是静态演示页面，页面明确标注其性质，不作为真实业务验收证据。
+
+阶段 2 的快速验证：打开预约列表后应看到当前数据库中的 5 条 `PQ-DEMO` 记录。选择“每页 2 条”后点击“下一页”，记录应改变且总数保持 5；输入 `PQ-DEMO-005` 或选择“待审核”后点击查询，应只显示匹配记录。数据库不可用时应显示错误和“重新查询”，而不是空表或演示数据。
 
 ## 质量检查
 

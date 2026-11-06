@@ -42,7 +42,7 @@
 
 ## 后端
 
-后端按 API、应用契约、基础设施三层组织。当前只实现健康接口和连接工厂，业务接口遵循“小阶段、可验收”节奏逐步增加。
+后端按 API、应用契约、基础设施三层组织。当前完成健康接口和预约只读查询；后续写操作仍按“小阶段、可验收”节奏增加。
 
 | 路径 | 职责 |
 |---|---|
@@ -62,9 +62,15 @@
 | 路径 | 职责 |
 |---|---|
 | `web/port-queue-web/src/main.ts` | Vue 应用入口，挂载根组件和全局样式。 |
-| `web/port-queue-web/src/App.vue` | 当前调度总览原型。演示数据集中在组件内，并明确标注接口尚未联调。真实 API 接入后应迁移到 `api/` 和 `composables/`，避免继续扩大单文件。 |
-| `web/port-queue-web/src/styles.css` | 当前原型的视觉样式和响应式布局。 |
-| `web/port-queue-web/vite.config.ts` | Vite 插件、路径别名和开发服务器端口。 |
+| `web/port-queue-web/src/App.vue` | 工作区入口。默认挂载真实预约列表，并按需加载明确标注的总览原型。 |
+| `web/port-queue-web/src/views/AppointmentListView.vue` | 阶段 2 预约查询页面，负责筛选表单、真实结果表、分页和加载/错误/空状态。 |
+| `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
+| `web/port-queue-web/src/composables/useAppointments.ts` | 保存已提交查询条件，管理取消、超时、分页和迟到响应。 |
+| `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
+| `web/port-queue-web/src/views/OverviewPrototype.vue` | 原有静态总览原型，保留用于布局参考，页面明确标注演示数据。 |
+| `web/port-queue-web/src/prototype.css` | 仅供总览原型使用的历史样式，不参与预约工作页。 |
+| `web/port-queue-web/src/styles.css` | 预约工作区的全局基础样式、表格、筛选、状态和响应式布局。 |
+| `web/port-queue-web/vite.config.ts` | Vite 插件、端口和 `/api` 到 `http://localhost:5180` 的本地代理。 |
 | `web/port-queue-web/package.json` | 前端依赖和类型检查、构建、开发命令。 |
 | `pnpm-lock.yaml` | 在工作区根目录统一锁定前端依赖版本；不在 `web/port-queue-web` 再维护第二份 lockfile。 |
 
