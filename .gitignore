@@ -34,6 +34,8 @@ appsettings.Local.json
 coverage/
 test-results/
 artifacts/
+.impeccable/review/
+playwright-report/
 logs/
 
 # Editor and OS
