@@ -18,9 +18,23 @@
       "group": "test"
     },
     {
+      "label": "frontend: dev",
+      "type": "shell",
+      "command": "pnpm",
+      "windows": { "command": "pnpm.cmd" },
+      "args": ["--dir", "web/port-queue-web", "run", "dev"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
       "label": "frontend: build",
       "type": "shell",
-      "command": "pnpm --dir web/port-queue-web run build",
+      "command": "pnpm",
+      "windows": { "command": "pnpm.cmd" },
+      "args": ["--dir", "web/port-queue-web", "run", "build"],
+      "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
     }
   ]

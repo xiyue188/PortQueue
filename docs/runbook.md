@@ -2,20 +2,33 @@
 
 ## 环境前提
 
-- VS Code、.NET 8 SDK、Node.js LTS 和 Git 已安装。
+- VS Code、.NET 8 SDK、Node.js 22.13+ 和 Git 已安装；当前实测 Node.js 22.20.0，仓库指定 pnpm 11.25.0。
 - SQL Server Developer/Express 或 LocalDB 已安装；数据库恢复步骤见 `database/README.md`。
 - 在项目根目录 `D:\program\database design` 打开 VS Code。
 
 ## 第一次准备
 
+先在普通 VS Code 终端确认 `node --version` 和 `pnpm.cmd --version`。缺少 pnpm 时只需安装一次；`npm` 在这里用于安装包管理器，不用于重新安装项目依赖：
+
+```powershell
+npm.cmd install --global pnpm@11.25.0
+pnpm.cmd --version
+```
+
+2026-11-07 已在本机完成安装，命令位于 `C:\npm-global\pnpm.cmd`，该目录已在系统 PATH 中，无需再次安装。若旧 VS Code 终端仍找不到命令，关闭该终端后新建；如 VS Code 继承的是旧 PATH，再重启 VS Code。
+
+恢复项目依赖只在首次获取项目或依赖变更后进行，在仓库根目录执行：
+
 ```powershell
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
 $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
 dotnet restore PortQueue.sln
-pnpm install
+pnpm.cmd install --frozen-lockfile
 ```
 
-项目以根目录 pnpm 工作区和根目录 lockfile 为准。若本机暂时没有 pnpm，可用 `npm --prefix web/port-queue-web install` 和对应的 npm 命令作为临时替代；不要提交 `node_modules/`、`.dotnet-cli-home/` 或 `.nuget-packages/`。
+项目以根目录 pnpm 工作区和 `pnpm-lock.yaml` 为准。不要对现有 pnpm 依赖目录执行 `npm install` 或 `npm ci`，也不要生成第二份 `package-lock.json`。2026-11-06 的 npm 安装日志显示，它在 pnpm junction 目标中执行了 axios/ECharts 的 prepare 脚本，并因找不到 husky 失败；本项目没有新增 Husky 的需求。2026-11-07 使用正确的 pnpm 检查依赖和构建均通过，未删除依赖目录、未修改锁文件。
+
+日常启动不需要先 install。依赖已存在时，`npm.cmd --prefix web/port-queue-web run dev` 也能运行同一个 Vite 脚本；这里允许的是 `run`，不是 `install`。不要提交依赖目录、缓存或日志。
 
 ## 恢复数据库
 
@@ -173,17 +186,22 @@ dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localh
 
 - `http://localhost:5180/` 是 API 根路径，现在返回服务状态 JSON。
 - `http://localhost:5180/api/health` 是后端健康接口。
-- `http://localhost:5173/` 才是 Vue 前端页面。
+- `http://127.0.0.1:5173/` 才是 Vue 前端页面，与 Vite 的监听地址一致。
 
 如果在浏览器打开 `http://localhost:5180/`，看到 JSON 或 API 响应，说明后端已启动；不要把后端端口当成前端页面地址。
 
 终端三执行：
 
 ```powershell
-pnpm --dir web/port-queue-web run dev
+Set-Location 'D:\program\database design'
+pnpm.cmd --dir web/port-queue-web run dev
 ```
 
-访问 `http://localhost:5173` 查看真实预约列表。页面默认从 `/api/appointments` 查询 SQL Server 数据，支持状态、关键词和分页；“总览原型”入口仍是静态演示页面，页面明确标注其性质，不作为真实业务验收证据。
+只复制代码块中的命令，不复制 `PS D:\...>` 或 `>>` 提示符。如果终端已经停在 `>>` 续行状态，先按 Ctrl+C 退出未完成输入。看到 `VITE ... ready` 和 `Local: http://127.0.0.1:5173/` 表示启动成功；终端持续运行是正常现象，用 Ctrl+C 停止。Windows 下 `.cmd` 直接调用命令入口，避免选择 PowerShell 同名 `.ps1` 包装脚本。
+
+也可按 Ctrl+Shift+P → `Tasks: Run Task` → `frontend: dev`，任务固定以仓库根目录执行。命令行和任务二选一，只启动一个前端服务。项目设置了 `strictPort: true`，5173 已占用时会明确报错，不自动改用 5174；先访问已有页面或在原启动终端按 Ctrl+C，不要直接关闭所有 Node 进程。
+
+访问 `http://127.0.0.1:5173` 查看真实预约列表。页面默认从 `/api/appointments` 查询 SQL Server 数据，支持状态、关键词和分页；“总览原型”入口仍是静态演示页面，页面明确标注其性质，不作为真实业务验收证据。
 
 阶段 2 的快速验证：打开预约列表后应看到当前数据库中的 5 条 `PQ-DEMO` 记录。选择“每页 2 条”后点击“下一页”，记录应改变且总数保持 5；输入 `PQ-DEMO-005` 或选择“待审核”后点击查询，应只显示匹配记录。数据库不可用时应显示错误和“重新查询”，而不是空表或演示数据。
 
