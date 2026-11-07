@@ -16,7 +16,7 @@ web
 
 ## Capabilities and Constraints
 
-已由本会话确认：Vue 3 + TypeScript + Vite，后端 .NET 8，SQL Server。中期前完成只读查询、筛选、分页、加载/空/错误状态；时间显示 Asia/Shanghai。现有总览是合成数据原型，不能冒充实际功能。
+已由本会话确认：Vue 3 + TypeScript + Vite，后端 .NET 8，SQL Server。已实现预约总览和进港预约两种布局，共用真实只读查询、筛选、分页和选中详情；覆盖加载/空/错误状态，时间显示 Asia/Shanghai。旧静态总览已删除。摘要分别标明匹配总数和本页状态数量，不能冒充全港指标。
 
 ## Brand Commitments
 

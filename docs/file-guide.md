@@ -69,14 +69,20 @@
 | 路径 | 职责 |
 |---|---|
 | `web/port-queue-web/src/main.ts` | Vue 应用入口，挂载根组件和全局样式。 |
-| `web/port-queue-web/src/App.vue` | 工作区入口。默认挂载真实预约列表，并按需加载明确标注的总览原型。 |
-| `web/port-queue-web/src/views/AppointmentListView.vue` | 阶段 2 预约查询页面，负责筛选表单、真实结果表、分页和加载/错误/空状态。 |
+| `web/port-queue-web/src/App.vue` | 工作区入口，挂载共用真实查询的预约工作台。 |
+| `web/port-queue-web/src/views/AppointmentListView.vue` | 管理总览/预约布局切换、筛选草稿、选中记录、分页和加载/错误/空状态。 |
 | `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
 | `web/port-queue-web/src/composables/useAppointments.ts` | 保存已提交查询条件，管理取消、超时、分页和迟到响应。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
-| `web/port-queue-web/src/views/OverviewPrototype.vue` | 原有静态总览原型，保留用于布局参考，页面明确标注演示数据。 |
-| `web/port-queue-web/src/prototype.css` | 仅供总览原型使用的历史样式，不参与预约工作页。 |
-| `web/port-queue-web/src/styles.css` | 预约工作区的全局基础样式、表格、筛选、状态和响应式布局。 |
+| `web/port-queue-web/src/components/AppointmentOverview.vue` | 当前预约的船舶焦点、申请时间窗与审核摘要，使用父组件传入的同一记录。 |
+| `web/port-queue-web/src/components/AppointmentTable.vue` | 两种布局共用的预约表格，支持鼠标及键盘选择、内部滚动。 |
+| `web/port-queue-web/src/components/AppointmentDetail.vue` | 选中预约的标识、申请时间和审核事实，不填造尚未接入的业务信息。 |
+| `web/port-queue-web/src/components/PortIcon.vue` | 集中维护统一描边 SVG 图标。 |
+| `web/port-queue-web/src/utils/appointmentPresentation.ts` | 统一北京时间格式、状态中文名称与状态颜色。 |
+| `web/port-queue-web/src/assets/` | 船舶示意素材及来源记录；图片本身嵌入来源元数据。 |
+| `web/port-queue-web/src/styles.css` | 冰蓝玻璃设计变量、侧栏、工具区、主次分栏、表格和响应式规则。 |
+| `web/port-queue-web/playwright.config.ts`、`tests/appointments.spec.ts` | 本机 Edge 浏览器验收，验证真实查询和异常恢复并保存截图。 |
+| `web/port-queue-web/DESIGN.md`、`.impeccable/design.json` | 最终视觉规范与对应组件预览数据；供后续页面保持统一，不参与生产页面加载。 |
 | `web/port-queue-web/vite.config.ts` | Vite 插件、端口和 `/api` 到 `http://localhost:5180` 的本地代理。 |
 | `web/port-queue-web/package.json` | 前端依赖和类型检查、构建、开发命令。 |
 | `pnpm-lock.yaml` | 在工作区根目录统一锁定前端依赖版本；不在 `web/port-queue-web` 再维护第二份 lockfile。 |
@@ -88,6 +94,8 @@
 | `docs/implementation-roadmap.md` | 阶段目标、业务路径和实现顺序。 |
 | `docs/acceptance-plan.md` | 中期与最终验收案例、证据和完成判定。 |
 | `docs/stages/stage-2-delivery-guide.md` | 阶段 2 前后端与数据库变化、输入输出、联调过程，以及教师要求的结构/数据展示说明。 |
+| `docs/stages/stage-2-ui-reference-redesign.md` | 用户参考图改版的范围、视觉约束和 U01—U08 验收条件。 |
+| `docs/design/reference/` | 用户提供的五张原始参考图和来源说明，作为后续界面的视觉依据。 |
 | `docs/physical-design-and-operations.md` | 物理类型、约束分工和业务操作契约。 |
 | `docs/decision-log.md` | 记录影响模型和技术路线的关键决策。 |
 | `docs/reviews/` | 每个里程碑的构建、测试、SQL 检查和深度 review 结论。 |
