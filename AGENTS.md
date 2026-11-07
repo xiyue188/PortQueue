@@ -38,6 +38,10 @@ PortQueue 是“港口船舶进港预约与锚地排队协同管理系统”的�
 - 后端 API、数据库过程、前端页面和测试必须围绕同一条业务用例联调，不能只做孤立页面。
 - 不提交连接密码、JWT 密钥、用户密码、生成的数据库文件、`node_modules/`、`bin/`、`obj/` 或日志。
 - 报告中的业务术语优先于框架术语；不在正式报告和演示页面中出现内部重构说明。
+- 前端依赖统一由仓库指定版本的 pnpm 和根目录 `pnpm-lock.yaml` 管理；在根目录执行 `pnpm install --frozen-lockfile`。不要在 pnpm 生成的依赖目录上再执行 `npm install`；运行既有脚本的 `npm run` 不等于安装依赖。
+- 验证启动命令时，确认普通 VS Code/Windows 终端能找到所需工具，不以代理会话专用 PATH 中的工具作为用户已安装的证据。
+- 每次交付必须给出中文改动说明：本次目标、前端/后端/数据库分别改了什么、主要文件职责、用户输入→处理流程→输出示例、验证结果、未验证项和下一步。明确区分上一阶段成果与本轮新增，不用文件清单代替业务解释。
+- 区分代码实现、HTTP/API 联调、浏览器交互和视觉验收；未执行的检查不得标为通过，阶段门仍有必需检查未完成时注明待验收。
 
 ## 常用命令
 
@@ -47,7 +51,7 @@ $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
 dotnet restore PortQueue.sln
 dotnet build PortQueue.sln --configuration Release
 dotnet test PortQueue.sln --configuration Release --no-restore
-pnpm --dir web/port-queue-web install
+pnpm install --frozen-lockfile
 pnpm --dir web/port-queue-web run build
 ```
 

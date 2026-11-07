@@ -35,6 +35,7 @@
 | `09_permissions.sql` | 创建应用最小权限角色和无登录验证用户；不创建密码或本机登录。 |
 | `10_seed_demo.sql` | 按需装载 PQ-DEMO 演示业务事实，重复执行不重置状态。 |
 | `11_statistics.sql` | 提供等待、偏差、准点率和泊位观测利用率的口径查询。 |
+| `queries/appointments.sql` | API 执行的参数化预约 SELECT；构建时嵌入后端程序集，不部署为新表、视图或过程。 |
 | `tests/database/run_stage1.py` | 创建随机独立测试库，执行业务、权限、回滚、并发和演示数据验收，默认结束后清理。 |
 | `tests/database/check-sql.ps1` | 调用 SQL Server ScriptDom 做静态语法检查，不连接数据库。 |
 | `bootstrap-localdb.ps1` | 本机环境引导：检查/创建/启动实例，数据库不存在时恢复，已有数据库补齐参考数据并验证；不自动更新过程或加载演示业务。 |
@@ -48,6 +49,12 @@
 |---|---|
 | `src/PortQueue.Api/Program.cs` | Web 应用启动组合根：注册控制器、异常处理、健康检查和基础设施。这里不写业务 SQL。 |
 | `src/PortQueue.Api/Controllers/HealthController.cs` | 提供不依赖业务数据的服务存活检查接口。 |
+| `src/PortQueue.Api/Controllers/AppointmentsController.cs` | 提供 `GET /api/appointments`，连接 HTTP 请求与查询接口。 |
+| `src/PortQueue.Api/Appointments/AppointmentQueryRequest.cs` | 校验页码、页容量、状态和关键词，归一化输入。 |
+| `src/PortQueue.Api/Errors/ApiExceptionHandler.cs` | 输出稳定的 503/500 错误，不回传 SQL 或堆栈。 |
+| `src/PortQueue.Application/Appointments/` | 预约查询条件、结果类型与查询接口。 |
+| `src/PortQueue.Infrastructure/Appointments/SqlAppointmentQueries.cs` | 绑定参数、执行唯一 SQL 源并映射预约分页结果。 |
+| `src/PortQueue.Api/Appointments.http` | 预约成功、筛选、分页和失败请求样例。 |
 | `src/PortQueue.Api/appsettings*.json` | 非敏感配置模板；本地连接信息只能放在未提交的本地配置或用户机密中。 |
 | `src/PortQueue.Api/Properties/launchSettings.json` | VS Code/`dotnet run` 的本地启动配置。 |
 | `src/PortQueue.Application/Abstractions/` | 应用服务和查询契约，保持业务语义与 ASP.NET、Dapper 解耦。 |
@@ -80,6 +87,7 @@
 |---|---|
 | `docs/implementation-roadmap.md` | 阶段目标、业务路径和实现顺序。 |
 | `docs/acceptance-plan.md` | 中期与最终验收案例、证据和完成判定。 |
+| `docs/stages/stage-2-delivery-guide.md` | 阶段 2 前后端与数据库变化、输入输出、联调过程，以及教师要求的结构/数据展示说明。 |
 | `docs/physical-design-and-operations.md` | 物理类型、约束分工和业务操作契约。 |
 | `docs/decision-log.md` | 记录影响模型和技术路线的关键决策。 |
 | `docs/reviews/` | 每个里程碑的构建、测试、SQL 检查和深度 review 结论。 |

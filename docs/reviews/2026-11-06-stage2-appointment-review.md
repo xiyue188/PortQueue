@@ -20,7 +20,7 @@
 | 检查 | 结果 |
 |---|---|
 | `dotnet test PortQueue.sln --configuration Release --no-restore` | 36 通过，0 失败，0 跳过；其中 22 项使用随机独立 SQL Server 测试库验证真实查询，12 项验证 HTTP 参数和故障契约，2 项健康接口回归 |
-| `python tests/database/run_stage1.py` | 59 个数据库阶段 1 用例通过，4 个双连接并发场景通过，测试库已删除 |
+| `python tests/database/run_stage1.py` | 共 59 个数据库阶段 1 用例通过，其中包含 4 个双连接并发场景，测试库已删除 |
 | `tests/database/check-sql.ps1` | 13 个 SQL 文件通过 SQL Server 语法解析，包括预约查询 SQL |
 | `npm --prefix web/port-queue-web run build` | `vue-tsc --noEmit` 和 Vite production build 通过 |
 | 本地 API 成功请求 | `/api/appointments?pageSize=2` 返回 2 条、总数 5 |

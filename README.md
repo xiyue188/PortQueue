@@ -29,10 +29,12 @@ config/                    示例配置和本地开发说明
 
 ## 开始前
 
+前端需要 Node.js 22.13+ 和 pnpm 11.25.0。缺少包管理器时执行一次 `npm.cmd install --global pnpm@11.25.0`；本机已于 2026-11-07 配好。项目依赖在仓库根目录执行 `pnpm.cmd install --frozen-lockfile`，不要对已有 pnpm 依赖目录再执行 `npm install`。日常 `run dev` 不需要先重新安装依赖。
+
 1. 安装 SQL Server Developer 或 Express，并确认可以从 VS Code 的 SQL Server 扩展或 `sqlcmd` 连接。
 2. 设置项目级 `DOTNET_CLI_HOME` 和 `NUGET_PACKAGES`，再执行 `dotnet restore PortQueue.sln`。
 3. 按 `database/README.md` 的顺序执行数据库脚本。
-4. 复制示例配置到本地配置文件，填入本机连接字符串；连接密码不提交到 Git。
+4. 本机 Development 配置已指向 `(localdb)\PortQueueDev / PortQueue`；其他实例通过 `ConnectionStrings__PortQueue` 环境变量或用户机密配置，连接密码不提交到 Git。单独复制 `appsettings.Local.json` 不会被当前程序自动加载。
 5. 先阅读 `docs/physical-design-and-operations.md` 和 `docs/acceptance-plan.md`，再实现功能。
 
 如果使用本机 LocalDB，首次准备或遇到实例连接错误时，先执行：
@@ -56,14 +58,18 @@ $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
 dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localhost:5180
 
 # 长期终端二：启动 Vue 开发服务器
-pnpm --dir web/port-queue-web run dev
+pnpm.cmd --dir web/port-queue-web run dev
 ```
 
-启动后访问 `http://localhost:5173` 查看真实预约列表，访问 `http://localhost:5180/api/health` 查看后端健康接口。预约列表从本机 SQL Server 读取；数据库不可用时页面会显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库。
+启动后访问 `http://127.0.0.1:5173` 查看真实预约列表，访问 `http://localhost:5180/api/health` 查看后端健康接口。预约列表从本机 SQL Server 读取；数据库不可用时页面会显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库。
+
+只复制命令，不复制终端的 `PS ...>` 或 `>>` 提示符。也可以在 VS Code 中执行 `Tasks: Run Task` → `frontend: dev`。如提示 5173 已占用，先访问已有页面或停止原前端终端，不要重复启动。
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
 
 分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。
+
+阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
 ## 交付要求
 
