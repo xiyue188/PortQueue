@@ -71,7 +71,9 @@ pnpm.cmd --dir web/port-queue-web run dev
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
-业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色的后续权限设计见 [`docs/business-flow.md`](docs/business-flow.md)。本轮细化计划与验收条件见 [`docs/stages/stage-2-overview-and-scenarios.md`](docs/stages/stage-2-overview-and-scenarios.md)。
+业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色设计见 [`docs/business-flow.md`](docs/business-flow.md)。最新界面交互的范围与验收条件见 [`docs/stages/stage-2-interaction-polish.md`](docs/stages/stage-2-interaction-polish.md)：真实候选搜索、页面往返保留筛选与选择、局部加载及统一桌面布局。
+
+第三阶段本轮**只完成设计，不实施写功能**。页面位置、权限矩阵、字段、事务和验收用例见 [`docs/stages/stage-3-appointment-workflow.md`](docs/stages/stage-3-appointment-workflow.md)，后续依次完成身份权限、预约审核、登记与提交。
 
 ## 交付要求
 
