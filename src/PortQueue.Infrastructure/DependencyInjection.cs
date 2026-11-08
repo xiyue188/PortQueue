@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using PortQueue.Infrastructure.Database;
 using PortQueue.Application.Appointments;
 using PortQueue.Infrastructure.Appointments;
+using PortQueue.Application.Overview;
+using PortQueue.Infrastructure.Overview;
 
 namespace PortQueue.Infrastructure;
 
@@ -19,6 +21,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DatabaseOptions.SectionName));
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddScoped<IAppointmentQueries, SqlAppointmentQueries>();
+        services.AddScoped<IOverviewQueries, SqlOverviewQueries>();
         return services;
     }
 }

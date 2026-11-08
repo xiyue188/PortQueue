@@ -94,6 +94,21 @@ public sealed class AppointmentDatabaseFixture : IAsyncLifetime
         await CleanupAsync();
     }
 
+    /// <summary>只向本夹具的随机独立库装载仓库脚本，供场景升级与幂等验收使用。</summary>
+    public async Task ApplyScriptAsync(string filename)
+    {
+        var sql = (await File.ReadAllTextAsync(Path.Combine(FindRepository(), "database", filename)))
+            .Replace("[PortQueue]", $"[{_databaseName}]", StringComparison.Ordinal);
+        await using var connection = new SqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        foreach (var batch in Regex.Split(sql, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase,
+                     TimeSpan.FromSeconds(1)).Where(batch => !string.IsNullOrWhiteSpace(batch)))
+        {
+            using var command = new SqlCommand(batch, connection) { CommandTimeout = 60 };
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
     private async Task CleanupAsync()
     {
         if (!_created) return;

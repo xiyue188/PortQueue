@@ -49,11 +49,13 @@ public sealed class AppointmentHttpContractTests : IClassFixture<WebApplicationF
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task UnreachableSqlReturns503WithoutSensitiveDetails()
+    [Theory]
+    [InlineData("/api/appointments")]
+    [InlineData("/api/overview")]
+    public async Task UnreachableSqlReturns503WithoutSensitiveDetails(string endpoint)
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/appointments");
+        using var response = await client.GetAsync(endpoint);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         var text = await response.Content.ReadAsStringAsync();
         using var body = JsonDocument.Parse(text);
