@@ -9,8 +9,10 @@
 5. `04_procedures.sql`：创建预约审核、队列调序、计划版本、计划确认、锚地事件、实际进港和靠离泊过程。
 6. `05_seed_reference.sql`：写入可重复执行的角色、字典和参考设施；不重新启用已停用字典项。
 7. `09_permissions.sql`：创建应用最小权限角色和无登录验证用户。
-8. `10_seed_demo.sql`：按需加载可重复的 PQ-DEMO 演示业务数据，不由启动脚本自动装载。
+8. `10_seed_demo.sql`：按需加载原五条流程样例，同时识别整理后的业务编号，重跑不会复制旧样例；不由启动脚本自动装载。
 9. `11_statistics.sql`：按明确口径执行统计查询，不新增持久化指标关系。
+10. `12_refresh_sample_labels.sql`：整理原五条样例的编号、船名、IMO 和旧审核文案，保留关联及业务事实，追加修改快照。
+11. `13_seed_port_scenarios.sql`：按需增加 48 条合成场景，覆盖六种预约状态、锚地等待、确认计划和已完成作业；重跑跳过已存在编号。
 
 建议在 SSMS、VS Code SQL Server 扩展或 `sqlcmd` 中按顺序执行。脚本中的 `GO` 是 SQL Server 客户端批处理分隔符，不是 T-SQL 语句。
 
@@ -42,7 +44,7 @@ $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\
 
 `06_smoke_tests.sql` 检查 21 张表、3 个视图、7 个业务过程、8 个表级业务触发器、过滤唯一索引、业务表索引和参考种子数据；参考数据包括港口、码头、锚地、泊位及泊位船型关系。`07_business_smoke_test.sql` 回滚式贯通审核、锚地事件、计划确认、实际进港、靠泊和离泊；`08_constraint_smoke_tests.sql` 回滚式验证错误字典类型被拒绝。
 
-为避免不同 Windows 客户端对无 BOM UTF-8 SQL 文件的编码差异，种子脚本中的设施名称使用稳定的英文文本；业务编码、关系和后续前端中文显示不受影响。
+SQL 文件按 UTF-8 保存。通过 Windows ODBC 版 `sqlcmd` 执行含中文脚本时必须显式指定 `-f 65001`；否则可能把中文解析为错误字节并报字符串未闭合等误导性错误。早期参考设施保留英文名称，本轮场景脚本使用中文业务名称；不要通过改中文内容来绕过客户端编码配置。
 
 连接成功后，SQL Server 扩展的对象树可以直接展开 `PortQueue` 查看这些对象；对象树不显示行数据，行数据通过 `SELECT` 查询或 `06_smoke_tests.sql` 结果查看。
 
@@ -73,3 +75,21 @@ sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i database/11_statistics.s
 ```
 
 SQL Server 2019 LocalDB 上的基线为 21 表、3 视图、7 业务过程、8 表级触发器、45 个业务表索引。此前的 203 包含系统索引，不作为业务对象数量。完整设计和用例见 `docs/stages/stage-1-database.md`，结果见 `docs/reviews/2026-11-02-stage1-database-review.md`。
+
+## 阶段 2 场景数据与总览
+
+本机已于 2026-11-08 装载本批数据。新环境在基线部署完成后按 `10 → 12 → 13` 执行；`11` 是查询，不是数据导入依赖。现有库不重跑 `01_schema.sql`。
+
+```powershell
+$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
+foreach ($file in @('10_seed_demo.sql','12_refresh_sample_labels.sql','13_seed_port_scenarios.sql')) {
+    & $sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i (Join-Path 'database' $file)
+    if ($LASTEXITCODE -ne 0) { throw "Scenario import failed: $file" }
+}
+```
+
+仅有项目场景数据时共 53 条预约：草稿 8、待审核 9、已批准 10、已驳回 8、已撤销 8、已完成 10；49 个不同申请到港时刻。原五条历史申请时间保留。数据不是实时港口或 AIS 数据；船舶标识的格式正确不代表注册资料已核实。脚本用整批事务与应用锁防止半批写入，重复执行不重置已有状态；`12` 每次实际改名保留前后审计快照。
+
+`queries/overview.sql` 为只读 API 的 SQL 源，通过现有视图计算三个独立指标并读取最近五个实际事件；它不创建第 4 个 VIEW。`13` 的历史审核/确认是有明确时间的归档快照，实际事件通过现有事务过程登记，不能把该初始化脚本当作日常审核入口。场景账号使用不可登录的随机占位哈希，没有可供用户登录的预设密码。
+
+业务口径、角色边界和后续实现顺序见 `docs/business-flow.md`；独立测试库会验证导入、幂等性、责任人、最小读取权限和总览结果。

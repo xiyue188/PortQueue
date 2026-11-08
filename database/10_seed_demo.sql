@@ -44,7 +44,8 @@ BEGIN TRY
     DECLARE @n int=1,@s bigint,@c bigint,@ap bigint,@p bigint,@r bigint,@start datetime2(0),@finish datetime2(0),@actual datetime2(0);
     WHILE @n<=5
     BEGIN
-        IF NOT EXISTS(SELECT 1 FROM dbo.arrival_appointment WHERE appointment_no=CONCAT('PQ-DEMO-00',@n))
+        IF NOT EXISTS(SELECT 1 FROM dbo.arrival_appointment WHERE appointment_no IN
+            (CONCAT('PQ-DEMO-00',@n),CONCAT('PQ20261101-000',@n)))
         BEGIN
             SET @s=NULL;
             SELECT @s=ship_id FROM dbo.ship WHERE imo_no=CONCAT('PQDEMO',@n);
