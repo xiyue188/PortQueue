@@ -39,7 +39,7 @@ export function useOverview() {
     const request = new AbortController()
     controller = request
     const current = ++sequence
-    overview.value = null; overviewError.value = ''; overviewLoading.value = true
+    overviewError.value = ''; overviewLoading.value = true
     const timer = window.setTimeout(() => request.abort(), 15_000)
     try {
       const response = await fetch('/api/overview', { signal: request.signal, headers: { Accept: 'application/json' } })
@@ -48,7 +48,10 @@ export function useOverview() {
       if (!validOverview(data)) throw new Error('总览响应格式不正确，请重试。')
       if (current === sequence) overview.value = data
     } catch {
-      if (current === sequence) overviewError.value = '总览暂时无法读取，请重试。'
+      if (current === sequence) {
+        overview.value = null
+        overviewError.value = '总览暂时无法读取，请重试。'
+      }
     } finally {
       window.clearTimeout(timer)
       if (current === sequence) overviewLoading.value = false
