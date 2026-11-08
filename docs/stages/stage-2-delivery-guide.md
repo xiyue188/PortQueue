@@ -1,141 +1,76 @@
-# 阶段 2 交付说明：预约查询的输入、处理与输出
+# 阶段 2 交付说明：真实查询与港口总览
 
-更新日期：2026-11-07。本文用于理解和验收已实现的阶段 2，不代替需求、数据字典和逻辑模型。冰蓝参考改版已补齐真实 Edge 浏览器操作与桌面、窄屏截图；视觉和代码结论见本日界面改版 review。
+更新：2026-11-08。本文件描述当前可运行成果；历史测试与交付记录保留在 `docs/reviews/`。本轮验收计划见 `stage-2-overview-and-scenarios.md`，业务解释见 `../business-flow.md`。
 
-## 1. 这一阶段完成了什么
+## 1. 本轮的目标与变化
 
-业务用例：业务人员按预约状态或预约编号、船名、IMO、MMSI 查找预约，查看申请到离港时间和审核结果，按页浏览结果。
+预约查询已经贯通；本轮解决总览与预约页定位重叠、冗余文案、低清主图和样例过少的问题。首页从预约查询的另一种布局，调整为读取跨业务概况的总览。保留冰蓝商务风格，允许摘要波浪边等少量航运细节。
 
-| 层次 | 阶段 2 之前 | 本阶段新增或调整 | 当前输出 |
-|---|---|---|---|
-| 数据库 | 已部署 21 表、3 业务视图、7 过程、8 表级触发器、45 个业务表索引及样例 | 新增 `database/queries/appointments.sql` 参数化 SELECT 文件；没有部署新对象、修改表结构或重新装载开发库数据 | 筛选后总数、当前页预约及关联船舶/审核信息 |
-| 后端 | 健康接口、启动配置和连接工厂 | 查询参数校验、应用契约、Dapper 查询实现、预约控制器、统一错误响应、测试 | `GET /api/appointments` 返回 JSON 或明确的错误状态 |
-| 前端 | 静态调度总览 | 预约总览与列表详情共享真实查询；筛选、重置、刷新、分页、选中记录与状态处理；删除旧静态原型 | 同一预约的摘要、申请时间窗、表格和审核详情；失败显示重试提示 |
-| 联调 | 前后端分别能启动 | Vite `/api` 代理至后端 5180；后端访问 SQL Server | 同一查询可在 SQL、API 和页面各层对照 |
-| 验收文档 | 数据库阶段 1 结果 | 阶段 2 契约、验收矩阵、review、文件说明和启停手册 | 可审查的完成范围与未验证边界 |
-
-样例数据是用 `10_seed_demo.sql` 写入数据库的合成业务事实，并非真实港口或 AIS 数据。它们由 SQL 真正查询，所以区别于写死在 Vue 组件中的 Mock。当前开发库为 5 条 PQ-DEMO 预约：已完成 2 条、已批准 2 条、待审核 1 条。
-
-## 2. 后端：文件职责与输入输出
-
-下面路径均相对仓库根目录。
-
-| 文件/目录 | 输入 | 处理 | 输出 |
-|---|---|---|---|
-| `src/PortQueue.Api/Appointments/AppointmentQueryRequest.cs` | HTTP 查询字符串 | 页码与页容量范围、状态和关键词长度校验；去首尾空格、状态转大写 | 规范化查询条件，或 400 参数错误 |
-| `src/PortQueue.Api/Controllers/AppointmentsController.cs` | 已绑定的请求和取消信号 | 调用预约查询接口 | 200 分页 JSON |
-| `src/PortQueue.Application/Appointments/AppointmentQuery.cs` | 校验后的条件 | 定义查询参数契约，不访问数据库 | page、pageSize、status、keyword |
-| `src/PortQueue.Application/Appointments/AppointmentPage.cs` | 查询结果 | 定义列表项与分页结构；ID 为字符串，时间带时区 | items、page、pageSize、totalCount |
-| `src/PortQueue.Application/Appointments/IAppointmentQueries.cs` | 条件与取消信号 | 规定查询能力，供控制器依赖 | 异步分页结果 |
-| `src/PortQueue.Infrastructure/Appointments/SqlAppointmentQueries.cs` | 查询条件 | 打开 SqlClient 连接，用 Dapper 绑定参数、执行 SQL、映射行；处理空页、释放连接 | 应用层分页对象 |
-| `database/queries/appointments.sql` | Status、Pattern、Offset、PageSize 参数 | 关联 4 张表，筛选、计数和分页；只读 | 总数与当前页的列集合 |
-| `src/PortQueue.Api/Errors/ApiExceptionHandler.cs` | 服务端异常 | 区分数据库暂不可用与其他故障；保留日志追踪标识 | 503 或 500 ProblemDetails，不回传 SQL/堆栈 |
-| `src/PortQueue.Api/Program.cs` | 服务配置 | 注册控制器和异常处理；统一参数校验失败格式 | HTTP 请求处理管道 |
-| `src/PortQueue.Infrastructure/DependencyInjection.cs` | 应用启动 | 将查询接口绑定到 Dapper 实现 | 可注入的查询服务 |
-| `src/PortQueue.Infrastructure/PortQueue.Infrastructure.csproj` | 构建 | 将唯一 SQL 源嵌入程序集 | 运行不依赖当前工作目录寻找 SQL |
-| `src/PortQueue.Api/appsettings.Development.json` | 本地启动 | 指定 LocalDB 和连接超时 | 本地数据库连接配置 |
-| `src/PortQueue.Api/Appointments.http` | 手工验收请求 | 提供筛选、分页、空结果和非法参数示例 | HTTP 响应；可由支持 .http 的客户端执行，也可复制 URL |
-
-Dapper 的作用是把 SQL 参数送入 SQL Server，并把查询结果映射为 C# 对象。它没有自动生成或修改表结构。当前查询没有调用写业务存储过程；7 个事务过程仍留给对应的写功能。
-
-## 3. 数据库：查询到底读了哪些表
-
-`arrival_appointment` 保存预约事实；经 `port_call` 找到 `ship` 获取船名、IMO、MMSI；通过 `reviewed_by` 左连接 `user_account` 获取审核人的显示名称。未审核预约没有审核人，也必须出现在查询结果中，所以审核人使用 LEFT JOIN。
-
-查询固定按 `requested_arrival_at DESC, appointment_id DESC` 排序。分页偏移量为 `(page - 1) × pageSize`；状态条件与关键词条件取 AND，关键词在四个字段中取 OR。LIKE 特殊字符被转义，参数化用于避免 SQL 注入，转义用于保证按字面搜索，两者职责不同。
-
-总数和当前页由一条 SELECT 得到，配合既有数据库快照读取配置保持同一语句读取一致。无结果返回空 items 和 0；请求超出已有页数时返回空 items，但仍保留筛选后的真实总数。
-
-此 SQL 是运行时查询文件，不是第 4 个数据库 VIEW、不是第 22 张表、也不是需要在对象树中新增的存储过程。不要直接把含参数的文件整段执行并期望它自动创建对象；API 会绑定参数执行它。
-
-测试额外创建的随机测试库包含专用边界记录，用来验证中文、特殊字符、并列时间与大于 2^53 的主键；这些不是开发库新增的预约，测试完成后清理测试库。
-
-## 4. 前端：文件职责与用户操作
-
-| 文件 | 职责 | 输入与输出 |
+| 层次 | 本轮变化 | 输出与边界 |
 |---|---|---|
-| `src/App.vue` | 工作区与页面入口 | 挂载真实预约工作台，默认总览 |
-| `src/views/AppointmentListView.vue` | 导航、筛选、结果与选中状态 | 用户输入关键词/状态/页容量；维护同一份列表、摘要、详情和状态提示 |
-| `src/api/appointments.ts` | HTTP 请求与响应结构校验 | 发送相对路径 `/api/appointments`；检查 ID、时间、状态和分页结构；拒绝错误格式 |
-| `src/composables/useAppointments.ts` | 页面查询状态管理 | 管理已提交条件、取消、超时、请求序号与最新结果 |
-| `src/types/appointment.ts` | 类型和状态中文名称 | 与后端响应字段对应，避免把编号或状态用错 |
-| `src/styles.css` | 工作页样式 | 表格、表单、焦点、状态和窄屏布局 |
-| `src/components/AppointmentOverview.vue` | 总览船舶焦点和侧边摘要 | 接收选中记录，显示申请时间窗和审核摘要 |
-| `src/components/AppointmentTable.vue`、`AppointmentDetail.vue` | 结果表与右侧详情 | 点击或键盘选择记录后统一更新；空结果清除详情 |
-| `src/components/PortIcon.vue`、`src/utils/appointmentPresentation.ts` | 共用图标与数据呈现规则 | SVG 图标、北京时间和状态名称/颜色统一 |
-| `playwright.config.ts`、`tests/appointments.spec.ts` | 浏览器验收 | 本机 Edge 对真实 API 执行六项交互检查，保存桌面、窄屏、空与错误截图 |
-| `src/main.ts` | Vue 入口 | 挂载根组件；移除本页未使用的全量 Element Plus 注册与样式 |
-| `vite.config.ts` | 本机前端服务与 API 代理 | 5173 开发端口、4173 preview 端口；`/api` 转发至 5180 |
+| 数据库 | 新增总览 SELECT；新增旧样例名称整理和 48 条场景导入；旧种子识别整理后的编号 | 53 条持久化预约、49 个申请到港时刻；没有新增表、视图、过程、触发器或索引 |
+| 后端 | 新增总览契约、Dapper 查询实现和控制器 | GET /api/overview；原预约接口保持契约 |
+| 前端 | 总览独立指标与近期事件；预约页筛选/分页/详情；新主图、波浪摘要、简洁文案 | API 失败明确提示；未登录状态真实；后续页面尚未开放 |
+| 验收 | 增加真实数据库总览/场景测试、总览 503 契约，浏览器用例更新为七项 | 构建、SQL 静态检查、独立数据库测试和真实 Edge 交互 |
 
-上表前端路径均位于 `web/port-queue-web/` 下。Element Plus、ECharts、Axios 依赖未在本阶段移除；当前查询使用浏览器原生 fetch，不要求为一个列表额外引入组件或图表。
+数据是真实存入 SQL Server 的合成场景，不是实时港口或 AIS 信息，也不是前端硬编码。旧五条的申请时间和历史事件保留；名称整理追加审计。新 48 条涵盖六种状态，各状态 8 条；合计状态数量为草稿 8、待审核 9、已批准 10、已驳回 8、已撤销 8、已完成 10。
 
-| 用户操作 | 输入 | 当前行为/输出 |
-|---|---|---|
-| 打开页面 | page=1、pageSize=20 | 自动查询全部预约 |
-| 状态筛选 | PENDING、APPROVED 等，空为全部 | 点击状态或选择下拉项即查询并回到第一页，保留已提交关键词 |
-| 关键词查询 | 编号、船名、IMO、MMSI | 按字面包含匹配；提交后回到第一页 |
-| 更换页容量/翻页 | 2/10/20/50/100，上一页/下一页 | 使用已提交条件，不偷偷采用尚未提交的表单修改 |
-| 刷新 | 已提交的条件 | 重新访问 API，读取当前数据库结果 |
-| 重置 | 无 | 清空关键词和状态，回到第一页，保留页容量 |
-| 选择船舶 | 鼠标点击行或键盘激活船舶按钮 | 同步更新总览焦点/预约摘要及右侧详情，不重复查询数据库 |
-| 切换布局 | 预约总览、进港预约 | 保留当前筛选和选中记录；待接入业务入口禁用 |
-| 查询无匹配 | 不存在的关键词 | 显示“没有符合条件的预约”，可清除筛选 |
-| 查询失败 | 网络/API/数据库故障 | 显示错误和重新查询，不使用 Mock 兜底 |
+## 2. 后端与 SQL 的输入、处理和输出
 
-新请求取消旧请求，并使用请求序号避免迟到响应覆盖最新结果。页面固定以 Asia/Shanghai 显示时间；例如数据库 UTC 的 `2026-11-01 00:00:00` 显示为北京时间 `2026-11-01 08:00`，不是数据被修改。
+| 入口 | 输入 | 处理 | 输出 |
+|---|---|---|---|
+| GET /api/appointments | page、pageSize、status、keyword | 校验参数；关联预约、到访、船舶和审核人；参数化筛选；稳定排序和分页 | items、page、pageSize、totalCount |
+| GET /api/overview | 无筛选参数 | 单条 SELECT 读取待审核预约、实际锚地在场、当前已确认计划及最近五个事件 | pendingAppointments、anchorageVessels、confirmedPlans、recentEvents |
 
-## 5. 一次真实查询的完整链路
+`database/queries/` 是 API SQL 的唯一源，构建时嵌入 Infrastructure 程序集。Dapper 只绑定参数和映射结果，不创建表。预约查询按申请到港时间、预约主键倒序；总览事件按实际事件时间、事件主键倒序。两种时间不能混用。
+
+总览使用已有 RCSI 的单语句一致读取；锚地在场按有入锚且无离锚事件判断，不能只数有效队列。确认计划指当前待靠泊的 CONFIRMED 计划，不含 EXECUTING 或 COMPLETED。三个指标不能相加解释为全港船舶总量。
+
+主键序列化为字符串，避免 JavaScript 精度损失；API 时间带 UTC 偏移，页面统一转 Asia/Shanghai。200 空数组是查询成功无记录，400 是参数错误，503 是数据库暂不可用，500 是其他内部故障；错误不泄露 SQL 和堆栈。
+
+## 3. 前端操作与状态
+
+| 用户操作 | 处理与输出 |
+|---|---|
+| 打开总览 | 同时读取总览和预约列表；显示三个全局指标、最近五个事件和五条预约摘要 |
+| 提交顶部关键词 | 进入进港预约并查询；输入草稿未提交前不影响当前结果 |
+| 状态筛选、页容量、翻页 | 按已提交条件重新查询；不同状态/页码显示真实记录 |
+| 选择船舶 | 摘要和详情使用同一选中记录；支持鼠标和键盘 |
+| 从预约返回总览 | 清除预约筛选、返回第一页；全局指标始终独立 |
+| 刷新 | 重读预约和总览，不显示虚构更新时间或进度 |
+| 空结果 | 显示明确空状态和清除筛选入口 |
+| API 故障 | 显示错误和重试；不回退 Mock，也不保留旧指标假装成功 |
+
+预约请求和总览请求分别管理取消、超时和请求序号，避免旧响应覆盖新结果。`AppointmentListView.vue` 组织页面；`useAppointments.ts` 和 `useOverview.ts` 分别管理查询；`AppointmentOverview.vue`、`AppointmentTable.vue`、`AppointmentDetail.vue` 负责焦点、列表与详情。完整职责索引见 `../file-guide.md`。
+
+“实际执行”菜单改为“进出港记录”；当前事件仍是入锚、离锚、进港、靠泊、离泊五类，没有独立出港事件，离泊不冒充港界离港。账号区显示“未登录”；四类业务角色的真正鉴权在后续批次实施，不提供前端假切换。
+
+## 4. 数据装载与可重复性
+
+`10_seed_demo.sql` 建立早期五条流程样例；`12_refresh_sample_labels.sql` 保留 ID 和历史事实整理名称、编号及旧文案；`13_seed_port_scenarios.sql` 增加 48 条。按 `10 → 12 → 13` 装载，使用 sqlcmd 的 `-b -f 65001`，失败立即停止。本机已经完成，不需要每次启动执行。
+
+新场景在单个事务内装载，重复编号跳过；历史审核和确认时间作为归档快照导入，实际事件通过既有过程登记。随机测试库验证重复执行后预约和审计数量不增加，不会清空开发库。IMO 格式及校验位正确只代表测试格式，不等于真实注册资料。
+
+## 5. 联调例子
 
 ```mermaid
 sequenceDiagram
-    participant U as 用户/浏览器（5173）
-    participant V as Vite 开发代理
-    participant A as ASP.NET Core（5180）
-    participant Q as Dapper 查询实现
-    participant D as SQL Server / PortQueue
-    U->>V: GET /api/appointments?status=PENDING&keyword=PQ-DEMO&page=1&pageSize=2
-    V->>A: 转发同一个 API 路径和查询参数
-    A->>A: 校验并归一化输入
-    A->>Q: AppointmentQuery + 取消信号
-    Q->>D: 参数化 SELECT（4 表关联）
-    D-->>Q: 1 条待审核预约 + 总数 1
-    Q-->>A: AppointmentPage
-    A-->>V: 200 + JSON
-    V-->>U: JSON，页面渲染预约表格
+    participant U as Vue 页面
+    participant V as Vite 5173
+    participant A as ASP.NET 5180
+    participant D as SQL Server
+    U->>V: GET /api/appointments?keyword=PQ202611-1044
+    V->>A: 同路径代理
+    A->>D: 参数化 SELECT
+    D-->>A: 远川明珠 8 的预约与总数 1
+    A-->>U: JSON，经 Vite 返回
+    U->>V: GET /api/overview
+    V->>A: 同路径代理
+    A->>D: 总览 SELECT
+    D-->>U: 经 API 返回 9、10、4 及近期事件
 ```
 
-前端在浏览器里访问自己的 5173 地址；Vite 在服务端转发至 5180。数据库连接字符串只在后端，浏览器不直接连接 SQL Server。这个代理是开发/preview 配置，今后正式部署仍需配置同源静态站点与 API 转发。
-
-2026-11-07 实测请求：
-
-```http
-GET http://127.0.0.1:5173/api/appointments?status=PENDING&keyword=PQ-DEMO&page=1&pageSize=2
-```
-
-响应：
-
-```json
-{
-  "items": [{
-    "appointmentId": "14",
-    "appointmentNo": "PQ-DEMO-005",
-    "shipName": "Demo Vessel 5",
-    "imoNo": "PQDEMO5",
-    "mmsi": "990010005",
-    "requestedArrivalAt": "2026-11-01T00:00:00+00:00",
-    "requestedDepartureAt": "2026-11-03T00:00:00+00:00",
-    "appointmentStatusCode": "PENDING",
-    "reviewerName": null,
-    "reviewedAt": null,
-    "reviewComment": null
-  }],
-  "page": 1,
-  "pageSize": 2,
-  "totalCount": 1
-}
-```
-
-14 是本机当前生成的内部 ID，重建环境可能不同；演示用业务编号 `PQ-DEMO-005` 对照。HTTP 200+空数组表示成功但没有匹配记录；400 表示条件非法；503 表示数据库暂时无法查询；500 表示其他内部故障，不能混为“没数据”。
+预约 `PQ202611-1044` 的申请到港为北京时间 2026/11/09 06:55，状态待审核。筛选仅影响预约结果，不改变总览 9/10/4。浏览器不直连数据库，连接字符串只由后端使用。今后同源部署还需配置静态站点与 API 转发。
 
 ## 6. 老师要求的表结构视图、数据视图对应什么
 
@@ -187,16 +122,14 @@ ORDER BY appointment_no;
 
 中期三分钟内建议准备：一张核心表结构及主外键截图、一张预约/队列数据网格截图、一张真实预约页面截图。完整 21 表清单、ER 图、3 VIEW 定义和规则测试放备用材料，不要求正文逐表朗读。
 
-## 7. 证据与完成边界
+## 7. 验收证据与完成边界
 
-2026-11-06：后端 36 项测试通过，包含 22 项真实独立数据库查询用例、12 项 HTTP 契约用例和 2 项健康接口回归；数据库阶段 1 共 59 项通过（其中包含 4 个双连接并发场景，不另外累加）；13 个 SQL 文件静态检查通过；前端类型检查和构建通过。
+本轮 .NET Release 构建零警告、零错误，38 项后端测试通过；16 个 SQL 文件静态检查通过；前端类型检查/构建通过；七项 Edge 浏览器测试通过。浏览器正向路径使用真实 SQL/API，故障和迟到响应只在浏览器拦截，不修改开发库。桌面、窄屏、空结果与故障截图位于仓库根 `.impeccable/review/`，不提交 Git。
 
-2026-11-07：普通 Windows PATH 下 pnpm 安装/版本验证通过、锁文件安装检查通过、前端构建通过、原始启动命令成功；5173 的 HTML、Vite Vue 源模块和预约代理请求均返回 200。对象数量重新核对为 21/3/7/8/45，状态数量为 2 已批准、2 已完成、1 待审核。未重跑全部后端/数据库测试，因为本轮没有改业务代码或 SQL。
+数据库阶段 1 的 59 项规则验收属于此前结果，本轮没有改过程或约束，不将该历史结果重复算作新测试。当前对象基线保持 21 表、3 视图、7 过程、8 表级触发器、45 个业务表索引。
 
-本次界面改版新增的六项 Edge 浏览器测试全部通过：真实数据与选中详情一致、分页筛选及草稿隔离、空结果与重置、503 错误重试、迟到响应隔离、390px/320px 窄屏及键盘选择。已保存两种桌面布局、两种窄屏布局、空结果与错误截图；测试与截图路径见运行手册。此前“浏览器验收待补”的缺口已补齐。
+尚未实现：真实账号认证和业务角色授权，预约登记/提交/撤销/审核的写 API 与页面，队列、计划和事件完整页面，统计报表页。数据库对象已经具备基础能力，不能等同于整个应用业务已经完成。
 
-当前未实现：预约登记/撤销/审核写 API 与页面、队列/泊位计划/执行页面、正式账号登录与角色授权、统计页面。已有数据库过程与查询为后续功能提供基础，但不能等同于这些页面已完成。
+## 8. 后续交付要求
 
-## 8. 每次交付的固定说明
-
-后续每次变更都说明：本次目标与范围；前端、后端、数据库和配置各自变化；主要文件职责；至少一个输入→处理→输出的例子；实测结果及证据；未验证/未完成事项；提交记录和下一步。本次新增为前端参考改版、真实总览和选中详情、浏览器验收及设计规则；业务 API 与数据库对象没有修改。
+每批说明目标、前后端/数据库各自变化、关键文件职责、输入→处理→输出、实测结果、未完成项和小步提交。下一批先完成认证与权限设计/验收，再实现受控登录和预约审核这一条写链路；不同时展开所有菜单。

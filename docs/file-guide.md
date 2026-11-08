@@ -35,7 +35,10 @@
 | `09_permissions.sql` | 创建应用最小权限角色和无登录验证用户；不创建密码或本机登录。 |
 | `10_seed_demo.sql` | 按需装载 PQ-DEMO 演示业务事实，重复执行不重置状态。 |
 | `11_statistics.sql` | 提供等待、偏差、准点率和泊位观测利用率的口径查询。 |
+| `12_refresh_sample_labels.sql` | 整理旧五条样例的展示名称、业务编号和旧审核文案，保留主外键及业务事实，追加审计快照。 |
+| `13_seed_port_scenarios.sql` | 增加 48 条可重跑的合成场景；覆盖六类状态、排队、确认计划与已完成作业。 |
 | `queries/appointments.sql` | API 执行的参数化预约 SELECT；构建时嵌入后端程序集，不部署为新表、视图或过程。 |
+| `queries/overview.sql` | 单条 SELECT 读取独立总览指标及最近五个实际事件，不跟随预约筛选，不新增持久化对象。 |
 | `tests/database/run_stage1.py` | 创建随机独立测试库，执行业务、权限、回滚、并发和演示数据验收，默认结束后清理。 |
 | `tests/database/check-sql.ps1` | 调用 SQL Server ScriptDom 做静态语法检查，不连接数据库。 |
 | `bootstrap-localdb.ps1` | 本机环境引导：检查/创建/启动实例，数据库不存在时恢复，已有数据库补齐参考数据并验证；不自动更新过程或加载演示业务。 |
@@ -43,7 +46,7 @@
 
 ## 后端
 
-后端按 API、应用契约、基础设施三层组织。当前完成健康接口和预约只读查询；后续写操作仍按“小阶段、可验收”节奏增加。
+后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约只读查询和独立总览；后续写操作仍按“小阶段、可验收”节奏增加。
 
 | 路径 | 职责 |
 |---|---|
@@ -54,6 +57,9 @@
 | `src/PortQueue.Api/Errors/ApiExceptionHandler.cs` | 输出稳定的 503/500 错误，不回传 SQL 或堆栈。 |
 | `src/PortQueue.Application/Appointments/` | 预约查询条件、结果类型与查询接口。 |
 | `src/PortQueue.Infrastructure/Appointments/SqlAppointmentQueries.cs` | 绑定参数、执行唯一 SQL 源并映射预约分页结果。 |
+| `src/PortQueue.Api/Controllers/OverviewController.cs` | 提供 `GET /api/overview`，返回总览摘要或统一错误响应。 |
+| `src/PortQueue.Application/Overview/PortOverview.cs` | 总览指标、近期事件的返回契约及查询接口。 |
+| `src/PortQueue.Infrastructure/Overview/SqlOverviewQueries.cs` | 执行嵌入的总览 SQL，映射计数与事件；管理超时与取消。 |
 | `src/PortQueue.Api/Appointments.http` | 预约成功、筛选、分页和失败请求样例。 |
 | `src/PortQueue.Api/appsettings*.json` | 非敏感配置模板；本地连接信息只能放在未提交的本地配置或用户机密中。 |
 | `src/PortQueue.Api/Properties/launchSettings.json` | VS Code/`dotnet run` 的本地启动配置。 |
@@ -63,6 +69,7 @@
 | `src/PortQueue.Infrastructure/Database/ISqlConnectionFactory.cs` | 为应用层提供可测试的连接创建抽象。 |
 | `src/PortQueue.Infrastructure/Database/SqlConnectionFactory.cs` | 按配置创建 `Microsoft.Data.SqlClient.SqlConnection`；不负责建表和事务业务。 |
 | `tests/PortQueue.Api.Tests/` | 接口和应用级自动化测试；每个新业务阶段至少补成功和失败场景。 |
+| `tests/PortQueue.Api.Tests/Appointments/OverviewScenarioTests.cs` | 在独立数据库验证场景装载、重复执行无额外写入、审核完整性和最低读取权限下的总览结果。 |
 
 ## 前端
 
@@ -73,6 +80,7 @@
 | `web/port-queue-web/src/views/AppointmentListView.vue` | 管理总览/预约布局切换、筛选草稿、选中记录、分页和加载/错误/空状态。 |
 | `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
 | `web/port-queue-web/src/composables/useAppointments.ts` | 保存已提交查询条件，管理取消、超时、分页和迟到响应。 |
+| `web/port-queue-web/src/composables/useOverview.ts` | 独立请求和校验总览数据；请求失败清除旧数值，避免把过期数据当成当前概况。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
 | `web/port-queue-web/src/components/AppointmentOverview.vue` | 当前预约的船舶焦点、申请时间窗与审核摘要，使用父组件传入的同一记录。 |
 | `web/port-queue-web/src/components/AppointmentTable.vue` | 两种布局共用的预约表格，支持鼠标及键盘选择、内部滚动。 |
@@ -95,6 +103,8 @@
 | `docs/acceptance-plan.md` | 中期与最终验收案例、证据和完成判定。 |
 | `docs/stages/stage-2-delivery-guide.md` | 阶段 2 前后端与数据库变化、输入输出、联调过程，以及教师要求的结构/数据展示说明。 |
 | `docs/stages/stage-2-ui-reference-redesign.md` | 用户参考图改版的范围、视觉约束和 U01—U08 验收条件。 |
+| `docs/stages/stage-2-overview-and-scenarios.md` | 总览定位、场景数据、主图、简洁文案与真实账号状态的 R01—R08 验收条件。 |
+| `docs/business-flow.md` | 业务主线、页面职责、申请/计划/实际时间、状态、数据性质及下一批权限设计。 |
 | `docs/design/reference/` | 用户提供的五张原始参考图和来源说明，作为后续界面的视觉依据。 |
 | `docs/physical-design-and-operations.md` | 物理类型、约束分工和业务操作契约。 |
 | `docs/decision-log.md` | 记录影响模型和技术路线的关键决策。 |

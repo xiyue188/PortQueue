@@ -12,11 +12,11 @@ web
 
 ## Product Purpose
 
-围绕进港预约、锚地排队、泊位时间窗与实际事件形成可追溯的管理系统。阶段 2 只完成真实预约查询。
+围绕进港预约、锚地排队、泊位时间窗与实际事件形成可追溯的管理系统。阶段 2 完成预约查询与跨业务只读总览，写操作页面按后续阶段逐项接入。
 
 ## Capabilities and Constraints
 
-已由本会话确认：Vue 3 + TypeScript + Vite，后端 .NET 8，SQL Server。已实现预约总览和进港预约两种布局，共用真实只读查询、筛选、分页和选中详情；覆盖加载/空/错误状态，时间显示 Asia/Shanghai。旧静态总览已删除。摘要分别标明匹配总数和本页状态数量，不能冒充全港指标。
+已由本会话确认：Vue 3 + TypeScript + Vite，后端 .NET 8，SQL Server。首页“总览”通过独立 API 显示待审核预约、锚地在场、待靠泊计划和近期事件；“进港预约”负责关键词/状态筛选、分页和选中详情。总览指标不受预约筛选影响；返回总览恢复全部预约摘要。覆盖加载/空/错误状态，时间显示 Asia/Shanghai。
 
 ## Brand Commitments
 
@@ -24,8 +24,8 @@ web
 
 ## Evidence on Hand
 
-database/10_seed_demo.sql 是持久化的合成业务样例。阶段 1 数据库规则验收已完成；真实港口/AIS 数据、正式登录系统尚未接入。
+database/10_seed_demo.sql 保留原五条流程样例；12_refresh_sample_labels.sql 整理其业务编号和名称并留审计；13_seed_port_scenarios.sql 增加 48 条不同时间与状态的持久化合成场景。当前开发库 53 条预约。阶段 1 数据库规则验收已完成；真实港口/AIS 数据和账号认证尚未接入，账号区如实显示“未登录”。
 
 ## Product Principles
 
-查询结果来自数据库；失败不能回退 Mock。申请时间与实际时间分清。阶段范围小、可验证，默认首页打开已完成的真实功能。
+查询结果来自数据库；失败不能回退 Mock。申请、计划与实际时间分清。阶段范围小、可验证。Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining. 界面保留必要业务字段、错误恢复及无障碍名称；合成数据性质和图片来源在文档说明，场景图不绑定某条船舶记录。后续页面延续冰蓝商务风格，少量海浪边只用于摘要/场景区域，表单和表格保持规整。

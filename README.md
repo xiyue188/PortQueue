@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 ## 当前运行方式
 
-当前仓库已经具备可验证的 SQL Server 数据库基线，以及一条真实的预约查询链路：SQL Server → Dapper → ASP.NET Core API → Vue 预约总览和列表详情。界面按用户提供的冰蓝玻璃参考重新设计，两个布局共用真实查询结果；旧静态总览已移除，未接入的业务入口标注“待接入”。
+当前仓库具备可验证的 SQL Server 数据库基线、真实预约查询，以及独立的港口只读总览：SQL Server → Dapper → ASP.NET Core API → Vue。“总览”展示待审核预约、锚地在场、待靠泊计划与近期事件；“进港预约”负责检索、分页和详情。界面沿用用户确认的冰蓝商务风格，摘要加入克制波浪边。开发库已装载 53 条可重复的合成场景；账号认证和业务写页面尚未接入，账号区显示“未登录”。
 
 数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端。使用 LocalDB 时，先确认 `(localdb)\PortQueueDev` 实例处于 Running；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
@@ -61,7 +61,7 @@ dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localh
 pnpm.cmd --dir web/port-queue-web run dev
 ```
 
-启动后访问 `http://127.0.0.1:5173` 查看真实预约总览，点击“进港预约”查看列表和详情；访问 `http://localhost:5180/api/health` 查看后端健康接口。预约从本机 SQL Server 读取；数据库不可用时页面会显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复 SQL Server 数据库。
+启动后访问 `http://127.0.0.1:5173` 查看总览，点击“进港预约”查看列表和详情；访问 `http://localhost:5180/api/health` 查看后端健康接口。所有业务结果从本机 SQL Server 读取；数据库不可用时显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复数据库并按需装载场景。
 
 只复制命令，不复制终端的 `PS ...>` 或 `>>` 提示符。也可以在 VS Code 中执行 `Tasks: Run Task` → `frontend: dev`。如提示 5173 已占用，先访问已有页面或停止原前端终端，不要重复启动。
 
@@ -70,6 +70,8 @@ pnpm.cmd --dir web/port-queue-web run dev
 分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
+
+业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色的后续权限设计见 [`docs/business-flow.md`](docs/business-flow.md)。本轮细化计划与验收条件见 [`docs/stages/stage-2-overview-and-scenarios.md`](docs/stages/stage-2-overview-and-scenarios.md)。
 
 ## 交付要求
 
