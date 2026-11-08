@@ -53,7 +53,7 @@ h1, h2, h3, p { margin: 0; }
 .brand-mark { width: 30px; height: 32px; color: #0872dc; flex: 0 0 30px; }
 .side-nav { padding: 17px 11px; display: flex; flex-direction: column; gap: 12px; }
 .side-nav button { position: relative; display: flex; align-items: center; gap: 14px; padding: 0 12px; min-height: 48px; width: 100%; border: 0; border-radius: 7px; background: transparent; text-align: left; white-space: nowrap; font-size: 13px; }
-.side-nav button[aria-current="page"] { color: #065fc6; background: linear-gradient(90deg, rgba(207, 234, 254, .8), #add5f5); font-weight: 650; }
+.side-nav button[aria-current="page"] { color: #0757ad; background: linear-gradient(90deg, rgba(207, 234, 254, .8), #add5f5); font-weight: 650; }
 .side-nav button:not(:disabled):hover { background-color: #c4e5fa; }
 .side-nav button:disabled { color: #44617a; }
 .side-nav small { font-size: 9px; color: #516e85; margin-left: auto; }
@@ -89,13 +89,29 @@ h1, h2, h3, p { margin: 0; }
 
 /* 横向摘要条只呈现查询事实和明确标注的本页状态计数。 */
 .metrics-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: 100px; margin-bottom: 15px; padding: 18px 4px; }
+/* 波浪只用于概况摘要底缘，保留信息网格与商务界面的整齐边界。 */
+.wave-summary { position: relative; border-bottom: 0; border-radius: 12px 12px 0 0; margin-bottom: 24px; }
+.wave-summary::after { content: ''; position: absolute; height: 10px; left: -1px; right: -1px; bottom: -9px; background: var(--glass); mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0H600V5C550 0 550 10 500 5S450 0 400 5S350 10 300 5S250 0 200 5S150 10 100 5S50 0 0 5Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+.text-action { display: inline-flex; gap: 8px; align-items: center; padding: 12px 0; border: 0; background: transparent; color: #174f7b; font-size: 12px; text-align: left; }
+.text-action:hover { color: #0063b7; }
+.is-overview .records-panel > .text-action { grid-column: 1 / -1; justify-self: end; }
+.recent-events { margin-top: 15px; padding: 16px; }
+.recent-events h2 { font-size: 15px; }
+.recent-events ol { margin: 12px 0 0; padding: 0; list-style: none; }
+.recent-events li { display: grid; grid-template-columns: 20px 1fr auto auto; gap: 16px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 12px; }
+.recent-events time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.recent-events p { font-size: 13px; margin-top: 14px; }
+.overview-bottom { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; }
+.overview-bottom .recent-events { margin-top: 0; }
+.overview-bottom .recent-events li { grid-template-columns: 20px 1fr auto; gap: 8px; }
+.overview-bottom .recent-events time { grid-column: 2 / -1; font-size: 11px; }
+.with-detail .table-scroll { max-height: 420px; }
 .metric { display: flex; align-items: center; gap: 12px; padding: 0 23px; }
 .metric + .metric { border-left: 1px solid rgba(86, 131, 162, .2); }
 .metric-icon { display: grid; place-items: center; width: 50px; height: 50px; background: rgba(241, 250, 255, .44); border-radius: 50%; flex-shrink: 0; }
 .metric > div { display: flex; flex-direction: column; gap: 3px; }
 .metric > div > span { font-size: 12px; white-space: nowrap; }
 .metric strong { font-size: 32px; font-weight: 720; line-height: 1.05; letter-spacing: -.6px; font-variant-numeric: tabular-nums; }
-.metric small { color: #426884; font-size: 10px; align-self: flex-end; margin-bottom: 6px; white-space: nowrap; }
 .selection-strip { display: flex; align-items: center; gap: 16px; min-height: 104px; margin-bottom: 15px; padding: 17px; }
 .summary-vessel { width: 94px; height: 61px; border: 1px solid rgba(255, 255, 255, .75); object-fit: cover; border-radius: 9px; }
 .summary-identity { display: flex; flex-direction: column; gap: 9px; flex: 1; min-width: 0; }
@@ -110,16 +126,15 @@ h1, h2, h3, p { margin: 0; }
 /* 总览构图跟随参考：约 2:1 的场景焦点和准备信息，底部为真正的预约时间窗。 */
 .overview-focus { display: grid; grid-template-columns: minmax(0, 2.03fr) minmax(260px, 1fr); gap: 14px; margin-bottom: 15px; }
 .vessel-spotlight { position: relative; min-height: 351px; overflow: hidden; isolation: isolate; background: #b8d3e2; }
-.spotlight-photo { position: absolute; width: 100%; height: 100%; right: 0; top: 0; object-fit: cover; object-position: 48% center; z-index: -3; }
+.spotlight-photo { position: absolute; width: 100%; height: 100%; right: 0; top: 0; object-fit: cover; object-position: 50% 43%; z-index: -3; }
 /* 底部暗层放在浅色横向蒙层之上，保证时间窗两端的白字都有连续深色背景。 */
 .spotlight-wash { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(7, 40, 63, .97), rgba(7, 40, 63, .72) 22%, transparent 48%), linear-gradient(90deg, rgba(198, 220, 233, .96), rgba(203, 224, 236, .72) 22%, transparent 55%); z-index: -2; }
-.spotlight-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; }
+.spotlight-top { display: flex; justify-content: flex-end; align-items: center; padding: 12px 18px; }
 .cycle-actions { display: flex; gap: 5px; }
 .cycle-actions .icon-button { width: 29px; min-width: 29px; height: 29px; border-radius: 50%; }
 .spotlight-identity { padding: 2px 18px 0; max-width: 70%; }
 .spotlight-identity h3 { font-size: 26px; line-height: 1.2; letter-spacing: -.6px; overflow-wrap: anywhere; }
 .spotlight-identity p { margin: 8px 0 12px; font-size: 13px; color: #254c69; }
-.illustration-tag { position: absolute; right: 15px; bottom: 111px; padding: 3px 7px; border-radius: 4px; background: rgba(235, 246, 254, .8); color: #294c64; font-size: 10px; }
 .request-window { position: absolute; bottom: 19px; left: 26px; right: 26px; color: #effaff; }
 .window-track { display: flex; align-items: center; justify-content: space-between; height: 28px; position: relative; margin-bottom: 6px; }
 .window-track::before { position: absolute; content: ''; left: 5px; right: 5px; top: 13px; border-top: 1px dashed rgba(234, 249, 255, .75); }
@@ -142,7 +157,7 @@ h1, h2, h3, p { margin: 0; }
 /* 相同状态颜色同时用于标签与表格的圆点，文字确保不依赖颜色判断。 */
 .status-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .status-badge i, .status-text i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.status-pending { color: #855708; background: #f4e6bd; }
+.status-pending { color: #785008; background: #f4e6bd; }
 .status-approved { color: #096442; background: #b7ead9; }
 .status-completed { color: #205b8a; background: #c0def1; }
 .status-draft, .status-cancelled { color: #405a70; background: #dbe7ee; }
@@ -191,7 +206,6 @@ select { min-height: 32px; padding: 0 8px; color: #264a69; font-size: 11px; bord
 .detail-identity h3 { font-size: 20px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; letter-spacing: -.4px; }
 .detail-vessel { position: relative; margin: 15px 0; height: 159px; border-radius: 9px; overflow: hidden; background: #c6dfec; }
 .detail-vessel img { width: 100%; height: 100%; object-fit: cover; }
-.detail-vessel figcaption { position: absolute; bottom: 7px; right: 8px; background: rgba(235, 248, 255, .87); padding: 3px 6px; color: #315974; border-radius: 4px; font-size: 9px; }
 .detail-facts { display: flex; flex-direction: column; gap: 12px; margin: 0; }
 .detail-facts > div { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
 .detail-facts dt { color: #345572; flex-shrink: 0; }
@@ -200,12 +214,11 @@ select { min-height: 32px; padding: 0 8px; color: #264a69; font-size: 11px; bord
 .review-section h3 { font-size: 13px; margin-bottom: 14px; }
 .review-line { display: flex; align-items: center; gap: 10px; }
 .review-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #ebdfb6; color: #785111; flex-shrink: 0; }
-.review-icon.reviewed { color: #fff; background: #079b68; }
+.review-icon.status-approved, .review-icon.status-completed { color: #fff; background: #079b68; }
+.review-icon.status-rejected { color: #943d34; background: #f3d7d3; }
 .review-line strong { font-size: 11px; font-weight: 600; }
 .review-line small { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
 .review-comment { font-size: 11px; color: #345572; line-height: 1.6; margin-top: 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
-.detail-footnote { color: #456784; font-size: 10px; line-height: 1.6; margin-top: 20px; }
-.workspace-footnote { display: flex; justify-content: space-between; gap: 15px; padding: 13px 2px 0; color: #325774; font-size: 10px; }
 
 /* 加载、空结果、错误不会保留上一条船舶详情。 */
 .page-message { min-height: 315px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 16px; justify-content: center; align-items: center; padding: 30px; text-align: center; }
@@ -217,9 +230,9 @@ select { min-height: 32px; padding: 0 8px; color: #264a69; font-size: 11px; bord
 .records-placeholder { padding: 30px; text-align: center; color: var(--muted); font-size: 12px; }
 /* 总览保持参考图的短表格比例，记录在表格内滚动；完整清单保留独立详情布局。 */
 @media (min-width: 1001px) {
-  .is-overview .records-panel { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; min-height: 0; }
-  .is-overview .records-heading, .is-overview .filters-bar { margin-bottom: 0; }
-  .is-overview .table-scroll { grid-column: 1 / -1; max-height: 190px; }
+  .is-overview .records-panel { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: 10px; min-height: 0; }
+  .is-overview .records-heading { grid-column: 1 / -1; margin-bottom: 0; }
+  .is-overview .table-scroll { grid-column: 1 / -1; max-height: 274px; }
   .is-overview .pagination, .is-overview .records-placeholder { grid-column: 1 / -1; }
   .is-overview .pagination { padding: 6px 0 14px; }
 }
@@ -233,13 +246,13 @@ select { min-height: 32px; padding: 0 8px; color: #264a69; font-size: 11px; bord
   .side-nav button { gap: 10px; padding: 0 9px; }
   .side-nav small { font-size: 8px; }
   .metric { padding: 0 15px; gap: 9px; }
-  .metric small { display: none; }
   .header-date { padding-left: 12px; }
   .page-title { gap: 12px; }
   .records-layout.with-detail { grid-template-columns: minmax(0, 1.65fr) minmax(270px, 1fr); }
   .with-detail .vessel-row img { display: none; }
 }
 @media (max-width: 1000px) {
+  .overview-bottom { grid-template-columns: minmax(0, 1fr); }
   .port-workspace { width: calc(100% - 28px); grid-template-columns: 155px minmax(0, 1fr); margin: 20px auto; }
   .header-date { display: none; }
   .header-search { width: min(50%, 300px); }
@@ -317,6 +330,7 @@ select { min-height: 32px; padding: 0 8px; color: #264a69; font-size: 11px; bord
   .detail-identity { margin: 18px 0; }
   .detail-vessel { margin-bottom: 20px; }
   .review-section { margin-top: 20px; }
-  .workspace-footnote { flex-wrap: wrap; line-height: 1.6; }
+  .recent-events li { grid-template-columns: 20px 1fr auto; gap: 8px; }
+  .recent-events time { grid-column: 2 / -1; font-size: 11px; }
   .page-message { padding: 25px 16px; }
 }

@@ -11,7 +11,7 @@ defineProps<{ item: AppointmentItem }>()
   <aside id="appointment-detail" class="glass-panel detail-panel" aria-labelledby="detail-title" tabindex="-1">
     <div class="panel-heading"><h2 id="detail-title">预约详情</h2><PortIcon name="document" :size="20" /></div>
     <div class="detail-identity"><h3>{{ item.shipName }}</h3><span class="status-badge" :class="statusClass(item.appointmentStatusCode)"><i></i>{{ statusLabel(item.appointmentStatusCode) }}</span></div>
-    <figure class="detail-vessel"><img :src="vesselImage" alt="集装箱船舶场景示意" /><figcaption>船舶示意</figcaption></figure>
+    <figure class="detail-vessel"><img :src="vesselImage" alt="" /></figure>
     <dl class="detail-facts">
       <div><dt>预约编号</dt><dd>{{ item.appointmentNo }}</dd></div>
       <div><dt>IMO</dt><dd>{{ item.imoNo ?? '—' }}</dd></div>
@@ -21,11 +21,11 @@ defineProps<{ item: AppointmentItem }>()
     </dl>
     <div class="review-section">
       <h3>审核记录</h3>
-      <div class="review-line"><span class="review-icon" :class="{ reviewed: item.reviewedAt }"><PortIcon :name="item.reviewedAt ? 'check' : 'clock'" :size="16" /></span>
-        <span><strong>{{ item.reviewerName ?? '尚无审核信息' }}</strong><small>{{ item.reviewedAt ? formatDate(item.reviewedAt) : '审核完成后显示审核人与时间' }}</small></span>
+      <div class="review-line"><span class="review-icon" :class="item.reviewedAt ? statusClass(item.appointmentStatusCode) : ''"><PortIcon :name="item.appointmentStatusCode === 'REJECTED' ? 'reset' : item.reviewedAt ? 'check' : 'clock'" :size="16" /></span>
+        <span><strong>{{ item.reviewerName ?? '尚无审核信息' }}</strong><small>{{ item.reviewedAt ? formatDate(item.reviewedAt) : '—' }}</small></span>
       </div>
       <p class="review-comment">{{ item.reviewComment ?? '暂无审核意见' }}</p>
     </div>
-    <p class="detail-footnote">申请时间与实际到离港事件分别记录。</p>
+
   </aside>
 </template>
