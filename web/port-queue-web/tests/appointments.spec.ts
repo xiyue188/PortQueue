@@ -11,7 +11,7 @@ async function openList(page: Page) {
 }
 test.beforeAll(async () => { await mkdir(shots, { recursive: true }) })
 
-test('总览真实跨业务指标与清单详情一致', async ({ page, request }) => {
+test('总览只读汇总与预约清单分别展示真实数据', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   const summary = await (await request.get('/api/overview')).json()
@@ -19,7 +19,7 @@ test('总览真实跨业务指标与清单详情一致', async ({ page, request 
   expect(data.totalCount).toBeGreaterThan(20)
   await page.goto('/')
   await expect(page.locator('.metric strong')).toHaveText([String(summary.pendingAppointments), String(summary.anchorageVessels), String(summary.confirmedPlans)])
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(5)
+  await expect(page.locator('.state-distribution button')).toHaveCount(6)
   await expect(page.locator('.recent-events li')).toHaveCount(summary.recentEvents.length)
   await expect(page.locator('.spotlight-photo')).toHaveJSProperty('complete', true)
   await expect(page.locator('body')).not.toContainText(/课程演示数据|本地演示|船舶示意|Demo|全部申请日期/)
@@ -111,7 +111,7 @@ test('先发慢请求不能覆盖新状态查询', async ({ page }) => {
 test('390和320窄屏无整页溢出，菜单与键盘选择可用', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(5)
+  await expect(page.locator('.state-distribution button')).toHaveCount(6)
   await expect(page.locator('.recent-events li')).toHaveCount(12)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   await page.screenshot({ path: shots+'/mobile-overview.png', fullPage: true })
@@ -277,7 +277,7 @@ test('连续提交关键词与状态使用最新请求条件', async ({ page, re
 test('用户宽屏与参考宽度的布局证据', async ({ page }) => {
   await page.setViewportSize({ width: 2470, height: 1303 })
   await page.goto('/')
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(5)
+  await expect(page.locator('.state-distribution button')).toHaveCount(6)
   await page.screenshot({ path: shots+'/user-2470-overview.png', fullPage: true })
   const shell = await page.locator('.port-workspace').boundingBox()
   await page.getByRole('button', { name: '进港预约', exact: true }).click()

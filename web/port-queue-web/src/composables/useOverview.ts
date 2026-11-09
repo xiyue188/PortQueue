@@ -1,5 +1,6 @@
 // 总览独立读取全港工作量，预约筛选不会改变这些指标；失败不保留过期数字。
 import { onScopeDispose, ref } from 'vue'
+import { appointmentStatuses, type AppointmentStatus } from '../types/appointment'
 
 export interface RecentPortEvent {
   eventId: string
@@ -13,6 +14,14 @@ export interface PortOverview {
   pendingAppointments: number
   anchorageVessels: number
   confirmedPlans: number
+  waitingQueue: number
+  assignedQueue: number
+  draftPlans: number
+  executingPlans: number
+  portEntries: number
+  berthings: number
+  unberthings: number
+  appointmentStates: { code: AppointmentStatus; count: number }[]
   totalEvents: number
   eventsPage: number
   eventsPageSize: number
@@ -25,7 +34,10 @@ export const eventLabels: Record<string, string> = {
 function validOverview(value: unknown): value is PortOverview {
   if (!value || typeof value !== 'object') return false
   const item = value as Record<string, unknown>
-  return ['pendingAppointments', 'anchorageVessels', 'confirmedPlans', 'totalEvents'].every(key => Number.isSafeInteger(item[key]) && Number(item[key]) >= 0)
+  return ['pendingAppointments', 'anchorageVessels', 'confirmedPlans', 'totalEvents', 'waitingQueue', 'assignedQueue', 'draftPlans', 'executingPlans', 'portEntries', 'berthings', 'unberthings'].every(key => Number.isSafeInteger(item[key]) && Number(item[key]) >= 0)
+    && Array.isArray(item.appointmentStates) && item.appointmentStates.length === 6
+    && new Set(item.appointmentStates.map(state => state?.code)).size === 6
+    && item.appointmentStates.every(state => state && appointmentStatuses.some(status => status.code === state.code) && Number.isSafeInteger(state.count) && state.count >= 0)
     && Number.isSafeInteger(item.eventsPage) && Number(item.eventsPage) >= 1 && item.eventsPageSize === 12
     && Array.isArray(item.recentEvents) && item.recentEvents.length <= 12 && item.recentEvents.every(event =>
       event && typeof event.eventId === 'string' && /^\d+$/.test(event.eventId)

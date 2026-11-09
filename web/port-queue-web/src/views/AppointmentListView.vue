@@ -1,11 +1,13 @@
 <script setup lang="ts">
 // 两个页面分别缓存查询与选择，共用稳定工作区；页内查询不重建整个页面。
-import { computed, nextTick, onMounted, onScopeDispose, ref } from 'vue'
+import { computed, onMounted, onScopeDispose, ref } from 'vue'
 import PortIcon from '../components/PortIcon.vue'
 import AppointmentSearch from '../components/AppointmentSearch.vue'
 import AppointmentRecords from '../components/AppointmentRecords.vue'
 import AppointmentDetail from '../components/AppointmentDetail.vue'
-import AppointmentOverview from '../components/AppointmentOverview.vue'
+import PortOverview from '../components/PortOverview.vue'
+import PortOperationsSummary from '../components/PortOperationsSummary.vue'
+import SessionAccount from '../components/SessionAccount.vue'
 import RecentPortEvents from '../components/RecentPortEvents.vue'
 import { useOverview } from '../composables/useOverview'
 import { useAppointments } from '../composables/useAppointments'
@@ -20,15 +22,11 @@ const activeView = ref<View>(viewFromHash())
 const mobileMenuOpen = ref(false)
 const keyword = ref('')
 const selectedId = ref<string>()
-const previewId = ref<string>()
 const list = useAppointments()
 const detail = useAppointmentSelection()
-const preview = useAppointments(5)
 const { query, rows, totalCount, totalPages, loading, error, load, search } = list
 const selected = computed(() => detail.loading.value || detail.error.value ? undefined
   : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
-const previewSelected = computed(() => preview.rows.value.find(row => row.appointmentId === previewId.value)
-  ?? preview.rows.value.find(row => row.appointmentStatusCode === 'PENDING') ?? preview.rows.value[0])
 const { overview, overviewError, overviewLoading, refreshOverview } = useOverview()
 const title = computed(() => activeView.value === 'overview' ? '总览' : '进港预约')
 const dateLabel = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -55,24 +53,16 @@ function chooseSuggestion(item: AppointmentItem) {
   detail.select(item)
   switchView('appointments')
 }
-function refresh() { detail.clear(); void refreshOverview(); void preview.load(); if (listVisited) void load() }
+function refresh() { detail.clear(); void refreshOverview(); if (listVisited) void load() }
 function reset() { detail.clear(); keyword.value = ''; void search('', '') }
 function clearKeyword() { detail.clear(); keyword.value = ''; void search('', (list.pendingQuery.value ?? query.value).status) }
 function filterStatus(status: AppointmentStatus | '') { detail.clear(); void search((list.pendingQuery.value ?? query.value).keyword, status) }
 function loadList(next?: AppointmentQuery) { detail.clear(); void load(next) }
 function selectRow(item: AppointmentItem) { if (!loading.value) { detail.select(item); selectedId.value = item.appointmentId } }
-function cycle(step: number) {
-  const current = previewSelected.value
-  if (!current || preview.loading.value || preview.rows.value.length < 2) return
-  const index = preview.rows.value.findIndex(row => row.appointmentId === current.appointmentId)
-  previewId.value = preview.rows.value[(index + step + preview.rows.value.length) % preview.rows.value.length].appointmentId
-}
-async function openDetails() {
-  if (!previewSelected.value) return
-  const item = previewSelected.value
-  chooseSuggestion(item)
-  await nextTick()
-  document.getElementById('appointment-detail')?.focus({ preventScroll: true })
+// 总览状态是明确查询入口，清除旧关键词，不会被上次的筛选截断。
+function openStatus(status: AppointmentStatus | '') {
+  detail.clear(); keyword.value = ''; listVisited = true
+  switchView('appointments'); void search('', status)
 }
 onMounted(() => { refresh(); if (activeView.value === 'appointments') ensureList(); window.addEventListener('popstate', historyChange) })
 onScopeDispose(() => window.removeEventListener('popstate', historyChange))
@@ -92,7 +82,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
         <button v-for="nav in plannedNavigation" :key="nav.label" disabled><PortIcon :name="nav.icon" /><span>{{ nav.label }}</span><small>待接入</small></button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="workspace-account"><span class="account-avatar"><PortIcon name="user" :size="21" /></span><div><strong>未登录</strong></div></div>
+        <SessionAccount />
       </div>
     </aside>
 
@@ -111,14 +101,9 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           <div class="metric"><span class="metric-icon"><PortIcon name="berth" :size="25" /></span><div><span>待靠泊计划</span><strong>{{ overview?.confirmedPlans ?? '—' }}</strong></div></div>
           <span v-if="overviewLoading" class="sr-only" role="status">正在更新总览</span>
         </section>
-        <div class="focus-host" :aria-busy="preview.loading.value" :inert="preview.loading.value || undefined">
-          <AppointmentOverview v-if="previewSelected" :item="previewSelected" :can-cycle="preview.rows.value.length > 1" @cycle="cycle" @details="openDetails" />
-          <div v-else class="glass-panel focus-placeholder" aria-hidden="true"><PortIcon name="ship" :size="64" /></div>
-        </div>
+        <PortOverview :overview="overview" :loading="overviewLoading" @appointments="openStatus" />
         <div class="overview-bottom">
-          <AppointmentRecords compact :rows="preview.rows.value" :query="preview.query.value" :loading="preview.loading.value" :error="preview.error.value"
-            :total-count="preview.totalCount.value" :total-pages="preview.totalPages.value" :selected-id="previewSelected?.appointmentId"
-            @select="previewId = $event.appointmentId" @load="preview.load()" @reset="preview.load()" @all="switchView('appointments')" />
+          <PortOperationsSummary :overview="overview" />
           <RecentPortEvents :overview="overview" :loading="overviewLoading" :error="overviewError" :active="activeView === 'overview'" @page="refreshOverview" @select="openEvent" />
         </div>
       </div>

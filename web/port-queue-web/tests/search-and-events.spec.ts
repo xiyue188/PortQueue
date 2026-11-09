@@ -99,11 +99,9 @@ test('动态遍历完整历史，标题固定，暂停和关联预约可用', as
   await expect(page.locator('.appointments-pane .pagination')).toContainText('共 53 条预约')
 })
 
-test('打开场景详情或候选保留清单范围，筛选和分页仍能查看其他预约', async ({ page, request }) => {
+test('完整入口与候选保留清单范围，筛选和分页仍能查看其他预约', async ({ page, request }) => {
   await page.goto('/')
-  const no = await page.locator('.spotlight-identity p').innerText()
-  await page.getByRole('button', { name: '查看预约详情', exact: true }).click()
-  await expect(page.locator('#appointment-detail')).toContainText(no)
+  await page.getByRole('button', { name: '查看全部预约', exact: true }).click()
   await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(20)
   await expect(page.locator('.appointments-pane .pagination')).toContainText('共 53 条预约')
   await expect(page.getByRole('combobox', { name: '预约关键词' })).toHaveValue('')
@@ -216,19 +214,22 @@ test('自动到页尾换页，减少动画默认暂停，手动阅读与隐藏�
   expect(await hiddenViewport.evaluate(element => element.scrollTop)).toBe(hiddenTop)
 })
 
-test('不展示含义不明的辅助数字，六种状态不会冒充航程', async ({ page, request }) => {
-  // 仅为覆盖组件的六种真实状态，替换总览首批读取的顺序；内容仍由真实 API 返回。
-  for (const status of ['DRAFT', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED']) {
-    const data = await (await request.get(`/api/appointments?pageSize=5&status=${status}`)).json()
-    const preview = (url: URL) => url.pathname === '/api/appointments' && url.searchParams.get('pageSize') === '5'
-    await page.route(preview, route => route.fulfill({ json: data }))
-    await page.goto('/')
-    await expect(page.locator('.workflow-track')).toHaveAttribute('aria-label', /预约办理进度/)
-    await expect(page.locator('.metric-fact')).toHaveCount(0)
-    if (['APPROVED', 'COMPLETED'].includes(status)) await expect(page.locator('.workflow-track')).toHaveClass(/is-confirmed/)
-    else await expect(page.locator('.workflow-track')).not.toHaveClass(/is-confirmed/)
-    if (['REJECTED', 'CANCELLED'].includes(status)) await expect(page.locator('.workflow-vessel')).toHaveCount(0)
-    if (status === 'APPROVED') await page.screenshot({ path: '../../.impeccable/review/approved-workflow.png', fullPage: true })
-    await page.unroute(preview)
+test('总览涵盖全部状态且不请求单船摘要，批准入口覆盖完整清单', async ({ page, request }) => {
+  const summary = await (await request.get('/api/overview')).json()
+  let listRequests = 0
+  page.on('request', req => { if (new URL(req.url()).pathname === '/api/appointments') listRequests++ })
+  await page.goto('/')
+  await expect(page.locator('.state-distribution button')).toHaveCount(6)
+  expect(listRequests).toBe(0)
+  await expect(page.locator('.overview-pane tbody, .cycle-actions, .workflow-track, .metric-fact')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '作业概要' })).toBeVisible()
+  for (const state of summary.appointmentStates) {
+    const data = await (await request.get(`/api/appointments?status=${state.code}`)).json()
+    expect(data.totalCount).toBe(state.count)
+    await page.locator('.state-distribution button').filter({ has: page.locator(`.status-${state.code.toLowerCase()}`) }).click()
+    await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${data.totalCount} 条预约`)
+    await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(Math.min(data.totalCount, 20))
+    await expect(page.getByLabel('预约关键词', { exact: true })).toHaveValue('')
+    await page.getByRole('button', { name: '总览', exact: true }).click()
   }
 })
