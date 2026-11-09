@@ -6,9 +6,11 @@ import AppointmentSearch from '../components/AppointmentSearch.vue'
 import AppointmentRecords from '../components/AppointmentRecords.vue'
 import AppointmentDetail from '../components/AppointmentDetail.vue'
 import AppointmentOverview from '../components/AppointmentOverview.vue'
-import { useOverview, eventLabels } from '../composables/useOverview'
+import RecentPortEvents from '../components/RecentPortEvents.vue'
+import { useOverview } from '../composables/useOverview'
 import { useAppointments } from '../composables/useAppointments'
-import type { AppointmentItem, AppointmentStatus } from '../types/appointment'
+import { useAppointmentSelection } from '../composables/useAppointmentSelection'
+import type { AppointmentItem, AppointmentQuery, AppointmentStatus } from '../types/appointment'
 import { formatDate, statusClass, statusLabel } from '../utils/appointmentPresentation'
 import vesselImage from '../assets/vessel-reference.png'
 
@@ -20,9 +22,11 @@ const keyword = ref('')
 const selectedId = ref<string>()
 const previewId = ref<string>()
 const list = useAppointments()
+const detail = useAppointmentSelection()
 const preview = useAppointments(5)
 const { query, rows, totalCount, totalPages, loading, error, load, search } = list
-const selected = computed(() => rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0])
+const selected = computed(() => detail.loading.value || detail.error.value ? undefined
+  : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
 const previewSelected = computed(() => preview.rows.value.find(row => row.appointmentId === previewId.value)
   ?? preview.rows.value.find(row => row.appointmentStatusCode === 'PENDING') ?? preview.rows.value[0])
 const { overview, overviewError, overviewLoading, refreshOverview } = useOverview()
@@ -42,18 +46,21 @@ function switchView(view: View) {
 }
 function historyChange() { activeView.value = viewFromHash(); mobileMenuOpen.value = false; if (activeView.value === 'appointments') ensureList() }
 // 连续操作基于最近已提交的意图合并；尚未提交的输入草稿不影响状态切换。
-function submit() { listVisited = true; switchView('appointments'); void search(keyword.value, (list.pendingQuery.value ?? query.value).status) }
+function submit() { detail.clear(); listVisited = true; switchView('appointments'); void search(keyword.value, (list.pendingQuery.value ?? query.value).status) }
+function searchAll() { detail.clear(); listVisited = true; switchView('appointments'); void search(keyword.value, '') }
+function openEvent(appointmentId: string) { switchView('appointments'); void detail.open(appointmentId) }
 function chooseSuggestion(item: AppointmentItem) {
-  keyword.value = item.appointmentNo
+  keyword.value = (list.pendingQuery.value ?? query.value).keyword
   selectedId.value = item.appointmentId
-  listVisited = true
+  detail.select(item)
   switchView('appointments')
-  void search(item.appointmentNo, '')
 }
-function refresh() { void refreshOverview(); void preview.load(); if (listVisited) void load() }
-function reset() { keyword.value = ''; void search('', '') }
-function filterStatus(status: AppointmentStatus | '') { void search((list.pendingQuery.value ?? query.value).keyword, status) }
-function selectRow(item: AppointmentItem) { if (!loading.value) selectedId.value = item.appointmentId }
+function refresh() { detail.clear(); void refreshOverview(); void preview.load(); if (listVisited) void load() }
+function reset() { detail.clear(); keyword.value = ''; void search('', '') }
+function clearKeyword() { detail.clear(); keyword.value = ''; void search('', (list.pendingQuery.value ?? query.value).status) }
+function filterStatus(status: AppointmentStatus | '') { detail.clear(); void search((list.pendingQuery.value ?? query.value).keyword, status) }
+function loadList(next?: AppointmentQuery) { detail.clear(); void load(next) }
+function selectRow(item: AppointmentItem) { if (!loading.value) { detail.select(item); selectedId.value = item.appointmentId } }
 function cycle(step: number) {
   const current = previewSelected.value
   if (!current || preview.loading.value || preview.rows.value.length < 2) return
@@ -63,9 +70,7 @@ function cycle(step: number) {
 async function openDetails() {
   if (!previewSelected.value) return
   const item = previewSelected.value
-  keyword.value = item.appointmentNo; selectedId.value = item.appointmentId
-  listVisited = true; switchView('appointments')
-  await search(item.appointmentNo, '')
+  chooseSuggestion(item)
   await nextTick()
   document.getElementById('appointment-detail')?.focus({ preventScroll: true })
 }
@@ -95,7 +100,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
       <header class="topbar">
         <button class="icon-button mobile-toggle" aria-label="展开业务导航" :aria-expanded="mobileMenuOpen" @click="mobileMenuOpen = !mobileMenuOpen"><PortIcon name="menu" /></button>
         <div class="page-title"><h1>{{ title }}</h1><span class="header-date">{{ dateLabel }}</span></div>
-        <AppointmentSearch v-model="keyword" @search="submit" @select="chooseSuggestion" />
+        <AppointmentSearch v-model="keyword" @search="submit" @all="searchAll" @select="chooseSuggestion" />
         <button class="button button-primary refresh-button" :disabled="loading || overviewLoading" @click="refresh"><PortIcon name="refresh" :size="17" /><span>刷新</span></button>
       </header>
 
@@ -114,14 +119,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           <AppointmentRecords compact :rows="preview.rows.value" :query="preview.query.value" :loading="preview.loading.value" :error="preview.error.value"
             :total-count="preview.totalCount.value" :total-pages="preview.totalPages.value" :selected-id="previewSelected?.appointmentId"
             @select="previewId = $event.appointmentId" @load="preview.load()" @reset="preview.load()" @all="switchView('appointments')" />
-          <section class="glass-panel recent-events" aria-labelledby="events-title" :aria-busy="overviewLoading">
-            <div class="panel-heading"><h2 id="events-title">港口动态</h2></div>
-            <p v-if="overviewError" role="alert">{{ overviewError }} <button class="text-action" @click="refreshOverview">重试</button></p>
-            <ol v-else-if="overview?.recentEvents.length">
-              <li v-for="event in overview.recentEvents" :key="event.eventId"><PortIcon :name="event.eventTypeCode.includes('ANCHORAGE') ? 'anchor' : 'ship'" :size="19" /><strong>{{ event.shipName }}</strong><span>{{ eventLabels[event.eventTypeCode] }}</span><time>{{ formatDate(event.eventTime) }}</time></li>
-            </ol>
-            <p v-else role="status">{{ overviewLoading ? '正在读取动态…' : '暂无进出港记录' }}</p>
-          </section>
+          <RecentPortEvents :overview="overview" :loading="overviewLoading" :error="overviewError" :active="activeView === 'overview'" @page="refreshOverview" @select="openEvent" />
         </div>
       </div>
 
@@ -133,14 +131,14 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
             <div class="summary-time"><PortIcon name="calendar" :size="24" /><div><span>申请到港</span><strong>{{ formatDate(selected.requestedArrivalAt) }}</strong></div></div>
             <div class="summary-status"><span>预约状态</span><span class="status-badge" :class="statusClass(selected.appointmentStatusCode)"><i></i>{{ statusLabel(selected.appointmentStatusCode) }}</span></div>
           </template>
-          <span v-else class="selection-placeholder">{{ loading ? '正在载入预约…' : error ? '预约暂时无法读取' : '暂无选中预约' }}</span>
+          <span v-else class="selection-placeholder">{{ loading || detail.loading.value ? '正在载入预约…' : error || detail.error.value ? '预约暂时无法读取' : '暂无选中预约' }}</span>
         </section>
         <div class="records-layout with-detail">
           <AppointmentRecords :rows="rows" :query="query" :loading="loading" :error="error" :total-count="totalCount" :total-pages="totalPages"
-            :selected-id="selected?.appointmentId" @select="selectRow" @filter="filterStatus" @load="load" @reset="reset" />
-          <div class="detail-host" :aria-busy="loading" :inert="loading || undefined">
+            :selected-id="selected?.appointmentId" @select="selectRow" @filter="filterStatus" @load="loadList" @reset="reset" @clear-keyword="clearKeyword" />
+          <div class="detail-host" :aria-busy="loading || detail.loading.value" :inert="loading || undefined">
             <AppointmentDetail v-if="selected" :item="selected" />
-            <aside v-else class="glass-panel detail-panel detail-placeholder"><PortIcon name="document" :size="30" /><p>{{ loading ? '正在载入详情…' : '选择预约查看详情' }}</p></aside>
+            <aside v-else class="glass-panel detail-panel detail-placeholder"><PortIcon name="document" :size="30" /><p v-if="detail.error.value" role="alert">{{ detail.error.value }}</p><p v-else>{{ loading || detail.loading.value ? '正在载入详情…' : '选择预约查看详情' }}</p><button v-if="detail.error.value" class="button" @click="detail.retry">重试详情</button></aside>
           </div>
         </div>
       </div>

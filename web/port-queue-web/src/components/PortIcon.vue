@@ -14,6 +14,8 @@ const paths: Record<string, string> = {
   left: 'm14 6-6 6 6 6',
   right: 'm10 6 6 6-6 6',
   down: 'm6 9 6 6 6-6',
+  pause: 'M8 5v14M16 5v14',
+  play: 'm8 4 12 8-12 8z',
   clock: 'M12 7v6l4 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',
   calendar: 'M5 5h14v16H5zM8 2v6m8-6v6M5 10h14',
   check: 'm5 12 4 4L19 6',

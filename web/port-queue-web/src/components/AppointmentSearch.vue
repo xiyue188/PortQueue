@@ -10,6 +10,7 @@ const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   search: []
+  all: []
   select: [item: AppointmentItem]
 }>()
 const root = ref<HTMLElement>()
@@ -19,6 +20,8 @@ const composing = ref(false)
 const loading = ref(false)
 const error = ref('')
 const candidates = ref<AppointmentItem[]>([])
+const total = ref<number | null>(null)
+const page = ref(0)
 const active = ref(-1)
 let debounce: ReturnType<typeof setTimeout> | undefined
 let controller: AbortController | undefined
@@ -37,29 +40,47 @@ function schedule(delay = 220) {
   controller?.abort()
   const current = ++sequence
   candidates.value = []
+  total.value = null
+  page.value = 0
   active.value = -1
   error.value = ''
   if (!open.value || composing.value) return
   loading.value = true
-  debounce = setTimeout(async () => {
+  debounce = setTimeout(() => void fetchPage(1, current), delay)
+}
+// 下一批沿用同一关键词；切换关键词、收起或卸载都会使分页响应失效。
+async function fetchPage(target: number, current = ++sequence) {
+    loading.value = true
+    error.value = ''
     const request = new AbortController()
     controller = request
     const timeout = setTimeout(() => request.abort(), 8_000)
     try {
-      const result = await fetchAppointments({ page: 1, pageSize: 6, status: '', keyword: props.modelValue.trim() }, request.signal)
-      if (current === sequence) candidates.value = result.items
+      const result = await fetchAppointments({ page: target, pageSize: 6, status: '', keyword: props.modelValue.trim() }, request.signal)
+      if (current === sequence) {
+        // 同一预约可能在两次请求间改变排序位置；保持候选键唯一。
+        const merged = target === 1 ? result.items : [...candidates.value, ...result.items]
+        candidates.value = [...new Map(merged.map(item => [item.appointmentId, item])).values()]
+        total.value = result.totalCount
+        page.value = target
+      }
     } catch {
       if (current === sequence) error.value = '暂时无法读取候选，请重试。'
     } finally {
       clearTimeout(timeout)
       if (current === sequence) loading.value = false
     }
-  }, delay)
 }
+function more() {
+  if (loading.value) return
+  // 按钮进入 disabled 状态前归还焦点，避免浏览器 blur 被当成离开搜索框。
+  input.value?.focus()
+  void fetchPage(page.value + 1)
+}
+function showAll() { close(); emit('all') }
 function show() { if (!open.value) { open.value = true; schedule(0) } }
 function choose(item: AppointmentItem) {
   close()
-  emit('update:modelValue', item.appointmentNo)
   emit('select', item)
 }
 function submit() {
@@ -87,7 +108,7 @@ function outside(event: PointerEvent) { if (event.target instanceof Node && !roo
 function focusout(event: FocusEvent) { if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget)) close() }
 function clear() { emit('update:modelValue', ''); input.value?.focus(); show() }
 // 重试会卸载错误区按钮；先把焦点还给输入框，避免 focusout 把浮层关闭并取消请求。
-function retry() { input.value?.focus(); schedule(0) }
+function retry() { input.value?.focus(); if (page.value) more(); else schedule(0) }
 watch(() => props.modelValue, () => { if (open.value) schedule() })
 onMounted(() => document.addEventListener('pointerdown', outside))
 onScopeDispose(() => { close(); document.removeEventListener('pointerdown', outside) })
@@ -98,13 +119,14 @@ onScopeDispose(() => { close(); document.removeEventListener('pointerdown', outs
     <PortIcon name="search" :size="18" />
     <label class="sr-only" for="appointment-keyword">预约关键词</label>
     <input ref="input" id="appointment-keyword" :value="modelValue" role="combobox" type="text" maxlength="100"
-      placeholder="选择或搜索船舶、预约编号…" autocomplete="off" aria-autocomplete="list" aria-controls="appointment-suggestions"
+      placeholder="搜索船名、预约号、IMO / MMSI" autocomplete="off" aria-autocomplete="list" aria-controls="appointment-suggestions"
       :aria-expanded="open" :aria-activedescendant="open && active >= 0 ? `appointment-option-${active}` : undefined"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)" @focus="show" @click="show" @keydown="keydown"
       @compositionstart="composing = true; schedule()" @compositionend="composing = false; schedule()" />
     <button v-if="modelValue" type="button" class="search-clear" aria-label="清空关键词" @click="clear"><PortIcon name="reset" :size="15" /></button>
     <button type="submit" class="search-submit">查询</button>
     <div v-show="open" class="search-popover">
+      <div class="search-result-heading" role="status">{{ total === null ? '搜索预约' : `共 ${total} 条匹配预约` }}</div>
       <div id="appointment-suggestions" role="listbox" aria-label="预约候选" :aria-busy="loading">
         <div v-for="(item, index) in candidates" :id="`appointment-option-${index}`" :key="item.appointmentId"
           role="option" :aria-selected="active === index" class="search-option"
@@ -116,6 +138,10 @@ onScopeDispose(() => { close(); document.removeEventListener('pointerdown', outs
       <p v-if="loading" class="search-message" role="status">正在查找…</p>
       <div v-else-if="error" class="search-message" role="alert">{{ error }} <button type="button" class="text-action" @click="retry">重试</button></div>
       <p v-else-if="!candidates.length" class="search-message" role="status">没有匹配的预约</p>
+      <div v-if="total !== null && total > 0" class="search-result-actions">
+        <button type="button" class="text-action" :disabled="loading || page * 6 >= total" @click="more">{{ page * 6 >= total ? '已显示全部' : '加载更多' }}</button>
+        <button type="button" class="text-action" @click="showAll">查看全部结果<PortIcon name="arrow" :size="15" /></button>
+      </div>
     </div>
   </form>
 </template>

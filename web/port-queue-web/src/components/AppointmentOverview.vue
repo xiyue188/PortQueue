@@ -1,11 +1,17 @@
 <script setup lang="ts">
 // 参考总览的船舶焦点 + 右侧摘要布局；展示当前页选中预约，不宣称实时航运状态。
+import { computed } from 'vue'
 import PortIcon from './PortIcon.vue'
 import type { AppointmentItem } from '../types/appointment'
 import { formatDate, statusClass, statusLabel } from '../utils/appointmentPresentation'
 import vesselImage from '../assets/port-scene.png'
-defineProps<{ item: AppointmentItem; canCycle: boolean }>()
+const props = defineProps<{ item: AppointmentItem; canCycle: boolean }>()
 const emit = defineEmits<{ cycle: [step: number]; details: [] }>()
+// 流程节点来自预约状态；不能用申请时间推算实际航程或船舶位置。
+const steps = ['草稿', '待审核', '已批准', '已完成']
+const step = computed(() => ({ DRAFT: 0, PENDING: 1, APPROVED: 2, COMPLETED: 3, REJECTED: 1, CANCELLED: 0 })[props.item.appointmentStatusCode])
+const interrupted = computed(() => ['REJECTED', 'CANCELLED'].includes(props.item.appointmentStatusCode))
+const confirmed = computed(() => ['APPROVED', 'COMPLETED'].includes(props.item.appointmentStatusCode))
 </script>
 
 <template>
@@ -20,8 +26,13 @@ const emit = defineEmits<{ cycle: [step: number]; details: [] }>()
       <div class="spotlight-identity"><h3>{{ item.shipName }}</h3><p>{{ item.appointmentNo }}</p><span class="status-badge" :class="statusClass(item.appointmentStatusCode)"><i></i>{{ statusLabel(item.appointmentStatusCode) }}</span></div>
 
       <div class="request-window">
-        <div class="window-track"><i></i><span><PortIcon name="ship" :size="19" /></span><i></i></div>
-        <div class="window-labels"><div><strong>申请到港</strong><time>{{ formatDate(item.requestedArrivalAt) }}</time></div><div><strong>到离港时间窗</strong></div><div><strong>申请离港</strong><time>{{ formatDate(item.requestedDepartureAt) }}</time></div></div>
+        <div class="workflow-heading"><span>预约办理进度</span><span v-if="interrupted">{{ statusLabel(item.appointmentStatusCode) }}</span></div>
+        <div class="workflow-track" :class="{ 'is-confirmed': confirmed, 'is-interrupted': interrupted }" :style="{ '--progress': `${step / 3 * 100}%` }" :aria-label="`预约办理进度：${statusLabel(item.appointmentStatusCode)}`" role="img">
+          <div class="workflow-line"></div><span v-if="!interrupted" class="workflow-vessel"><PortIcon name="ship" :size="18" /></span>
+          <i v-for="(_, index) in steps" :key="index" :class="{ reached: !interrupted && index <= step }"></i>
+        </div>
+        <div class="workflow-labels"><span v-for="(label, index) in steps" :key="label" :class="{ current: !interrupted && step === index }">{{ label }}</span></div>
+        <div class="window-labels"><div><strong>申请到港</strong><time>{{ formatDate(item.requestedArrivalAt) }}</time></div><div><strong>申请离港</strong><time>{{ formatDate(item.requestedDepartureAt) }}</time></div></div>
       </div>
     </section>
     <aside class="glass-panel readiness-panel" aria-labelledby="readiness-title">

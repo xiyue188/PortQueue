@@ -45,3 +45,14 @@ export async function fetchAppointments(query: AppointmentQuery, signal: AbortSi
     throw new Error('查询响应格式不正确，请稍后重试。')
   return payload
 }
+
+/** 精确读取详情，不把主列表改成按编号筛选；保持 bigint 字符串精度。 */
+export async function fetchAppointment(appointmentId: string, signal: AbortSignal): Promise<AppointmentItem> {
+  if (!/^[1-9]\d*$/.test(appointmentId)) throw new Error('预约标识无效。')
+  const response = await fetch(`/api/appointments/${encodeURIComponent(appointmentId)}`, { signal, headers: { Accept: 'application/json' } })
+  if (response.status === 404) throw new Error('该预约不存在，请重新选择。')
+  if (!response.ok) throw new Error('预约详情暂时无法读取，请重试。')
+  const item: unknown = await response.json()
+  if (!isItem(item) || item.appointmentId !== appointmentId) throw new Error('预约详情响应不正确，请重试。')
+  return item
+}

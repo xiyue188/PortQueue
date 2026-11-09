@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [item: AppointmentItem]; filter: [status: AppointmentStatus | '']
   load: [query?: AppointmentQuery]; reset: []; all: []
+  'clear-keyword': []
 }>()
 const tabs = [{ label: '全部', code: '' }, { label: '待审核', code: 'PENDING' },
   { label: '已批准', code: 'APPROVED' }, { label: '已完成', code: 'COMPLETED' }] as const
@@ -31,6 +32,7 @@ function changePageSize(event: Event) { emit('load', { ...props.query, page: 1, 
       </div>
       <div class="all-statuses"><label class="sr-only" for="appointment-status">预约状态</label><select id="appointment-status" :value="query.status" @change="changeStatus"><option value="">全部状态</option><option v-for="status in appointmentStatuses" :key="status.code" :value="status.code">{{ status.label }}</option></select></div>
     </div>
+    <div v-if="!compact && query.keyword" class="applied-keyword"><span>关键词：{{ query.keyword }}</span><button class="text-action" aria-label="清除关键词筛选" @click="emit('clear-keyword')"><PortIcon name="reset" :size="14" />清除</button></div>
     <p v-if="rows.length" class="scroll-hint">左右滑动查看完整记录</p>
     <div class="records-body" :class="{ 'is-loading': loading }">
       <div v-if="loading" class="query-progress" role="status"><span>正在更新…</span></div>

@@ -6,12 +6,16 @@ export interface RecentPortEvent {
   eventTypeCode: string
   eventTime: string
   shipName: string
+  appointmentId: string
   appointmentNo: string
 }
 export interface PortOverview {
   pendingAppointments: number
   anchorageVessels: number
   confirmedPlans: number
+  totalEvents: number
+  eventsPage: number
+  eventsPageSize: number
   recentEvents: RecentPortEvent[]
 }
 export const eventLabels: Record<string, string> = {
@@ -21,9 +25,11 @@ export const eventLabels: Record<string, string> = {
 function validOverview(value: unknown): value is PortOverview {
   if (!value || typeof value !== 'object') return false
   const item = value as Record<string, unknown>
-  return ['pendingAppointments', 'anchorageVessels', 'confirmedPlans'].every(key => Number.isSafeInteger(item[key]) && Number(item[key]) >= 0)
-    && Array.isArray(item.recentEvents) && item.recentEvents.length <= 5 && item.recentEvents.every(event =>
+  return ['pendingAppointments', 'anchorageVessels', 'confirmedPlans', 'totalEvents'].every(key => Number.isSafeInteger(item[key]) && Number(item[key]) >= 0)
+    && Number.isSafeInteger(item.eventsPage) && Number(item.eventsPage) >= 1 && item.eventsPageSize === 12
+    && Array.isArray(item.recentEvents) && item.recentEvents.length <= 12 && item.recentEvents.every(event =>
       event && typeof event.eventId === 'string' && /^\d+$/.test(event.eventId)
+      && typeof event.appointmentId === 'string' && /^\d+$/.test(event.appointmentId)
       && typeof event.shipName === 'string' && typeof event.appointmentNo === 'string'
       && typeof event.eventTypeCode === 'string' && Object.hasOwn(eventLabels, event.eventTypeCode)
       && typeof event.eventTime === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(event.eventTime) && Number.isFinite(Date.parse(event.eventTime)))
@@ -34,7 +40,7 @@ export function useOverview() {
   const overviewLoading = ref(false)
   let controller: AbortController | undefined
   let sequence = 0
-  async function refreshOverview() {
+  async function refreshOverview(eventsPage = 1) {
     controller?.abort()
     const request = new AbortController()
     controller = request
@@ -42,7 +48,7 @@ export function useOverview() {
     overviewError.value = ''; overviewLoading.value = true
     const timer = window.setTimeout(() => request.abort(), 15_000)
     try {
-      const response = await fetch('/api/overview', { signal: request.signal, headers: { Accept: 'application/json' } })
+      const response = await fetch(`/api/overview?eventsPage=${eventsPage}`, { signal: request.signal, headers: { Accept: 'application/json' } })
       if (!response.ok) throw new Error('总览暂时无法读取，请重试。')
       const data: unknown = await response.json()
       if (!validOverview(data)) throw new Error('总览响应格式不正确，请重试。')
