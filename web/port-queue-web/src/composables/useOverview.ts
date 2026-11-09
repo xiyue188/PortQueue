@@ -11,6 +11,7 @@ export interface RecentPortEvent {
   appointmentNo: string
 }
 export interface PortOverview {
+  port: { name: string; code: string; countryCode: string; timezone: string; terminals: number; anchorages: number; berths: number } | null
   pendingAppointments: number
   anchorageVessels: number
   confirmedPlans: number
@@ -34,6 +35,8 @@ export const eventLabels: Record<string, string> = {
 function validOverview(value: unknown): value is PortOverview {
   if (!value || typeof value !== 'object') return false
   const item = value as Record<string, unknown>
+  const port = item.port as PortOverview['port']
+  if (port !== null && (!port || !['name', 'code', 'countryCode', 'timezone'].every(key => typeof port[key as keyof typeof port] === 'string') || !['terminals', 'anchorages', 'berths'].every(key => Number.isSafeInteger(port[key as keyof typeof port]) && Number(port[key as keyof typeof port]) >= 0))) return false
   return ['pendingAppointments', 'anchorageVessels', 'confirmedPlans', 'totalEvents', 'waitingQueue', 'assignedQueue', 'draftPlans', 'executingPlans', 'portEntries', 'berthings', 'unberthings'].every(key => Number.isSafeInteger(item[key]) && Number(item[key]) >= 0)
     && Array.isArray(item.appointmentStates) && item.appointmentStates.length === 6
     && new Set(item.appointmentStates.map(state => state?.code)).size === 6

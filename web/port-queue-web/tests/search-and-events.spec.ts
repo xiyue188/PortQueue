@@ -207,7 +207,7 @@ test('自动到页尾换页，减少动画默认暂停，手动阅读与隐藏�
   await viewport.dispatchEvent('touchstart')
   await expect(page.getByRole('button', { name: '继续动态滚动' })).toBeVisible()
   await page.getByRole('button', { name: '继续动态滚动' }).click()
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   const hiddenViewport = page.locator('.events-viewport')
   const hiddenTop = await hiddenViewport.evaluate(element => element.scrollTop)
   await page.waitForTimeout(500)
@@ -222,7 +222,7 @@ test('总览涵盖全部状态且不请求单船摘要，批准入口覆盖完�
   await expect(page.locator('.state-distribution button')).toHaveCount(6)
   expect(listRequests).toBe(0)
   await expect(page.locator('.overview-pane tbody, .cycle-actions, .workflow-track, .metric-fact')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: '作业概要' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '作业分布' })).toBeVisible()
   for (const state of summary.appointmentStates) {
     const data = await (await request.get(`/api/appointments?status=${state.code}`)).json()
     expect(data.totalCount).toBe(state.count)

@@ -40,6 +40,7 @@ export interface AppointmentPage {
 
 /** 审核资料独立读取，任何字段未加载都不能开放审核。 */
 export interface AppointmentDetail extends AppointmentItem {
+  shipId: string; previousPortId: string | null; nextPortId: string | null; editVersion: string
   shipType: string; companyName: string; lengthM: number; breadthM: number; maxDraftM: number
   grossTonnage: number | null; deadweightT: number | null; callNo: string
   plannedArrivalAt: string; plannedDepartureAt: string | null

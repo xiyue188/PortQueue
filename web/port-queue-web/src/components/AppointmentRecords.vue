@@ -23,6 +23,7 @@ function changePageSize(event: Event) { emit('load', { ...props.query, page: 1, 
   <section class="glass-panel records-panel" :aria-label="compact ? '预约动态' : '预约清单'" :aria-busy="loading">
     <div class="panel-heading records-heading">
       <h2>{{ compact ? '预约动态' : '预约清单' }}</h2>
+      <slot name="actions" />
       <button v-if="!compact" class="icon-button" aria-label="重置全部筛选" title="重置全部筛选" @click="emit('reset')"><PortIcon name="reset" :size="17" /></button>
       <button v-else class="text-action" @click="emit('all')">查看全部预约<PortIcon name="arrow" :size="16" /></button>
     </div>

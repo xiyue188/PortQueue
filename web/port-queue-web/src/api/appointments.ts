@@ -60,7 +60,9 @@ export async function fetchAppointment(appointmentId: string, signal: AbortSigna
 function isDetail(value: unknown): value is AppointmentDetail {
   if (!isItem(value)) return false
   const item = value as AppointmentDetail
-  return ['shipType', 'companyName', 'callNo'].every(k => typeof item[k as keyof AppointmentDetail] === 'string')
+  return /^\d+$/.test(item.shipId) && /^\d+$/.test(item.editVersion)
+    && [item.previousPortId, item.nextPortId].every(id => id === null || /^\d+$/.test(id))
+    && ['shipType', 'companyName', 'callNo'].every(k => typeof item[k as keyof AppointmentDetail] === 'string')
     && ['lengthM', 'breadthM', 'maxDraftM', 'estimatedOperationHours', 'declaredDraftM', 'priorityLevel'].every(k => Number.isFinite(item[k as keyof AppointmentDetail]))
     && ['grossTonnage', 'deadweightT', 'cargoTeu', 'cargoWeightT'].every(k => item[k as keyof AppointmentDetail] === null || Number.isFinite(item[k as keyof AppointmentDetail]))
     && [item.previousPortName, item.nextPortName, item.specialRequirement].every(nullableString)

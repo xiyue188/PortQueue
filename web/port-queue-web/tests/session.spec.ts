@@ -37,7 +37,7 @@ test.beforeAll(async () => {
   test.setTimeout(60_000)
   try {
     sql(`CREATE DATABASE [${database}];`, 'master'); created = true
-    for (const file of ['01_schema.sql', '02_views.sql', '03_triggers.sql', '04_procedures.sql', '05_seed_reference.sql', '09_permissions.sql', '10_seed_demo.sql', '12_refresh_sample_labels.sql', '13_seed_port_scenarios.sql']) sql(readFileSync(resolve(root, 'database', file), 'utf8').replaceAll('[PortQueue]', `[${database}]`))
+    for (const file of ['01_schema.sql', '02_views.sql', '03_triggers.sql', '04_procedures.sql', '14_appointment_registration.sql', '05_seed_reference.sql', '09_permissions.sql', '10_seed_demo.sql', '12_refresh_sample_labels.sql', '13_seed_port_scenarios.sql']) sql(readFileSync(resolve(root, 'database', file), 'utf8').replaceAll('[PortQueue]', `[${database}]`))
     const assembly = resolve(root, 'src/PortQueue.Api/bin/Release/net8.0/PortQueue.Api.dll')
     for (const [username, name, role] of [['browser.reviewer', '林悦', 'REVIEWER'], ['browser.dispatcher', '周航', 'DISPATCHER']]) {
       execFileSync('dotnet', [assembly, 'account', 'create', username, name, role], { cwd: root, env, input: `${password}\n${password}\n`, stdio: ['pipe', 'pipe', 'pipe'] })
@@ -128,6 +128,85 @@ async function presetLogin(page: import('@playwright/test').Page, role: string) 
   await expect(dialog).not.toBeVisible()
 }
 
+// 3C 在同一真实独立库完成全链路；不向开发库添加验收预约。
+async function fillRegistration(page: import('@playwright/test').Page) {
+  const drawer = page.getByRole('dialog', { name: '登记进港预约' })
+  const ships = await (await fetch(api + '/api/ships')).json()
+  await page.getByLabel('船舶', { exact: false }).first().fill(ships.items[0].name)
+  await expect(drawer.locator('[role="option"]').first()).toBeVisible()
+  await drawer.locator('[role="option"]').first().click()
+  await drawer.getByLabel('申请到港').fill('2032-04-12T08:00')
+  await drawer.getByLabel('申请离港').fill('2032-04-13T20:00')
+  await drawer.getByLabel('预计作业时长').fill('8.5')
+  await drawer.getByLabel('申报吃水').fill('8')
+  await drawer.getByRole('button', { name: '沿用申请时间' }).click()
+  await drawer.getByLabel('集装箱量').fill('230')
+  await drawer.getByLabel('特殊要求').fill('独立浏览器登记验收')
+  return drawer
+}
+
+test('3C登记、编辑、提交和审核形成真实闭环', async ({ page }) => {
+  await presetLogin(page, '管理员')
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('button', { name: '登记预约', exact: true }).click()
+  const drawer = await fillRegistration(page)
+  await drawer.evaluate(el => { (document.activeElement as HTMLElement)?.blur(); el.scrollTop = 0 })
+  await page.screenshot({ path: '../../.impeccable/review/stage3c-drawer-desktop.png' })
+  await drawer.getByRole('button', { name: '保存草稿', exact: true }).click()
+  await expect(drawer).not.toBeVisible()
+  await expect(page.locator('.save-feedback')).toContainText('草稿已保存')
+  await expect(page.locator('#appointment-detail .status-badge')).toHaveText('草稿')
+  await page.getByRole('button', { name: '编辑草稿', exact: true }).click()
+  const edit = page.getByRole('dialog', { name: '编辑预约草稿' })
+  await expect(edit.getByLabel('集装箱量')).toHaveValue('230')
+  await edit.getByLabel('集装箱量').fill('260')
+  await edit.getByRole('button', { name: '保存草稿', exact: true }).click()
+  await expect(edit).not.toBeVisible()
+  await expect(page.locator('#appointment-detail')).toContainText('260 TEU')
+  await page.getByRole('button', { name: '提交审核', exact: true }).click()
+  await page.getByRole('dialog', { name: '提交审核' }).getByRole('button', { name: '确认提交' }).click()
+  await expect(page.locator('.save-feedback')).toContainText('预约已提交')
+  await expect(page.getByRole('button', { name: '编辑草稿', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '批准预约', exact: true }).click()
+  await page.getByRole('dialog', { name: '批准预约' }).getByRole('button', { name: '确认批准' }).click()
+  await expect(page.locator('.save-feedback')).toContainText('预约已批准')
+  await page.screenshot({ path: '../../.impeccable/review/stage3c-workflow.png', fullPage: true })
+})
+
+test('3C响应丢失使用原请求核对，窄屏保留输入', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.getByRole('button', { name: '展开业务导航' }).click()
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: /调度员/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '登录', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('button', { name: '登记预约', exact: true }).click()
+  const drawer = await fillRegistration(page)
+  await page.screenshot({ path: '../../.impeccable/review/stage3c-drawer-mobile-bottom.png' })
+  await drawer.evaluate(el => { (document.activeElement as HTMLElement)?.blur(); el.scrollTop = 0 })
+  await page.screenshot({ path: '../../.impeccable/review/stage3c-drawer-mobile.png' })
+  expect(await drawer.evaluate(el => el.scrollWidth <= el.clientWidth)).toBeTruthy()
+  let sent = ''
+  await page.route('**/api/appointments', async route => {
+    if (route.request().method() !== 'POST') { await route.fallback(); return }
+    sent = route.request().postData()!
+    const response = await route.fetch({ url: api + '/api/appointments' })
+    expect(response.status()).toBe(201)
+    await route.abort('failed')
+  }, { times: 1 })
+  await drawer.getByRole('button', { name: '提交审核', exact: true }).click()
+  await expect(drawer.getByRole('alert')).toContainText('尚未确认保存结果')
+  await expect(drawer.getByLabel('集装箱量')).toHaveValue('230')
+  const replay = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === '/api/appointments')
+  await drawer.getByRole('button', { name: '核对登记结果' }).click()
+  expect((await replay).postData()).toBe(sent)
+  await expect(drawer).not.toBeVisible()
+  await expect(page.locator('.save-feedback')).toContainText('预约已提交')
+  const key = JSON.parse(sent).requestKey.replaceAll('-', '')
+  sql(`IF (SELECT COUNT(*) FROM dbo.arrival_appointment WHERE appointment_no='PQ${key}')<>1 THROW 53999,'Duplicate registration',1;`)
+})
+
 test('账号选项可登录且输入错误不误报服务不可用', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '登录', exact: true }).click()
@@ -152,7 +231,7 @@ test('账号选项可登录且输入错误不误报服务不可用', async ({ pa
 test('批准真实预约后清单移出而详情保留且总览更新', async ({ page }) => {
   await presetLogin(page, '审核员')
   const before = await (await fetch(api + '/api/overview')).json()
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '待审核', exact: true }).click()
   await expect(page.locator('.appointments-pane tbody .status-text').first()).toHaveText('待审核')
   const first = page.locator('.appointments-pane tbody .vessel-row').first()
@@ -173,14 +252,14 @@ test('批准真实预约后清单移出而详情保留且总览更新', async ({
   await expect(page.locator('.metric strong').first()).toHaveText(String(before.pendingAppointments - 1))
   const audit = sql(`SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.audit_log WHERE table_name='arrival_appointment' AND JSON_VALUE(new_data_json,'$.appointment_no')='${no}' AND JSON_VALUE(new_data_json,'$.appointment_status_code')='APPROVED';`)
   expect(audit.trim()).toMatch(/1/)
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '全部', exact: true }).click()
   await expect(page.locator('.save-feedback')).toHaveCount(0)
 })
 
 test('窄屏驳回必填原因，成功但清单失败不会误报保存失败', async ({ page }) => {
   await presetLogin(page, '审核员')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '待审核', exact: true }).click()
   await expect(page.locator('.appointments-pane tbody .status-text').first()).toHaveText('待审核')
   await page.locator('.appointments-pane tbody .vessel-row').first().click()
@@ -204,7 +283,7 @@ test('窄屏驳回必填原因，成功但清单失败不会误报保存失败',
 
 test('调度员无审核操作，接口仍拒绝绕过界面的请求', async ({ page }) => {
   await presetLogin(page, '调度员')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '待审核', exact: true }).click()
   await expect(page.locator('.declaration-section')).toHaveCount(2)
   await expect(page.getByRole('button', { name: '批准预约', exact: true })).toHaveCount(0)
@@ -221,7 +300,7 @@ test('调度员无审核操作，接口仍拒绝绕过界面的请求', async ({
 
 test('审核令牌失效保留意见，恢复会话后可以继续确认', async ({ page }) => {
   await presetLogin(page, '审核员')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '待审核', exact: true }).click()
   await expect(page.getByRole('button', { name: '批准预约', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '批准预约', exact: true }).click()
@@ -241,7 +320,7 @@ test('审核令牌失效保留意见，恢复会话后可以继续确认', async
 
 test('审核响应丢失先读取结果，不自动重复写入', async ({ page }) => {
   await presetLogin(page, '审核员')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await page.getByRole('button', { name: '待审核', exact: true }).click()
   await expect(page.getByRole('button', { name: '批准预约', exact: true })).toBeVisible()
   const no = await page.locator('#appointment-detail .progress-identity p').innerText()

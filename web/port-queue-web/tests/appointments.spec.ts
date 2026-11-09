@@ -6,7 +6,7 @@ const endpoint = (url: URL) => url.pathname === '/api/appointments'
 const overviewEndpoint = (url: URL) => url.pathname === '/api/overview'
 async function openList(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await expect(page.locator('.view-pane:visible tbody tr').first()).toBeVisible()
 }
 test.beforeAll(async () => { await mkdir(shots, { recursive: true }) })
@@ -68,7 +68,7 @@ test('无结果不保留旧详情，重置恢复', async ({ page }) => {
 test('预约失败可重试恢复', async ({ page }) => {
   await page.route(endpoint, route => route.fulfill({ status: 503, body: '{}' }))
   await page.goto('/')
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('预约数据暂时无法读取')
   await expect(page.locator('.page-number')).toHaveText('—')
   await page.screenshot({ path: shots+'/error.png', fullPage: true })
@@ -116,7 +116,7 @@ test('390和320窄屏无整页溢出，菜单与键盘选择可用', async ({ pa
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   await page.screenshot({ path: shots+'/mobile-overview.png', fullPage: true })
   await page.getByRole('button', { name: '展开业务导航' }).click()
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   const second = page.locator('.view-pane:visible tbody .vessel-row').nth(1)
   const no = await second.locator('small').innerText()
   await second.focus(); await page.keyboard.press('Enter')
@@ -166,7 +166,7 @@ test('切换保留筛选和选择，外框一致且不会重复请求', async ({
   await page.getByRole('button', { name: '总览', exact: true }).click()
   expect(await page.locator('.port-workspace').boundingBox()).toEqual(shell)
   expect(await page.locator('.sidebar').boundingBox()).toEqual(sidebar)
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   expect(await page.locator('#appointment-detail').innerText()).toBe(detail)
   await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(9)
   expect(requests).toBe(count)
@@ -280,7 +280,7 @@ test('用户宽屏与参考宽度的布局证据', async ({ page }) => {
   await expect(page.locator('.state-distribution button')).toHaveCount(6)
   await page.screenshot({ path: shots+'/user-2470-overview.png', fullPage: true })
   const shell = await page.locator('.port-workspace').boundingBox()
-  await page.getByRole('button', { name: '进港预约', exact: true }).click()
+  await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(20)
   expect(await page.locator('.port-workspace').boundingBox()).toEqual(shell)
   await page.screenshot({ path: shots+'/user-2470-appointments.png', fullPage: true })
