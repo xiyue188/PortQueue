@@ -3,6 +3,10 @@ namespace PortQueue.Application.Appointments;
 /// <summary>审核所需完整申报；与列表协议分开，历史停用基础资料仍按原引用读取。</summary>
 public sealed class AppointmentDetail
 {
+    public string ShipId { get; init; } = string.Empty;
+    public string? PreviousPortId { get; init; }
+    public string? NextPortId { get; init; }
+    public string EditVersion { get; init; } = "0";
     public string AppointmentId { get; init; } = string.Empty;
     public string AppointmentNo { get; init; } = string.Empty;
     public string ShipName { get; init; } = string.Empty;

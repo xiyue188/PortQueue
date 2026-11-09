@@ -5,7 +5,10 @@ public sealed record PortOverview(long PendingAppointments, long AnchorageVessel
     long ConfirmedPlans, long TotalEvents, int EventsPage, int EventsPageSize,
     IReadOnlyList<RecentPortEvent> RecentEvents, long WaitingQueue, long AssignedQueue,
     long DraftPlans, long ExecutingPlans, long PortEntries, long Berthings, long Unberthings,
-    IReadOnlyList<AppointmentStateCount> AppointmentStates);
+    IReadOnlyList<AppointmentStateCount> AppointmentStates, PortProfile? Port);
+
+/// <summary>配置服务港口的已登记设施，不表示港口现实全部规模。</summary>
+public sealed record PortProfile(string Name,string Code,string CountryCode,string Timezone,int Terminals,int Anchorages,int Berths);
 
 /// <summary>全量预约的互斥状态分布，包含零值；不能由近期摘要推算。</summary>
 public sealed record AppointmentStateCount(string Code, long Count);

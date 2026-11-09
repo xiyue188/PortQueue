@@ -1,5 +1,10 @@
 /* 全港工作量概况：不跟随预约页筛选；单条 SELECT 在既有 RCSI 下读取一致快照。 */
 SELECT
+    (SELECT p.port_name AS Name,p.port_code AS Code,p.country_code AS CountryCode,p.timezone AS Timezone,
+        (SELECT COUNT(*) FROM dbo.terminal WHERE port_id=p.port_id) AS Terminals,
+        (SELECT COUNT(*) FROM dbo.anchorage WHERE port_id=p.port_id) AS Anchorages,
+        (SELECT COUNT(*) FROM dbo.berth b JOIN dbo.terminal t ON t.terminal_id=b.terminal_id WHERE t.port_id=p.port_id) AS Berths
+      FROM dbo.port p WHERE p.port_code=@HomePortCode FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) AS PortJson,
     (SELECT COUNT_BIG(*) FROM dbo.arrival_appointment WHERE appointment_status_code='PENDING') AS PendingAppointments,
     (SELECT COUNT_BIG(*) FROM dbo.v_anchorage_queue WHERE entered_anchorage_at IS NOT NULL AND left_anchorage_at IS NULL) AS AnchorageVessels,
     (SELECT COUNT_BIG(*) FROM dbo.v_current_berth_plan WHERE plan_status_code='CONFIRMED') AS ConfirmedPlans,

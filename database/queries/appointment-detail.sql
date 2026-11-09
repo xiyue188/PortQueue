@@ -1,5 +1,10 @@
 /* 精确读取一项预约，供详情独立选择使用；不改变列表筛选，不部署新数据库对象。 */
-SELECT CONVERT(varchar(20), aa.appointment_id) AS AppointmentId,
+SELECT CONVERT(varchar(20), s.ship_id) AS ShipId, CONVERT(varchar(20),pc.previous_port_id) AS PreviousPortId,
+    CONVERT(varchar(20),pc.next_port_id) AS NextPortId,
+    CONVERT(varchar(20),(SELECT COALESCE(MAX(audit_id),0) FROM dbo.audit_log WHERE
+        (table_name='arrival_appointment' AND record_id=CONVERT(varchar(100),aa.appointment_id)) OR
+        (table_name='port_call' AND record_id=CONVERT(varchar(100),pc.port_call_id)))) AS EditVersion,
+    CONVERT(varchar(20), aa.appointment_id) AS AppointmentId,
     aa.appointment_no AS AppointmentNo, s.ship_name AS ShipName, s.imo_no AS ImoNo, s.mmsi AS Mmsi,
     TODATETIMEOFFSET(aa.requested_arrival_at, '+00:00') AS RequestedArrivalAt,
     TODATETIMEOFFSET(aa.requested_departure_at, '+00:00') AS RequestedDepartureAt,

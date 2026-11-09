@@ -6,7 +6,7 @@ using PortQueue.Infrastructure.Database;
 namespace PortQueue.Infrastructure.Overview;
 
 /// <summary>复用已有视图，以单条 SELECT 保证摘要与事件来自同一语句读取快照。</summary>
-public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) : IOverviewQueries
+public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory, Microsoft.Extensions.Configuration.IConfiguration configuration) : IOverviewQueries
 {
     private static readonly string QuerySql = LoadSql();
 
@@ -17,7 +17,7 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
         await using var connection = connectionFactory.Create();
         await connection.OpenAsync(cancellationToken);
         var command = new CommandDefinition(QuerySql,
-            new { EventOffset = (eventsPage - 1) * eventPageSize, EventPageSize = eventPageSize }, commandTimeout: 8,
+            new { HomePortCode = configuration["Port:Code"] ?? "CNTAO", EventOffset = (eventsPage - 1) * eventPageSize, EventPageSize = eventPageSize }, commandTimeout: 8,
             cancellationToken: cancellationToken);
         var counts = await connection.QuerySingleAsync<OverviewCounts>(command);
         var events = JsonSerializer.Deserialize<RecentPortEvent[]>(counts.RecentEventsJson)
@@ -26,7 +26,8 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
             counts.TotalEvents, eventsPage, eventPageSize, events, counts.WaitingQueue, counts.AssignedQueue,
             counts.DraftPlans, counts.ExecutingPlans, counts.PortEntries, counts.Berthings, counts.Unberthings,
             JsonSerializer.Deserialize<AppointmentStateCount[]>(counts.AppointmentStatesJson)
-                ?? throw new InvalidOperationException("Overview states payload is missing."));
+                ?? throw new InvalidOperationException("Overview states payload is missing."),
+            string.IsNullOrWhiteSpace(counts.PortJson) ? null : JsonSerializer.Deserialize<PortProfile>(counts.PortJson));
     }
 
     private static string LoadSql()
@@ -39,6 +40,7 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
 
     private sealed class OverviewCounts
     {
+        public string? PortJson { get; init; }
         public long PendingAppointments { get; init; }
         public long AnchorageVessels { get; init; }
         public long ConfirmedPlans { get; init; }

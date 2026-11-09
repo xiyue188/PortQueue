@@ -78,6 +78,7 @@ public sealed class OverviewScenarioTests(AppointmentDatabaseFixture fixture) : 
         await using var stream = typeof(SqlOverviewQueries).Assembly.GetManifestResourceStream("PortQueue.Queries.Overview.sql")!;
         using var reader = new StreamReader(stream);
         using var permission = new SqlCommand("EXECUTE AS USER='portqueue_probe';\n" + await reader.ReadToEndAsync() + "\nREVERT;", connection);
+        permission.Parameters.AddWithValue("@HomePortCode", "CNTAO");
         permission.Parameters.AddWithValue("@EventOffset", 0);
         permission.Parameters.AddWithValue("@EventPageSize", 12);
         using var result = await permission.ExecuteReaderAsync();
