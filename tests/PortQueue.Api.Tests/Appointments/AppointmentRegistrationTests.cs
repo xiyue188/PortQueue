@@ -71,6 +71,7 @@ public sealed class AppointmentRegistrationTests(AppointmentDatabaseFixture fixt
         var responses = await Task.WhenAll(Send(c, "/api/appointments", body), Send(c, "/api/appointments", body));
         Assert.Single(responses.Where(r => r.StatusCode == HttpStatusCode.Created)); Assert.Single(responses.Where(r => r.StatusCode == HttpStatusCode.OK));
         var one = (await responses[0].Content.ReadFromJsonAsync<RegistrationResult>())!; var two = (await responses[1].Content.ReadFromJsonAsync<RegistrationResult>())!; Assert.Equal(one.AppointmentId, two.AppointmentId);
+        Assert.Equal(HttpStatusCode.OK, (await Send(c, "/api/appointments", body with { Data = input with { DeclaredDraftM = 8.00m } })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Send(c, $"/api/appointments/{one.AppointmentId}/draft", new EditAppointmentRequest(one.EditVersion, input with { CargoTeu = 999 }), HttpMethod.Put)).StatusCode);
         var retry = await Send(c, "/api/appointments", body); Assert.Equal(HttpStatusCode.OK, retry.StatusCode); Assert.True((await retry.Content.ReadFromJsonAsync<RegistrationResult>())!.Replayed);
         Assert.Equal(HttpStatusCode.Conflict, (await Send(c, "/api/appointments", body with { Data = input with { CargoTeu = 1 } })).StatusCode);

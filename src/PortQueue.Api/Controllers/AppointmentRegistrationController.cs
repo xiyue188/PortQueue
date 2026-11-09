@@ -69,7 +69,9 @@ public sealed record RegistrationInput(
         foreach (var (name, value) in new[] { (nameof(CargoWeightT), CargoWeightT), (nameof(EstimatedOperationHours), (decimal?)EstimatedOperationHours), (nameof(DeclaredDraftM), (decimal?)DeclaredDraftM) })
             if (value is not null && decimal.Round(value.Value, 2) != value) yield return new ValidationResult("最多保留两位小数。", [name]);
     }
-    public AppointmentRegistration ToData() => new(ShipId, PreviousPortId, NextPortId, Parse(PlannedArrivalAt), PlannedDepartureAt is null ? null : Parse(PlannedDepartureAt), CargoTeu, CargoWeightT,
-        Parse(RequestedArrivalAt), Parse(RequestedDepartureAt), EstimatedOperationHours, DeclaredDraftM, PriorityLevel, DangerousGoodsFlag, string.IsNullOrWhiteSpace(SpecialRequirement) ? null : SpecialRequirement.Trim());
+    public AppointmentRegistration ToData() => new(ShipId, PreviousPortId, NextPortId, Parse(PlannedArrivalAt), PlannedDepartureAt is null ? null : Parse(PlannedDepartureAt), CargoTeu, CargoWeightT is null ? null : Normalize(CargoWeightT.Value),
+        Parse(RequestedArrivalAt), Parse(RequestedDepartureAt), Normalize(EstimatedOperationHours), Normalize(DeclaredDraftM), PriorityLevel, DangerousGoodsFlag, string.IsNullOrWhiteSpace(SpecialRequirement) ? null : SpecialRequirement.Trim());
+    // 相同数值不同尾零（8、8.0）必须形成同一创建指纹。
+    private static decimal Normalize(decimal value) => decimal.Parse(value.ToString("G29", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture).ToUniversalTime();
 }
