@@ -57,7 +57,7 @@
 | `src/PortQueue.Api/Errors/ApiExceptionHandler.cs` | 输出稳定的 503/500 错误，不回传 SQL 或堆栈。 |
 | `src/PortQueue.Application/Appointments/` | 预约查询条件、结果类型与查询接口。 |
 | `src/PortQueue.Infrastructure/Appointments/SqlAppointmentQueries.cs` | 绑定参数、执行唯一 SQL 源并映射预约分页结果。 |
-| `src/PortQueue.Api/Controllers/OverviewController.cs` | 提供 `GET /api/overview`，返回总览摘要或统一错误响应。 |
+| `src/PortQueue.Api/Controllers/OverviewController.cs` | 提供 `GET /api/overview?eventsPage=1`，校验动态页码，返回全港摘要、事件分页或统一错误响应。 |
 | `src/PortQueue.Application/Overview/PortOverview.cs` | 总览指标、近期事件的返回契约及查询接口。 |
 | `src/PortQueue.Infrastructure/Overview/SqlOverviewQueries.cs` | 执行嵌入的总览 SQL，映射计数与事件；管理超时与取消。 |
 | `src/PortQueue.Api/Appointments.http` | 预约成功、筛选、分页和失败请求样例。 |
@@ -80,9 +80,13 @@
 | `web/port-queue-web/src/views/AppointmentListView.vue` | 组织稳定工作区、浏览器前进/后退与两个独立页面的查询/选择缓存；协调搜索、筛选和局部刷新。 |
 | `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
 | `web/port-queue-web/src/composables/useAppointments.ts` | 区分正在请求与已经显示的条件，管理取消、超时、分页和迟到响应；加载保留旧表格，失败清除。 |
+| `web/port-queue-web/src/composables/useAppointmentSelection.ts` | 独立保存所选详情，候选/表格直接选择，事件按主键读取；不修改清单查询，处理取消、失败与重试。 |
+| `database/queries/appointment-detail.sql` | 按主键精确读取预约及船舶/审核信息，供详情独立选择使用；纯 SELECT，不新增数据库对象。 |
 | `web/port-queue-web/src/composables/useOverview.ts` | 独立请求和校验总览数据；请求失败清除旧数值，避免把过期数据当成当前概况。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
-| `web/port-queue-web/src/components/AppointmentOverview.vue` | 当前预约的船舶焦点、申请时间窗与审核摘要，使用父组件传入的同一记录。 |
+| `web/port-queue-web/src/components/AppointmentOverview.vue` | 当前预约的船舶焦点、办理进度、申请时间窗与审核摘要；进度依据状态，不推算航程。 |
+| `web/port-queue-web/src/components/RecentPortEvents.vue` | 固定标题、真实事件分页、可暂停自动滚动及事件到预约的导航；管理可见性/聚焦/触摸和资源清理。 |
+| `web/port-queue-web/tests/search-and-events.spec.ts` | 验收完整候选、加载更多、失败重试、事件轮播、历史分页、减少动画偏好及六种状态表达。 |
 | `web/port-queue-web/src/components/AppointmentTable.vue` | 两种布局共用的预约表格，支持鼠标及键盘选择、内部滚动。 |
 | `web/port-queue-web/src/components/AppointmentRecords.vue` | 总览摘要与完整清单共用的结果容器；管理过滤、分页、局部加载、空/错状态，不自行请求数据。 |
 | `web/port-queue-web/src/components/AppointmentSearch.vue` | 真实 API 候选下拉；防抖、取消、键盘、输入法、失焦及失败重试，与主清单查询解耦。 |
