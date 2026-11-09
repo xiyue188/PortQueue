@@ -1,5 +1,7 @@
 # 阶段 2 交付说明：真实查询与港口总览
 
+> 本文件保留阶段 2 交付基线；2026-11-09 后续已进入阶段 3A，总览单船轮播/五条摘要与未登录占位已被替换，当前行为以 [3A 交付说明](stage-3a-delivery-guide.md) 为准。
+
 更新：2026-11-09。本文件描述当前可运行成果；历史测试与交付记录保留在 `docs/reviews/`。最新一批验收计划见 `stage-2-search-and-events.md`，此前交互计划见 `stage-2-interaction-polish.md`，业务解释见 `../business-flow.md`。
 
 ## 1. 本轮的目标与变化

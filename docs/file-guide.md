@@ -84,10 +84,13 @@
 | `database/queries/appointment-detail.sql` | 按主键精确读取预约及船舶/审核信息，供详情独立选择使用；纯 SELECT，不新增数据库对象。 |
 | `web/port-queue-web/src/composables/useOverview.ts` | 独立请求和校验总览数据；请求失败清除旧数值，避免把过期数据当成当前概况。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
-| `web/port-queue-web/src/components/AppointmentOverview.vue` | 当前预约的船舶焦点、办理进度、申请时间窗与审核摘要；进度依据状态，不推算航程。 |
+| `web/port-queue-web/src/components/PortOverview.vue` | 全港场景与六状态分布，明确进入对应完整清单；替代旧单船轮播。 |
+| `web/port-queue-web/src/components/PortOperationsSummary.vue` | 有效锚地队列、当前计划与累计实际事件概要。 |
+| `web/port-queue-web/src/components/SessionAccount.vue` | 真实账号入口与登录表单、错误反馈、原生模态焦点。 |
+| `web/port-queue-web/src/composables/useSession.ts` | 同源 Cookie 会话和内存防伪造令牌，不保存密码。 |
 | `web/port-queue-web/src/components/RecentPortEvents.vue` | 固定标题、真实事件分页、可暂停自动滚动及事件到预约的导航；管理可见性/聚焦/触摸和资源清理。 |
 | `web/port-queue-web/tests/search-and-events.spec.ts` | 验收完整候选、加载更多、失败重试、事件轮播、历史分页、减少动画偏好及六种状态表达。 |
-| `web/port-queue-web/src/components/AppointmentTable.vue` | 两种布局共用的预约表格，支持鼠标及键盘选择、内部滚动。 |
+| `web/port-queue-web/src/components/AppointmentTable.vue` | 预约清单表格，支持鼠标及键盘选择、内部滚动。 |
 | `web/port-queue-web/src/components/AppointmentRecords.vue` | 总览摘要与完整清单共用的结果容器；管理过滤、分页、局部加载、空/错状态，不自行请求数据。 |
 | `web/port-queue-web/src/components/AppointmentSearch.vue` | 真实 API 候选下拉；防抖、取消、键盘、输入法、失焦及失败重试，与主清单查询解耦。 |
 | `web/port-queue-web/src/components/AppointmentDetail.vue` | 选中预约的标识、申请时间和审核事实，不填造尚未接入的业务信息。 |
@@ -111,7 +114,7 @@
 | `docs/stages/stage-2-ui-reference-redesign.md` | 用户参考图改版的范围、视觉约束和 U01—U08 验收条件。 |
 | `docs/stages/stage-2-overview-and-scenarios.md` | 总览定位、场景数据、主图、简洁文案与真实账号状态的 R01—R08 验收条件。 |
 | `docs/stages/stage-2-interaction-polish.md` | 候选搜索、页面缓存、稳定布局和视觉细化的 I01—I08 验收条件。 |
-| `docs/stages/stage-3-appointment-workflow.md` | 仅规划：3A 身份权限、3B 审核、3C 登记/草稿编辑/提交的页面、字段、事务、接口和验收矩阵。 |
+| `docs/stages/stage-3-appointment-workflow.md` | 阶段 3 的分批设计；3A 已验收，3B 审核与 3C 登记提交后续分别实施。 |
 | `docs/business-flow.md` | 业务主线、页面职责、申请/计划/实际时间、状态、数据性质及下一批权限设计。 |
 | `docs/design/reference/` | 用户提供的五张原始参考图和来源说明，作为后续界面的视觉依据。 |
 | `docs/physical-design-and-operations.md` | 物理类型、约束分工和业务操作契约。 |
@@ -131,3 +134,18 @@
 - SQL 文件在文件头说明模块、执行顺序和约束分工；重要过程按“输入—前置条件—事务动作—结果”分段。
 - JSON、项目文件和 lockfile 不添加会破坏格式的伪注释，配置含义统一写在 README、runbook 或文件名附近的文档中。
 - 注释解释“为什么”和“边界”，不重复描述显而易见的语法；注释必须随代码变更同步更新。
+
+## 阶段 3A 身份与账号文件
+
+| 文件 | 职责 |
+|---|---|
+| `database/queries/account.sql` | 查询可信服务端所需的账号与角色启用信息。 |
+| `database/queries/manage-account.sql` | 本机账号维护事务与不含凭据的审计。 |
+| `src/PortQueue.Application/Accounts/Account.cs` | 内部账号模型及仓储接口，禁止直接作为 HTTP 响应。 |
+| `src/PortQueue.Infrastructure/Accounts/SqlAccountStore.cs` | Dapper 参数化账号读取和维护，SQL 由 database/ 嵌入。 |
+| `src/PortQueue.Api/Security/SessionSecurity.cs` | 标准 Cookie、密码验证、权限策略、身份复核与登录限速。 |
+| `src/PortQueue.Api/Controllers/SessionController.cs` | 会话查询、登录退出、防伪造校验和公开响应。 |
+| `src/PortQueue.Api/Commands/AccountCommand.cs` | 本机管理命令与隐藏密码输入，不启动第二个 Web 服务。 |
+| `tests/PortQueue.Api.Tests/Security/SessionTests.cs` | 真实 SQL/API 认证、越权、防伪造、限速、失效和审计测试。 |
+| `web/port-queue-web/tests/session.spec.ts` | 独立随机测试库、真实 API 和浏览器登录验收。 |
+| `docs/stages/stage-3a-delivery-guide.md` | 本轮变化、账号创建命令、输入输出、文件职责和下一批。 |
