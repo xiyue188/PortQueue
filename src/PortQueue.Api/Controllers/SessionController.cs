@@ -13,10 +13,26 @@ namespace PortQueue.Api.Controllers;
 [ApiController]
 [Route("api/session")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class SessionController(IAccountStore accounts, PasswordVerifier passwords, IAntiforgery antiforgery) : ControllerBase
+public sealed class SessionController(IAccountStore accounts, PasswordVerifier passwords, IAntiforgery antiforgery, IHostEnvironment environment, IConfiguration config) : ControllerBase
 {
     [HttpGet]
     public ActionResult<SessionResponse> Get() => Ok(Snapshot());
+
+    // 仅展示实际存在且仍使用公开初始密码的账号；改密/停用后退出快捷列表。
+    [HttpGet("options")]
+    public async Task<IActionResult> Options(CancellationToken cancellationToken)
+    {
+        if (!DemoAccounts.Enabled(environment, config)) return Ok(new { accounts = Array.Empty<object>(), defaultPassword = (string?)null });
+        var options = new List<object>();
+        foreach (var preset in DemoAccounts.Presets)
+        {
+            var account = await accounts.FindAsync(preset.Username, null, cancellationToken);
+            if (account is not null && account.IsEnabled && account.RoleCode == preset.RoleCode
+                && passwords.Verify(account, DemoAccounts.DefaultPassword))
+                options.Add(new { account.Username, account.DisplayName, account.RoleCode, roleName = SessionSecurity.RoleName(account.RoleCode) });
+        }
+        return Ok(new { accounts = options, defaultPassword = options.Count > 0 ? DemoAccounts.DefaultPassword : null });
+    }
 
     [HttpPost("login")]
     [EnableRateLimiting("login")]
@@ -25,6 +41,8 @@ public sealed class SessionController(IAccountStore accounts, PasswordVerifier p
         if (!await ValidToken()) return CsrfFailure();
         var account = await accounts.FindAsync(request.Username.Trim(), null, cancellationToken);
         var validPassword = passwords.Verify(account, request.Password);
+        if (!DemoAccounts.Enabled(environment, config) && DemoAccounts.Presets.Any(preset => string.Equals(preset.Username, request.Username.Trim(), StringComparison.OrdinalIgnoreCase)))
+            validPassword = false; // 演示专用身份在生产/关闭开关时同样不能登录。
         if (!validPassword || account is null || !account.IsEnabled || !SessionSecurity.Roles.Contains(account.RoleCode))
             return Failure(401, "用户名或密码错误，或账号不可用。", "INVALID_CREDENTIALS");
         var principal = SessionSecurity.Principal(account);
@@ -61,8 +79,8 @@ public sealed class SessionController(IAccountStore accounts, PasswordVerifier p
 }
 
 public sealed record LoginRequest(
-    [Required, StringLength(50), RegularExpression(@"[A-Za-z0-9._-]+") ] string Username,
-    [Required, StringLength(128)] string Password);
+    [Required(ErrorMessage = "请输入用户名。"), StringLength(50, ErrorMessage = "用户名不能超过50个字符。"), RegularExpression(@"[A-Za-z0-9._-]+", ErrorMessage = "用户名只支持字母、数字、点、下划线和短横线。")] string Username,
+    [Required(ErrorMessage = "请输入密码。"), StringLength(128, ErrorMessage = "密码不能超过128个字符。")] string Password);
 public sealed record SessionIdentity(string UserId, string Username, string DisplayName, string RoleCode, string RoleName);
 public sealed record SessionPermissions(bool CanRegisterAppointment, bool CanReviewAppointment);
 public sealed record SessionResponse(SessionIdentity? User, SessionPermissions Permissions, string CsrfToken);

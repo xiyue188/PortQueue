@@ -36,5 +36,12 @@ GRANT SELECT ON dbo.user_account(user_id,display_name) TO portqueue_app;
 -- 阶段 3A：密码哈希仅由可信 API 验证，不进入 HTTP 响应；仍禁止直接写账号表。
 GRANT SELECT ON dbo.user_account(username,role_code,password_hash,status_code) TO portqueue_app;
 GRANT SELECT ON dbo.role(role_code,status_code) TO portqueue_app;
+-- 阶段 3B 完整审核资料；基础资料停用不影响历史引用可读性。
+GRANT SELECT ON dbo.arrival_appointment(estimated_operation_hours,declared_draft_m,priority_level,dangerous_goods_flag,special_requirement,submitted_at) TO portqueue_app;
+GRANT SELECT ON dbo.port_call(planned_arrival_at,planned_departure_at,previous_port_id,next_port_id,cargo_teu,cargo_weight_t) TO portqueue_app;
+GRANT SELECT ON dbo.ship(ship_type_item_id,shipping_company_id,length_m,breadth_m,max_draft_m,gross_tonnage,deadweight_t) TO portqueue_app;
+GRANT SELECT ON dbo.dictionary_item(dictionary_item_id,item_name) TO portqueue_app;
+GRANT SELECT ON dbo.shipping_company(company_id,company_name) TO portqueue_app;
+GRANT SELECT ON dbo.port(port_id,port_name) TO portqueue_app;
 COMMIT TRANSACTION;
 GO

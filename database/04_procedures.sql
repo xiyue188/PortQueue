@@ -26,14 +26,17 @@ BEGIN
         EXEC @lock_result = sys.sp_getapplock @Resource=N'PortQueue.Schedule',
             @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
         IF @lock_result < 0 THROW 52090, 'Schedule is busy. Retry the whole operation.', 1;
-        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u JOIN dbo.role r ON r.role_code=u.role_code
-            WHERE u.user_id=@reviewer_id AND u.status_code='ENABLED' AND r.status_code='ENABLED')
-            THROW 52091, 'An enabled operator and role are required.', 1;
+        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u WITH(UPDLOCK,HOLDLOCK)
+            JOIN dbo.role r WITH(HOLDLOCK) ON r.role_code=u.role_code
+            WHERE u.user_id=@reviewer_id AND u.status_code='ENABLED' AND r.status_code='ENABLED'
+              AND u.role_code IN ('ADMIN','REVIEWER'))
+            THROW 52092, 'An enabled reviewer or administrator is required.', 1;
         DECLARE @now datetime2(0)=SYSUTCDATETIME(), @before nvarchar(max);
 
         IF @decision IS NULL OR @decision NOT IN ('APPROVED','REJECTED')
             THROW 52001, 'Decision must be APPROVED or REJECTED.', 1;
-        IF @decision='REJECTED' AND NULLIF(LTRIM(RTRIM(@review_comment)),N'') IS NULL
+        SET @review_comment=NULLIF(LTRIM(RTRIM(@review_comment)),N'');
+        IF @decision='REJECTED' AND NULLIF(LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(@review_comment,CHAR(9),N''),CHAR(10),N''),CHAR(13),N''))),N'') IS NULL
             THROW 52004, 'Rejection requires a reason.', 1;
         DECLARE @status varchar(30);
         SELECT @status=appointment_status_code FROM dbo.arrival_appointment WITH(UPDLOCK,HOLDLOCK)

@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddScoped<PortQueue.Application.Accounts.IAccountStore, PortQueue.Infrastructure.Accounts.SqlAccountStore>();
         services.AddScoped<IAppointmentQueries, SqlAppointmentQueries>();
+        services.AddScoped<IAppointmentReviews, SqlAppointmentReviews>();
         services.AddScoped<IOverviewQueries, SqlOverviewQueries>();
         return services;
     }

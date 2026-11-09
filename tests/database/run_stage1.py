@@ -74,6 +74,8 @@ def case(name, body, setup='', error=None):
 FIXTURE = """
 -- 历史用例夹具：独立设施和 4 艘船，事务内创建，测试结束回滚。
 DECLARE @u bigint=(SELECT user_id FROM dbo.user_account WHERE username='demo.dispatcher');
+INSERT dbo.user_account(username,display_name,role_code,password_hash,status_code) VALUES('S1-reviewer',N'Test reviewer','REVIEWER',CRYPT_GEN_RANDOM(32),'ENABLED');
+DECLARE @reviewer bigint=SCOPE_IDENTITY();
 DECLARE @company bigint=(SELECT company_id FROM dbo.shipping_company WHERE company_code='DEMO-SC');
 DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='CNTAO');
 DECLARE @type bigint=(SELECT dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type='SHIP_TYPE' AND item_code='CONTAINER');
@@ -106,10 +108,10 @@ DECLARE @ap1 bigint=(SELECT id FROM @apps WHERE n=1),@ap2 bigint=(SELECT id FROM
 DECLARE @p bigint,@r bigint,@q bigint;
 """
 APPROVE = """
-EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED';
-EXEC dbo.usp_review_appointment @ap2,@u,'APPROVED';
-EXEC dbo.usp_review_appointment @ap3,@u,'APPROVED';
-EXEC dbo.usp_review_appointment @ap4,@u,'APPROVED';
+EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';
+EXEC dbo.usp_review_appointment @ap2,@reviewer,'APPROVED';
+EXEC dbo.usp_review_appointment @ap3,@reviewer,'APPROVED';
+EXEC dbo.usp_review_appointment @ap4,@reviewer,'APPROVED';
 """
 PLAN = """
 EXEC dbo.usp_create_berth_plan_revision @ap1,@b,'2026-01-01T03:00:00','2026-01-01T05:00:00',N'Initial',@u;
@@ -130,12 +132,12 @@ SELECT @q=queue_entry_id FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap
 
 
 def business_cases():
-    case('review_success_audit', "EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED';" + assert_sql(
+    case('review_success_audit', "EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';" + assert_sql(
         "EXISTS(SELECT 1 FROM dbo.audit_log WHERE table_name='arrival_appointment' AND record_id=CONVERT(varchar(100),@ap1) AND JSON_VALUE(old_data_json,'$.appointment_status_code')='PENDING' AND JSON_VALUE(new_data_json,'$.appointment_status_code')='APPROVED')", 'Review snapshot missing'))
-    case('null_decision', "EXEC dbo.usp_review_appointment @ap1,@u,NULL;",error=52001)
-    case('rejection_without_reason', "EXEC dbo.usp_review_appointment @ap1,@u,'REJECTED',N' ';",error=52004)
-    case('disabled_operator', "EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED';", "UPDATE dbo.user_account SET status_code='DISABLED' WHERE user_id=@u;", 52091)
-    case('repeated_review', "EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED';", APPROVE,52003)
+    case('null_decision', "EXEC dbo.usp_review_appointment @ap1,@reviewer,NULL;",error=52001)
+    case('rejection_without_reason', "EXEC dbo.usp_review_appointment @ap1,@reviewer,'REJECTED',N' ';",error=52004)
+    case('disabled_operator', "EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';", "UPDATE dbo.user_account SET status_code='DISABLED' WHERE user_id=@reviewer;", 52092)
+    case('repeated_review', "EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';", APPROVE,52003)
     case('priority_and_manual_queue', """
         IF (SELECT queue_position FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap3)<>1 THROW 53999,'Priority not applied.',1;
         EXEC dbo.usp_adjust_queue @q,1,N'Priority inspection',@u;
@@ -197,9 +199,9 @@ def business_cases():
          "UPDATE dbo.dictionary_item SET is_enabled=0 WHERE dictionary_item_id=@type;")
     case('disabled_dictionary_reenable_relation',"UPDATE dbo.berth_ship_type SET relation_status='ENABLED' WHERE berth_id=@b;",
          "UPDATE dbo.dictionary_item SET is_enabled=0 WHERE dictionary_item_id=@type; UPDATE dbo.berth_ship_type SET relation_status='DISABLED' WHERE berth_id=@b;",51002)
-    case('app_role_can_read_and_execute',"EXECUTE AS USER='portqueue_probe'; SELECT TOP(1) * FROM dbo.v_port_event; EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED'; REVERT;")
+    case('app_role_can_read_and_execute',"EXECUTE AS USER='portqueue_probe'; SELECT TOP(1) * FROM dbo.v_port_event; EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED'; REVERT;")
     case('app_role_cannot_write',"EXECUTE AS USER='portqueue_probe'; UPDATE dbo.arrival_appointment SET appointment_status_code='APPROVED' WHERE appointment_id=@ap1; REVERT;",error=229)
-    case('app_role_cannot_read_hash',"EXECUTE AS USER='portqueue_probe'; SELECT password_hash FROM dbo.user_account; REVERT;",error=230)
+    case('app_role_can_read_auth_hash',"EXECUTE AS USER='portqueue_probe'; IF NOT EXISTS(SELECT 1 FROM dbo.user_account WHERE DATALENGTH(password_hash)>0) THROW 53999,'Auth hash unavailable',1; REVERT;")
     case('app_role_cannot_insert_orphan',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.port_event(event_type_code,event_time,event_source_code,recorded_by) VALUES('PORT_ENTER','2026-01-01','MANUAL',@u); REVERT;",error=229)
     case('app_role_cannot_forge_audit',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.audit_log(table_name,record_id,operation_type,operator_id) VALUES('ship','1','UPDATE',@u); REVERT;",error=229)
     case('left_queue_cannot_move',"EXEC dbo.usp_adjust_queue @q,1,N'Invalid',@u;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;",52051)
@@ -213,7 +215,7 @@ def business_cases():
     case('bad_plan_time',"EXEC dbo.usp_create_berth_plan_revision @ap1,@b,'2026-01-02','2026-01-01',N'Bad time',@u;",APPROVE,52060)
     case('unapproved_plan',PLAN,error=52012)
     case('berth_dimension_mismatch',"EXEC dbo.usp_confirm_berth_plan @p,@r,@u;",APPROVE+PLAN+"UPDATE dbo.berth SET max_draft_m=8 WHERE berth_id=@b;",52013)
-    case('audit_failure_rolls_back_business',"EXEC dbo.usp_review_appointment @ap1,@u,'APPROVED';", "EXEC(N'CREATE TRIGGER dbo.trg_test_audit_failure ON dbo.audit_log AFTER INSERT AS THROW 52888, ''Injected audit failure'', 1;');",52888)
+    case('audit_failure_rolls_back_business',"EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';", "EXEC(N'CREATE TRIGGER dbo.trg_test_audit_failure ON dbo.audit_log AFTER INSERT AS THROW 52888, ''Injected audit failure'', 1;');",52888)
     case('disabled_dictionary_rejects_new_reference',"INSERT dbo.ship(imo_no,mmsi,ship_name,ship_type_item_id,length_m,breadth_m,max_draft_m,shipping_company_id,status_code) VALUES('S1NEW01','990000099',N'Invalid new ship',@type,100,20,5,@company,'ACTIVE');", "UPDATE dbo.dictionary_item SET is_enabled=0 WHERE dictionary_item_id=@type;",51001)
     case('event_category_type_rejected',"INSERT dbo.anchorage_event_link(event_id,queue_entry_id) VALUES(@bad_event,@q);",APPROVE+QUEUE+"INSERT dbo.port_event(event_type_code,event_time,event_source_code,recorded_by) VALUES('PORT_ENTER','2026-01-01','MANUAL',@u); DECLARE @bad_event bigint=SCOPE_IDENTITY();",51003)
     case('event_type_immutable',"UPDATE dbo.port_event SET event_type_code='PORT_ENTER' WHERE event_id=(SELECT MIN(event_id) FROM dbo.port_event);",APPROVE+QUEUE,51011)
@@ -315,7 +317,7 @@ def structural_and_demo_cases():
     deploy(DB,'11_statistics.sql')
     RESULTS.append({'case':'demo_repeat_and_metrics_90min_50percent_250min','status':'passed'})
     # 推进一个待审核演示预约后重跑，保证装载器不会把它改回 PENDING。
-    run("DECLARE @u bigint=(SELECT user_id FROM dbo.user_account WHERE username='demo.dispatcher'); DECLARE @ap bigint=(SELECT appointment_id FROM dbo.arrival_appointment WHERE appointment_no='PQ-DEMO-005'); EXEC dbo.usp_review_appointment @ap,@u,'APPROVED';",DB)
+    run("INSERT dbo.user_account(username,display_name,role_code,password_hash,status_code) VALUES('S1-final-reviewer',N'Test reviewer','REVIEWER',CRYPT_GEN_RANDOM(32),'ENABLED'); DECLARE @u bigint=SCOPE_IDENTITY(); DECLARE @ap bigint=(SELECT appointment_id FROM dbo.arrival_appointment WHERE appointment_no='PQ-DEMO-005'); EXEC dbo.usp_review_appointment @ap,@u,'APPROVED';",DB)
     advanced=run(count_sql,DB)
     deploy(DB,'10_seed_demo.sql')
     if run(count_sql,DB)!=advanced: raise AssertionError('Demo reload changed progressed row counts')

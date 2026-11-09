@@ -12,6 +12,7 @@ public static partial class AccountCommand
 {
     public static async Task<int> RunAsync(string[] args, IServiceProvider services)
     {
+        if (args is ["seed-demo"]) return await DemoAccounts.SeedAsync(services);
         if (args.Length < 2 || args[0] is not ("create" or "reset-password" or "enable" or "disable")
             || !UsernamePattern().IsMatch(args[1]) || (args[0] == "create" && (args.Length != 4
                 || !SessionSecurity.Roles.Contains(args[3]) || string.IsNullOrWhiteSpace(args[2]) || args[2].Length > 50))
@@ -25,11 +26,11 @@ public static partial class AccountCommand
             byte[]? hash = null;
             if (args[0] is "create" or "reset-password")
             {
-                Console.Write("密码（12—128 字符，不回显）：");
+                Console.Write("密码（6—128 字符，不回显）：");
                 var password = ReadSecret();
                 Console.Write("再次输入：");
                 var confirmation = ReadSecret();
-                if (password.Length is < 12 or > 128 || string.IsNullOrWhiteSpace(password) || password != confirmation)
+                if (password.Length is < 6 or > 128 || string.IsNullOrWhiteSpace(password) || password != confirmation)
                 { Console.Error.WriteLine("密码长度不符合要求或两次输入不一致。"); return 2; }
                 var hasher = services.GetRequiredService<IPasswordHasher<Account>>();
                 hash = Encoding.UTF8.GetBytes(hasher.HashPassword(new Account(), password));

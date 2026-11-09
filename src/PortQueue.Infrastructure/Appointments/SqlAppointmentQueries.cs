@@ -11,12 +11,12 @@ public sealed class SqlAppointmentQueries(ISqlConnectionFactory connectionFactor
     private static readonly string DetailSql = LoadSql("PortQueue.Queries.AppointmentDetail.sql");
 
     // 主键精确定位详情，独立于清单的关键词、状态和页码。
-    public async Task<AppointmentListItem?> GetByIdAsync(long appointmentId, CancellationToken cancellationToken)
+    public async Task<AppointmentDetail?> GetByIdAsync(long appointmentId, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(appointmentId);
         await using var connection = connectionFactory.Create();
         await connection.OpenAsync(cancellationToken);
-        return await connection.QuerySingleOrDefaultAsync<AppointmentListItem>(new CommandDefinition(
+        return await connection.QuerySingleOrDefaultAsync<AppointmentDetail>(new CommandDefinition(
             DetailSql, new { AppointmentId = appointmentId }, commandTimeout: 8, cancellationToken: cancellationToken));
     }
 

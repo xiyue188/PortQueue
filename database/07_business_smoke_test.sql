@@ -20,6 +20,9 @@ BEGIN TRANSACTION;
 
 DECLARE @company_id bigint = (SELECT TOP (1) company_id FROM dbo.shipping_company WHERE company_code = 'DEMO-SC');
 DECLARE @user_id bigint = (SELECT TOP (1) user_id FROM dbo.user_account WHERE username = 'demo.dispatcher');
+-- 审核与调度使用不同业务身份；本账号随外层事务回滚。
+INSERT dbo.user_account(username,display_name,role_code,password_hash,status_code) VALUES('smoke.reviewer',N'Smoke Reviewer','REVIEWER',CRYPT_GEN_RANDOM(32),'ENABLED');
+DECLARE @reviewer_id bigint=SCOPE_IDENTITY();
 DECLARE @port_id bigint = (SELECT TOP (1) port_id FROM dbo.port WHERE port_code = 'CNTAO');
 DECLARE @ship_type_item_id bigint = (SELECT TOP (1) dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type = 'SHIP_TYPE' AND item_code = 'CONTAINER');
 
@@ -62,7 +65,7 @@ VALUES
 );
 DECLARE @appointment_id bigint = SCOPE_IDENTITY();
 
-EXEC dbo.usp_review_appointment @appointment_id, @user_id, 'APPROVED', N'Smoke test approved';
+EXEC dbo.usp_review_appointment @appointment_id, @reviewer_id, 'APPROVED', N'Smoke test approved';
 EXEC dbo.usp_record_anchorage_event @appointment_id, @anchorage_id, 'ANCHORAGE_ENTER', '2026-10-27T01:00:00', @user_id, NULL;
 EXEC dbo.usp_record_anchorage_event @appointment_id, @anchorage_id, 'ANCHORAGE_LEAVE', '2026-10-27T02:00:00', @user_id, NULL;
 

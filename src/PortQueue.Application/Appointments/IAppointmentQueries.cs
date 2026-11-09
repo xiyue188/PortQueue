@@ -4,5 +4,5 @@ namespace PortQueue.Application.Appointments;
 public interface IAppointmentQueries
 {
     Task<AppointmentPage> GetPageAsync(AppointmentQuery query, CancellationToken cancellationToken);
-    Task<AppointmentListItem?> GetByIdAsync(long appointmentId, CancellationToken cancellationToken);
+    Task<AppointmentDetail?> GetByIdAsync(long appointmentId, CancellationToken cancellationToken);
 }

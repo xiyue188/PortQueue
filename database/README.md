@@ -95,4 +95,10 @@ foreach ($file in @('10_seed_demo.sql','12_refresh_sample_labels.sql','13_seed_p
 业务口径、角色边界和后续实现顺序见 `docs/business-flow.md`；独立测试库会验证导入、幂等性、责任人、最小读取权限和总览结果。
 
 
-阶段 3A 新增 `queries/account.sql` 与 `queries/manage-account.sql`：前者供可信后端验证账号，后者只由本机管理命令执行账号维护和脱敏审计。`09_permissions.sql` 增加必要的认证列读取，仍禁止应用角色直接写表。本机本轮已部署该权限更新，其他环境按顺序执行一次即可，不需要重建 21 张表。账号密码由操作者在管理命令中隐藏输入，不存在预设密码；使用方法见 [3A 交付说明](../docs/stages/stage-3a-delivery-guide.md)。
+阶段 3A 新增 `queries/account.sql` 与 `queries/manage-account.sql`：前者供可信后端验证账号，后者只由本机管理命令执行账号维护和脱敏审计。`09_permissions.sql` 增加必要的认证列读取，仍禁止应用角色直接写表。本机本轮已部署该权限更新，其他环境按顺序执行一次即可，不需要重建 21 张表。个人账号密码由操作者在管理命令中隐藏输入；3B 另依用户授权新增四个公开初始密码的专用演示账号，使用方法见 [3B 交付说明](../docs/stages/stage-3b-delivery-guide.md)。
+
+## 阶段 3B 更新
+
+本机已执行更新后的 `04_procedures.sql` 和 `09_permissions.sql`，不需重跑建表或场景脚本。其他已有基线的环境按此顺序执行这两个脚本，再更新后端。审核过程新增 ADMIN/REVIEWER 的事务内授权、空白驳回原因校验；权限脚本补齐完整申报详情的必要读取列。仍为 21 表、3 视图、7 过程、8 表级触发器。
+
+`queries/appointment-detail.sql` 是后端嵌入查询，更新程序集后生效，不作为新数据库对象部署。四个专用账号通过 `account seed-demo` 显式初始化，本机已完成；过程不重置现有个人账号。后续演示审核会真实改变预约和审计，不能为恢复初始统计数字直接改状态或删除历史。

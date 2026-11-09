@@ -11,11 +11,11 @@ namespace PortQueue.Api.Controllers;
 public sealed class AppointmentsController(IAppointmentQueries queries) : ControllerBase
 {
     [HttpGet("{appointmentId}")]
-    [ProducesResponseType<AppointmentListItem>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppointmentDetail>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
-    public async Task<ActionResult<AppointmentListItem>> GetById(
+    public async Task<ActionResult<AppointmentDetail>> GetById(
         [FromRoute, Range(typeof(long), "1", "9223372036854775807")] long appointmentId,
         CancellationToken cancellationToken)
     {

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -160,6 +161,42 @@ public sealed class SessionTests(AppointmentDatabaseFixture fixture) : IClassFix
         using var response = await Login(client, "missing", "wrong", token);
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
         Assert.NotNull(response.Headers.RetryAfter);
+    }
+
+    [Theory]
+    [InlineData("中文账号", "123456")]
+    [InlineData("", "123456")]
+    [InlineData("valid.user", "")]
+    public async Task InvalidLoginInputIsNotReportedAsUnavailable(string username, string password)
+    {
+        await using var factory = CreateFactory(); using var client = Client(factory);
+        using var response = await Login(client, username, password);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("INVALID_LOGIN_INPUT", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PresetsAreRealIdempotentAndUnavailableInProduction()
+    {
+        await using var factory = CreateFactory(); using var client = Client(factory);
+        Assert.Equal(0, await DemoAccounts.SeedAsync(factory.Services));
+        Assert.Equal(0, await DemoAccounts.SeedAsync(factory.Services));
+        using var options = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync("/api/session/options"));
+        Assert.Equal(4, options.RootElement.GetProperty("accounts").GetArrayLength());
+        Assert.Equal("123456", options.RootElement.GetProperty("defaultPassword").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await Login(client, "pq.reviewer", "123456")).StatusCode);
+        using var scope = factory.Services.CreateScope(); var store = scope.ServiceProvider.GetRequiredService<IAccountStore>();
+        await store.ManageAsync("disable", "pq.reviewer", null, null, null, CancellationToken.None);
+        Assert.Equal(0, await DemoAccounts.SeedAsync(factory.Services));
+        Assert.False((await store.FindAsync("pq.reviewer", null, CancellationToken.None))!.IsEnabled);
+        using var updated = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync("/api/session/options"));
+        Assert.Equal(3, updated.RootElement.GetProperty("accounts").GetArrayLength());
+        await using var production = fixture.Factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var productionClient = Client(production);
+        using var hidden = System.Text.Json.JsonDocument.Parse(await productionClient.GetStringAsync("/api/session/options"));
+        Assert.Empty(hidden.RootElement.GetProperty("accounts").EnumerateArray());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Login(productionClient, "pq.admin", "123456")).StatusCode);
+        Assert.Equal(2, await DemoAccounts.SeedAsync(production.Services));
     }
 
     [Fact]

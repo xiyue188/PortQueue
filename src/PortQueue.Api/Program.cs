@@ -14,13 +14,15 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     // 自动模型绑定失败（如 page=abc）与业务参数错误采用相同契约。
     options.InvalidModelStateResponseFactory = context =>
     {
+        var isLogin = context.HttpContext.Request.Path.StartsWithSegments("/api/session/login");
+        var isQuery = HttpMethods.IsGet(context.HttpContext.Request.Method);
         var problem = new ValidationProblemDetails(context.ModelState)
         {
             Status = StatusCodes.Status400BadRequest,
-            Title = "查询条件无效，请检查后重试。",
+            Title = isLogin ? "请填写有效的用户名和密码。" : isQuery ? "查询条件无效，请检查后重试。" : "提交内容无效，请检查后重试。",
             Type = "about:blank"
         };
-        problem.Extensions["code"] = "INVALID_QUERY";
+        problem.Extensions["code"] = isLogin ? "INVALID_LOGIN_INPUT" : isQuery ? "INVALID_QUERY" : "INVALID_INPUT";
         problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
         var response = new BadRequestObjectResult(problem);
         response.ContentTypes.Add("application/problem+json");
