@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName));
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
+        services.AddScoped<PortQueue.Application.Accounts.IAccountStore, PortQueue.Infrastructure.Accounts.SqlAccountStore>();
         services.AddScoped<IAppointmentQueries, SqlAppointmentQueries>();
         services.AddScoped<IOverviewQueries, SqlOverviewQueries>();
         return services;

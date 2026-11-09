@@ -1,9 +1,11 @@
 using PortQueue.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using PortQueue.Api.Errors;
+using PortQueue.Api.Security;
+using PortQueue.Api.Commands;
 
 // 启动组合根只负责组装基础设施和 HTTP 管道，业务规则放在应用层与数据库过程。
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args.FirstOrDefault() == "account" ? [] : args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -26,12 +28,21 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     };
 });
 builder.Services.AddHealthChecks();
+builder.Services.AddPortQueueSession(builder.Environment.IsDevelopment());
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddPortQueueInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+// 管理入口不启动 Web 监听，也不把密码作为命令行参数。
+if (args.FirstOrDefault() == "account")
+{
+    Environment.ExitCode = await AccountCommand.RunAsync(args.Skip(1).ToArray(), app.Services);
+    await app.DisposeAsync();
+    return;
+}
 
 app.UseExceptionHandler();
 // 本地 HTTP 配置用于课程演示，避免没有 HTTPS 端口时产生误导性警告。
@@ -40,7 +51,9 @@ if (app.Configuration.GetValue<bool>("EnableHttpsRedirection"))
 {
     app.UseHttpsRedirection();
 }
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHealthChecks("/health");

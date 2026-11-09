@@ -22,7 +22,7 @@ public sealed partial class ApiExceptionHandler(ILogger<ApiExceptionHandler> log
         var problem = new ProblemDetails
         {
             Status = unavailable ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status500InternalServerError,
-            Title = unavailable ? "预约数据暂时无法读取，请稍后重试。" : "服务暂时无法完成请求。",
+            Title = unavailable ? "数据服务暂时不可用，请稍后重试。" : "服务暂时无法完成请求。",
             Type = "about:blank"
         };
         problem.Extensions["code"] = unavailable ? "DATABASE_UNAVAILABLE" : "INTERNAL_ERROR";

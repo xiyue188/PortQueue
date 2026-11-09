@@ -20,6 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../database/queries/account.sql" LogicalName="PortQueue.Queries.Account.sql" />
+    <EmbeddedResource Include="../../database/queries/manage-account.sql" LogicalName="PortQueue.Queries.ManageAccount.sql" />
     <!-- SQL 的唯一源文件在 database/，构建时嵌入，避免运行时依赖工作目录。 -->
     <EmbeddedResource Include="../../database/queries/appointments.sql" LogicalName="PortQueue.Queries.Appointments.sql" />
     <EmbeddedResource Include="../../database/queries/appointment-detail.sql" LogicalName="PortQueue.Queries.AppointmentDetail.sql" />

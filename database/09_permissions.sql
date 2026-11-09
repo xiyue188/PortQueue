@@ -27,11 +27,14 @@ GRANT EXECUTE ON dbo.usp_record_anchorage_event TO portqueue_app;
 GRANT EXECUTE ON dbo.usp_record_port_entry TO portqueue_app;
 GRANT EXECUTE ON dbo.usp_record_berth_event TO portqueue_app;
 
--- 阶段 2 所需的预约查询：明确列授权，不向应用开放用户密码或任意全库查询。
+-- 阶段 2 所需的预约查询：明确列授权，不向应用开放明文密码或任意全库查询。
 GRANT SELECT ON dbo.arrival_appointment(appointment_id,appointment_no,port_call_id,requested_arrival_at,
     requested_departure_at,appointment_status_code,reviewed_by,reviewed_at,review_comment) TO portqueue_app;
 GRANT SELECT ON dbo.port_call(port_call_id,call_no,ship_id,call_status_code) TO portqueue_app;
 GRANT SELECT ON dbo.ship(ship_id,ship_name,imo_no,mmsi) TO portqueue_app;
 GRANT SELECT ON dbo.user_account(user_id,display_name) TO portqueue_app;
+-- 阶段 3A：密码哈希仅由可信 API 验证，不进入 HTTP 响应；仍禁止直接写账号表。
+GRANT SELECT ON dbo.user_account(username,role_code,password_hash,status_code) TO portqueue_app;
+GRANT SELECT ON dbo.role(role_code,status_code) TO portqueue_app;
 COMMIT TRANSACTION;
 GO
