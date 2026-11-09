@@ -38,7 +38,7 @@
 | `12_refresh_sample_labels.sql` | 整理旧五条样例的展示名称、业务编号和旧审核文案，保留主外键及业务事实，追加审计快照。 |
 | `13_seed_port_scenarios.sql` | 增加 48 条可重跑的合成场景；覆盖六类状态、排队、确认计划与已完成作业。 |
 | `queries/appointments.sql` | API 执行的参数化预约 SELECT；构建时嵌入后端程序集，不部署为新表、视图或过程。 |
-| `queries/overview.sql` | 单条 SELECT 读取独立总览指标及最近五个实际事件，不跟随预约筛选，不新增持久化对象。 |
+| `queries/overview.sql` | 单条 SELECT 读取独立总览指标、六状态分布及分页实际事件，不跟随预约筛选，不新增持久化对象。 |
 | `tests/database/run_stage1.py` | 创建随机独立测试库，执行业务、权限、回滚、并发和演示数据验收，默认结束后清理。 |
 | `tests/database/check-sql.ps1` | 调用 SQL Server ScriptDom 做静态语法检查，不连接数据库。 |
 | `bootstrap-localdb.ps1` | 本机环境引导：检查/创建/启动实例，数据库不存在时恢复，已有数据库补齐参考数据并验证；不自动更新过程或加载演示业务。 |
@@ -46,7 +46,7 @@
 
 ## 后端
 
-后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约只读查询和独立总览；后续写操作仍按“小阶段、可验收”节奏增加。
+后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约查询、独立总览、真实会话及预约审核；登记等后续写操作按“小阶段、可验收”节奏增加。
 
 | 路径 | 职责 |
 |---|---|
@@ -91,9 +91,9 @@
 | `web/port-queue-web/src/components/RecentPortEvents.vue` | 固定标题、真实事件分页、可暂停自动滚动及事件到预约的导航；管理可见性/聚焦/触摸和资源清理。 |
 | `web/port-queue-web/tests/search-and-events.spec.ts` | 验收完整候选、加载更多、失败重试、事件轮播、历史分页、减少动画偏好及六种状态表达。 |
 | `web/port-queue-web/src/components/AppointmentTable.vue` | 预约清单表格，支持鼠标及键盘选择、内部滚动。 |
-| `web/port-queue-web/src/components/AppointmentRecords.vue` | 总览摘要与完整清单共用的结果容器；管理过滤、分页、局部加载、空/错状态，不自行请求数据。 |
+| `web/port-queue-web/src/components/AppointmentRecords.vue` | 完整预约清单的结果容器；管理过滤、分页、局部加载、空/错状态，不自行请求数据。 |
 | `web/port-queue-web/src/components/AppointmentSearch.vue` | 真实 API 候选下拉；防抖、取消、键盘、输入法、失焦及失败重试，与主清单查询解耦。 |
-| `web/port-queue-web/src/components/AppointmentDetail.vue` | 选中预约的标识、申请时间和审核事实，不填造尚未接入的业务信息。 |
+| `web/port-queue-web/src/components/AppointmentDetail.vue` | 选中预约的船舶、公司、完整申报、到访计划及审核事实，组织状态进度与审核入口。 |
 | `web/port-queue-web/src/components/PortIcon.vue` | 集中维护统一描边 SVG 图标。 |
 | `web/port-queue-web/src/utils/appointmentPresentation.ts` | 统一北京时间格式、状态中文名称与状态颜色。 |
 | `web/port-queue-web/src/assets/` | 船舶示意素材及来源记录；图片本身嵌入来源元数据。 |
@@ -114,7 +114,7 @@
 | `docs/stages/stage-2-ui-reference-redesign.md` | 用户参考图改版的范围、视觉约束和 U01—U08 验收条件。 |
 | `docs/stages/stage-2-overview-and-scenarios.md` | 总览定位、场景数据、主图、简洁文案与真实账号状态的 R01—R08 验收条件。 |
 | `docs/stages/stage-2-interaction-polish.md` | 候选搜索、页面缓存、稳定布局和视觉细化的 I01—I08 验收条件。 |
-| `docs/stages/stage-3-appointment-workflow.md` | 阶段 3 的分批设计；3A 已验收，3B 审核与 3C 登记提交后续分别实施。 |
+| `docs/stages/stage-3-appointment-workflow.md` | 阶段 3 的分批设计；3A、3B 已实现，3C 登记提交后续独立实施。 |
 | `docs/business-flow.md` | 业务主线、页面职责、申请/计划/实际时间、状态、数据性质及下一批权限设计。 |
 | `docs/design/reference/` | 用户提供的五张原始参考图和来源说明，作为后续界面的视觉依据。 |
 | `docs/physical-design-and-operations.md` | 物理类型、约束分工和业务操作契约。 |
@@ -149,3 +149,19 @@
 | `tests/PortQueue.Api.Tests/Security/SessionTests.cs` | 真实 SQL/API 认证、越权、防伪造、限速、失效和审计测试。 |
 | `web/port-queue-web/tests/session.spec.ts` | 独立随机测试库、真实 API 和浏览器登录验收。 |
 | `docs/stages/stage-3a-delivery-guide.md` | 本轮变化、账号创建命令、输入输出、文件职责和下一批。 |
+
+## 阶段 3B 新增文件
+
+| 文件 | 职责 |
+|---|---|
+| `src/PortQueue.Api/Security/DemoAccounts.cs` | 仅开发环境启用的真实专用账号声明及幂等初始化，公开初始密码按用户授权提供。 |
+| `src/PortQueue.Application/Appointments/AppointmentDetail.cs` | 完整审核详情契约，与轻量列表字段分离。 |
+| `src/PortQueue.Application/Appointments/IAppointmentReviews.cs` | 审核写操作和稳定业务异常契约。 |
+| `src/PortQueue.Infrastructure/Appointments/SqlAppointmentReviews.cs` | 参数化执行既有事务过程，将已知数据库拒绝映射为业务错误，不自动重放写入。 |
+| `src/PortQueue.Api/Controllers/AppointmentReviewController.cs` | 审核授权、防伪造和字段边界；审核人取自会话，返回事务已提交结果。 |
+| `web/port-queue-web/src/components/AppointmentProgress.vue` | 船舶场景、真实状态及预约办理进度，不表示 AIS 航程。 |
+| `web/port-queue-web/src/components/AppointmentReview.vue` | 批准/驳回确认、意见保留、防重复提交及结果不明时查询恢复。 |
+| `tests/PortQueue.Api.Tests/Appointments/AppointmentReviewTests.cs` | 独立 SQL/API 验证完整详情、权限、并发、审核审计及强制审计失败回滚。 |
+| `docs/stages/stage-3b-review-and-usability.md` | 本批设计、范围及 L/V/R/U/Q 验收矩阵。 |
+| `docs/stages/stage-3b-delivery-guide.md` | 本批实际变化、账号表、演示路径、输入输出和后续边界。 |
+| `docs/reviews/2026-11-09-stage3b-review.md` | 实际构建、SQL、HTTP、浏览器及独立审查结果。 |

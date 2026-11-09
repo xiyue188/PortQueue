@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 ## 当前运行方式
 
-当前仓库具备可验证的 SQL Server 数据库基线、真实预约查询，以及独立的港口只读总览：SQL Server → Dapper → ASP.NET Core API → Vue。“总览”展示全量预约状态分布、锚地排队、泊位计划与实际事件概要；“进港预约”负责检索、分页和详情。界面沿用用户确认的冰蓝商务风格，摘要加入克制波浪边。开发库已装载 53 条可重复的合成场景；3A 已接入真实账号登录/退出与角色权限基础，账号区显示实际姓名和角色；预约审核/登记写页面尚未接入。
+当前仓库具备可验证的 SQL Server 数据库基线、真实预约查询，以及独立的港口只读总览：SQL Server → Dapper → ASP.NET Core API → Vue。“总览”展示全量预约状态分布、锚地排队、泊位计划与实际事件概要；“进港预约”负责检索、分页和详情。界面沿用用户确认的冰蓝商务风格，摘要加入克制波浪边。开发库已装载 53 条可重复的合成场景；3A 已接入真实账号登录/退出与角色权限基础，账号区显示实际姓名和角色；3B 已接入完整申报资料及批准/驳回，状态、审核责任人、时间与审计由数据库事务一致提交。登记/草稿编辑/提交留到 3C。
 
 数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端。使用 LocalDB 时，先确认 `(localdb)\PortQueueDev` 实例处于 Running；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
@@ -73,7 +73,7 @@ pnpm.cmd --dir web/port-queue-web run dev
 
 业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色设计见 [`docs/business-flow.md`](docs/business-flow.md)。最新界面交互的范围与验收条件见 [`docs/stages/stage-2-interaction-polish.md`](docs/stages/stage-2-interaction-polish.md)：真实候选搜索、页面往返保留筛选与选择、局部加载及统一桌面布局。
 
-第三阶段已启动 **3A 身份权限**。创建自己的账号、登录与维护命令见 [`docs/stages/stage-3a-delivery-guide.md`](docs/stages/stage-3a-delivery-guide.md)；批次设计与验收见 [`docs/stages/stage-3a-session-and-overview.md`](docs/stages/stage-3a-session-and-overview.md)。下一批 3B 完成预约审核，随后 3C 登记与提交，不同时展开所有菜单。
+第三阶段已推进到 **3B 预约审核**。当前可在登录窗口选择管理员、调度员、审核员或记录员，初始密码统一为 `123456`，选择时自动填入；四个专用账号已在本机开发库建立，仍通过真实身份认证。仅在 Development 且显式启用时开放。操作步骤、权限和本轮输入输出见 [3B 交付说明](docs/stages/stage-3b-delivery-guide.md)，设计见 [3B 计划](docs/stages/stage-3b-review-and-usability.md)，结果见 [3B review](docs/reviews/2026-11-09-stage3b-review.md)。下一批为 3C 登记、草稿编辑与提交。
 
 ## 交付要求
 

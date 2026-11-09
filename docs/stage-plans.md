@@ -2,11 +2,11 @@
 
 本文档把实施路线拆成可以独立开发、独立演示和独立 review 的小阶段。每阶段开始前先确认范围，完成后必须保存构建、测试、数据库验证和界面截图等证据。未达到本阶段验收标准时，不进入下一阶段。
 
-## 当前进度：阶段 1、2 已完成；阶段 3A 身份权限已实现
+## 当前进度：阶段 1、2、3A 已完成；3B 审核已实现
 
-当前交付以 [阶段 3A 说明](stages/stage-3a-delivery-guide.md) 和 [验收记录](reviews/2026-11-09-stage3a-review.md) 为准。总览已改成全港概要，真实登录与权限基础已落地；下一批只推进 3B 预约审核。以下阶段 2 批次记录保留其当时范围和验证数量，不代表当前第三阶段仍仅处于规划。
+当前交付以 [阶段 3B 说明](stages/stage-3b-delivery-guide.md) 和 [验收记录](reviews/2026-11-09-stage3b-review.md) 为准。真实账号快捷登录、全港图文可视化、完整申报详情及批准/驳回已经接通；下一批为 3C 登记、草稿编辑与提交，开工前细化设计及验收。以下阶段 2 批次记录保留其当时范围和验证数量，不代表当前第三阶段仍仅处于规划。
 
-阶段 1 的详细操作契约、文件范围和用例见 [阶段 1 设计与验收](stages/stage-1-database.md)，结果见 [阶段 1 review](reviews/2026-11-02-stage1-database-review.md)。阶段 2 的业务实现见 [阶段 2 review](reviews/2026-11-06-stage2-appointment-review.md)；2026-11-07 已通过 Edge 补齐浏览器点击、键盘、窄屏和截图，并按用户参考图重做界面，结论见 [界面改版 review](reviews/2026-11-07-ui-reference-redesign-review.md)。改动与输入输出说明见 [阶段 2 交付说明](stages/stage-2-delivery-guide.md)。2026-11-10 计划冻结功能，11-11 答辩。阶段 3 已按用户 2026-11-09 最新指示启动，先完成 3A 身份权限，不同时展开审核与登记。
+阶段 1 的详细操作契约、文件范围和用例见 [阶段 1 设计与验收](stages/stage-1-database.md)，结果见 [阶段 1 review](reviews/2026-11-02-stage1-database-review.md)。阶段 2 的业务实现见 [阶段 2 review](reviews/2026-11-06-stage2-appointment-review.md)；2026-11-07 已通过 Edge 补齐浏览器点击、键盘、窄屏和截图，并按用户参考图重做界面，结论见 [界面改版 review](reviews/2026-11-07-ui-reference-redesign-review.md)。改动与输入输出说明见 [阶段 2 交付说明](stages/stage-2-delivery-guide.md)。2026-11-10 计划冻结功能，11-11 答辩。阶段 3 已按用户 2026-11-09 指示分批推进；3A 身份与 3B 审核分开验收，本轮未实施登记。
 
 2026-11-08 首批补充独立总览、48 条新场景与界面精炼，按 [R01—R08 验收](stages/stage-2-overview-and-scenarios.md) 收口。开发库合计 53 条预约；该批七项浏览器检查与 38 项后端测试通过。中期前优先演练、备份与证据整理；后续业务写入前先完成阶段 3A 的身份和权限验收，不同时展开所有页面。
 
