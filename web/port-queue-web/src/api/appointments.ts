@@ -1,5 +1,5 @@
 // 只管理预约 HTTP 请求与协议校验，不保存页面状态，不提供 Mock 兜底。
-import { appointmentStatuses, type AppointmentItem, type AppointmentPage, type AppointmentQuery } from '../types/appointment'
+import { appointmentStatuses, type AppointmentItem, type AppointmentDetail, type AppointmentPage, type AppointmentQuery } from '../types/appointment'
 
 const statusCodes = new Set<string>(appointmentStatuses.map(item => item.code))
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -47,12 +47,23 @@ export async function fetchAppointments(query: AppointmentQuery, signal: AbortSi
 }
 
 /** 精确读取详情，不把主列表改成按编号筛选；保持 bigint 字符串精度。 */
-export async function fetchAppointment(appointmentId: string, signal: AbortSignal): Promise<AppointmentItem> {
+export async function fetchAppointment(appointmentId: string, signal: AbortSignal): Promise<AppointmentDetail> {
   if (!/^[1-9]\d*$/.test(appointmentId)) throw new Error('预约标识无效。')
   const response = await fetch(`/api/appointments/${encodeURIComponent(appointmentId)}`, { signal, headers: { Accept: 'application/json' } })
   if (response.status === 404) throw new Error('该预约不存在，请重新选择。')
   if (!response.ok) throw new Error('预约详情暂时无法读取，请重试。')
   const item: unknown = await response.json()
-  if (!isItem(item) || item.appointmentId !== appointmentId) throw new Error('预约详情响应不正确，请重试。')
+  if (!isDetail(item) || item.appointmentId !== appointmentId) throw new Error('预约详情响应不正确，请重试。')
   return item
+}
+
+function isDetail(value: unknown): value is AppointmentDetail {
+  if (!isItem(value)) return false
+  const item = value as AppointmentDetail
+  return ['shipType', 'companyName', 'callNo'].every(k => typeof item[k as keyof AppointmentDetail] === 'string')
+    && ['lengthM', 'breadthM', 'maxDraftM', 'estimatedOperationHours', 'declaredDraftM', 'priorityLevel'].every(k => Number.isFinite(item[k as keyof AppointmentDetail]))
+    && ['grossTonnage', 'deadweightT', 'cargoTeu', 'cargoWeightT'].every(k => item[k as keyof AppointmentDetail] === null || Number.isFinite(item[k as keyof AppointmentDetail]))
+    && [item.previousPortName, item.nextPortName, item.specialRequirement].every(nullableString)
+    && typeof item.dangerousGoodsFlag === 'boolean' && isoTime(item.plannedArrivalAt)
+    && (item.plannedDepartureAt === null || isoTime(item.plannedDepartureAt)) && (item.submittedAt === null || isoTime(item.submittedAt))
 }

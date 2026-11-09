@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 两个页面分别缓存查询与选择，共用稳定工作区；页内查询不重建整个页面。
-import { computed, onMounted, onScopeDispose, ref } from 'vue'
+import { computed, nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
 import PortIcon from '../components/PortIcon.vue'
 import AppointmentSearch from '../components/AppointmentSearch.vue'
 import AppointmentRecords from '../components/AppointmentRecords.vue'
@@ -9,6 +9,7 @@ import PortOverview from '../components/PortOverview.vue'
 import PortOperationsSummary from '../components/PortOperationsSummary.vue'
 import SessionAccount from '../components/SessionAccount.vue'
 import RecentPortEvents from '../components/RecentPortEvents.vue'
+import { useSession } from '../composables/useSession'
 import { useOverview } from '../composables/useOverview'
 import { useAppointments } from '../composables/useAppointments'
 import { useAppointmentSelection } from '../composables/useAppointmentSelection'
@@ -22,8 +23,12 @@ const activeView = ref<View>(viewFromHash())
 const mobileMenuOpen = ref(false)
 const keyword = ref('')
 const selectedId = ref<string>()
+const accountSession = useSession()
+const saveFeedback = ref('')
 const list = useAppointments()
 const detail = useAppointmentSelection()
+// 审核反馈仅属于原预约；主动改变筛选或选择时不能挂到下一条记录上。
+watch(detail.requestedId, (id, previous) => { if (id !== previous) saveFeedback.value = '' })
 const { query, rows, totalCount, totalPages, loading, error, load, search } = list
 const selected = computed(() => detail.loading.value || detail.error.value ? undefined
   : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
@@ -34,6 +39,22 @@ const plannedNavigation = [
   { label: '锚地排队', icon: 'anchor' }, { label: '泊位计划', icon: 'berth' },
   { label: '进出港记录', icon: 'document' }, { label: '查询统计', icon: 'chart' },
 ]
+// 清单首次加载和明确筛选后，精确读取首项；独立详情/审核结果不被列表刷新覆盖。
+watch(rows, records => {
+  if (!detail.requestedId.value && records.length) detail.select(records.find(r => r.appointmentId === selectedId.value) ?? records[0]!)
+})
+async function reviewed(id: string, decision: 'APPROVED' | 'REJECTED') {
+  saveFeedback.value = decision === 'APPROVED' ? '预约已批准。' : '预约已驳回。'
+  await Promise.all([detail.open(id), load(), refreshOverview()])
+  if (detail.error.value || error.value || overviewError.value) saveFeedback.value += '部分信息暂未刷新，可点击刷新重读；无需再次审核。'
+  await nextTick(); document.getElementById('appointment-detail')?.focus({ preventScroll: true })
+}
+async function reconcileReview(id: string) {
+  saveFeedback.value = ''
+  await Promise.all([detail.open(id), load(), refreshOverview()])
+  if (detail.item.value && detail.item.value.appointmentStatusCode !== 'PENDING') saveFeedback.value = '已读取最新审核结果。'
+  if (detail.error.value || error.value || overviewError.value) saveFeedback.value = '部分信息暂未刷新，请重试读取后再操作。'
+}
 let listVisited = false
 function ensureList() { if (!listVisited) { listVisited = true; void load() } }
 function switchView(view: View) {
@@ -46,8 +67,9 @@ function historyChange() { activeView.value = viewFromHash(); mobileMenuOpen.val
 // 连续操作基于最近已提交的意图合并；尚未提交的输入草稿不影响状态切换。
 function submit() { detail.clear(); listVisited = true; switchView('appointments'); void search(keyword.value, (list.pendingQuery.value ?? query.value).status) }
 function searchAll() { detail.clear(); listVisited = true; switchView('appointments'); void search(keyword.value, '') }
-function openEvent(appointmentId: string) { switchView('appointments'); void detail.open(appointmentId) }
+function openEvent(appointmentId: string) { saveFeedback.value = '';  switchView('appointments'); void detail.open(appointmentId) }
 function chooseSuggestion(item: AppointmentItem) {
+  saveFeedback.value = ''
   keyword.value = (list.pendingQuery.value ?? query.value).keyword
   selectedId.value = item.appointmentId
   detail.select(item)
@@ -58,13 +80,13 @@ function reset() { detail.clear(); keyword.value = ''; void search('', '') }
 function clearKeyword() { detail.clear(); keyword.value = ''; void search('', (list.pendingQuery.value ?? query.value).status) }
 function filterStatus(status: AppointmentStatus | '') { detail.clear(); void search((list.pendingQuery.value ?? query.value).keyword, status) }
 function loadList(next?: AppointmentQuery) { detail.clear(); void load(next) }
-function selectRow(item: AppointmentItem) { if (!loading.value) { detail.select(item); selectedId.value = item.appointmentId } }
+function selectRow(item: AppointmentItem) { saveFeedback.value = ''; if (!loading.value) { detail.select(item); selectedId.value = item.appointmentId } }
 // 总览状态是明确查询入口，清除旧关键词，不会被上次的筛选截断。
 function openStatus(status: AppointmentStatus | '') {
   detail.clear(); keyword.value = ''; listVisited = true
   switchView('appointments'); void search('', status)
 }
-onMounted(() => { refresh(); if (activeView.value === 'appointments') ensureList(); window.addEventListener('popstate', historyChange) })
+onMounted(() => { void accountSession.refresh(); refresh(); if (activeView.value === 'appointments') ensureList(); window.addEventListener('popstate', historyChange) })
 onScopeDispose(() => window.removeEventListener('popstate', historyChange))
 </script>
 
@@ -82,7 +104,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
         <button v-for="nav in plannedNavigation" :key="nav.label" disabled><PortIcon :name="nav.icon" /><span>{{ nav.label }}</span><small>待接入</small></button>
       </nav>
       <div class="sidebar-bottom">
-        <SessionAccount />
+        <SessionAccount :account-session="accountSession" />
       </div>
     </aside>
 
@@ -122,7 +144,8 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           <AppointmentRecords :rows="rows" :query="query" :loading="loading" :error="error" :total-count="totalCount" :total-pages="totalPages"
             :selected-id="selected?.appointmentId" @select="selectRow" @filter="filterStatus" @load="loadList" @reset="reset" @clear-keyword="clearKeyword" />
           <div class="detail-host" :aria-busy="loading || detail.loading.value" :inert="loading || undefined">
-            <AppointmentDetail v-if="selected" :item="selected" />
+            <p v-if="saveFeedback" class="save-feedback" role="status">{{ saveFeedback }}</p>
+            <AppointmentDetail v-if="selected" :item="selected" :account-session="accountSession" @saved="reviewed" @reconcile="reconcileReview" />
             <aside v-else class="glass-panel detail-panel detail-placeholder"><PortIcon name="document" :size="30" /><p v-if="detail.error.value" role="alert">{{ detail.error.value }}</p><p v-else>{{ loading || detail.loading.value ? '正在载入详情…' : '选择预约查看详情' }}</p><button v-if="detail.error.value" class="button" @click="detail.retry">重试详情</button></aside>
           </div>
         </div>

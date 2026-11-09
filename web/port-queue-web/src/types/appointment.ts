@@ -37,3 +37,13 @@ export interface AppointmentPage {
   pageSize: number
   totalCount: number
 }
+
+/** 审核资料独立读取，任何字段未加载都不能开放审核。 */
+export interface AppointmentDetail extends AppointmentItem {
+  shipType: string; companyName: string; lengthM: number; breadthM: number; maxDraftM: number
+  grossTonnage: number | null; deadweightT: number | null; callNo: string
+  plannedArrivalAt: string; plannedDepartureAt: string | null
+  previousPortName: string | null; nextPortName: string | null; cargoTeu: number | null; cargoWeightT: number | null
+  estimatedOperationHours: number; declaredDraftM: number; priorityLevel: number; dangerousGoodsFlag: boolean
+  specialRequirement: string | null; submittedAt: string | null
+}

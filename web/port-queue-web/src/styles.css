@@ -350,35 +350,54 @@ button, .appointment-table tbody tr { transition: background-color 140ms ease-ou
 .port-summary-title h2 { font-size: 26px; letter-spacing: -.5px; }
 .port-business-flow { position: absolute; bottom: 24px; left: 24px; right: 24px; display: flex; justify-content: space-between; gap: 12px; color: #effaff; }
 .port-business-flow span { display: flex; align-items: center; gap: 7px; font-size: 12px; }
-.status-summary { padding: 17px; display: flex; flex-direction: column; min-height: 0; }
-.status-summary .panel-heading > span { font-size: 12px; color: var(--muted); }
-.state-distribution { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin-top: 12px; flex: 1; }
-.state-distribution button { display: flex; align-items: center; gap: 8px; min-height: 48px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 8px 0; }
+/* 可读的全港统计：图形表达组成，文字提供精确值与可操作入口。 */
+.status-summary { padding: 20px; display: flex; flex-direction: column; min-height: 0; }
+.distribution-body { display: grid; grid-template-columns: minmax(110px, .9fr) minmax(140px, 1fr); align-items: center; gap: 14px; flex: 1; }
+.distribution-chart { position: relative; width: 100%; max-width: 190px; margin: auto; }
+.distribution-chart svg { width: 100%; display: block; overflow: visible; }
+.distribution-chart circle { stroke-width: 18; }
+.chart-track { fill: none; stroke: #cddfe9; }
+.distribution-chart > div { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; }
+.distribution-chart strong { font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.distribution-chart span { font-size: 13px; color: var(--muted); }
+.state-distribution { display: flex; flex-direction: column; }
+.state-distribution button { display: flex; align-items: center; gap: 8px; min-height: 42px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 7px 0; }
 .state-distribution button:hover { color: var(--blue); background: rgba(255,255,255,.3); }
 .state-distribution strong { margin-left: auto; font-size: 18px; font-variant-numeric: tabular-nums; }
-.state-distribution .status-text { font-size: 11px; gap: 6px; }
-.status-summary > .text-action { margin-top: 8px; align-self: flex-start; }
-.summary-empty { font-size: 12px; color: var(--muted); }
-.operations-summary { padding: 17px; min-height: 0; display: flex; flex-direction: column; }
-.operations-summary .panel-heading { padding-bottom: 10px; }
-.operation-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); flex: 1; }
-.operation-row > svg { color: var(--muted); }
-.operation-row h3 { font-size: 12px; font-weight: 600; white-space: nowrap; }
-.operation-row dl { display: flex; flex: 1; justify-content: flex-end; gap: 24px; margin: 0; }
-.operation-row dl > div { min-width: 40px; text-align: right; }
-.operation-row dt { color: var(--muted); font-size: 11px; }
-.operation-row dd { margin: 6px 0 0; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
-@media (max-width: 1000px) { .overview-focus { min-height: 300px; } }
+.state-distribution .status-text { font-size: 14px; gap: 7px; }
+.status-summary > .text-action { align-self: flex-end; padding-bottom: 0; }
+.summary-empty { font-size: 14px; color: var(--muted); }
+.operations-summary { padding: 20px; min-height: 0; display: flex; flex-direction: column; }
+.operations-summary .panel-heading { padding-bottom: 6px; }
+.operation-visual { display: grid; grid-template-columns: 118px minmax(0,1fr); align-items: center; gap: 20px; padding: 18px 0; border-top: 1px solid var(--line); flex: 1; }
+.operation-title { display: flex; gap: 10px; align-items: center; }
+.operation-title svg { color: #315c78; }
+.operation-title h3 { font-size: 15px; font-weight: 650; }
+.queue-legend { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.queue-legend strong { color: var(--ink); font-size: 21px; margin-left: 8px; }
+.queue-bar { display: flex; overflow: hidden; height: 8px; background: #c6dce8; border-radius: 2px; }
+.queue-bar span { background: #8aabc3; }.queue-bar i { background: #315f83; border-left: 2px solid #e2eef5; }
+.plan-sequence { display: grid; grid-template-columns: repeat(3,1fr); list-style: none; padding: 0; margin: 0; gap: 12px; }
+.plan-sequence li { display: grid; grid-template-columns: 1fr; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.plan-sequence strong { color: #57778f; font-size: 24px; }.plan-sequence .populated strong { color: #173f5e; }
+.execution-bars { display: grid; gap: 10px; }
+.execution-bars > div { display: grid; grid-template-columns: 36px 1fr 26px; gap: 12px; align-items: center; font-size: 13px; }
+.execution-track { background: #cbdee9; height: 5px; border-radius: 1px; overflow: hidden; }
+.execution-track i { display: block; height: 100%; background: #315f83; }.execution-bars > div:nth-child(2) i { background: #5f89a8; }.execution-bars > div:nth-child(3) i { background: #92b0c5; }
+.execution-bars strong { text-align: right; font-size: 17px; }
+@media (max-width: 1000px) { .overview-focus { min-height: 320px; } }
 @media (max-width: 700px) {
-  .port-summary { min-height: 230px; }
+  .port-summary { min-height: 240px; }
   .port-summary-title { padding: 20px; }
-  .port-summary-title h2 { font-size: 24px; }
+  .port-summary-title h2 { font-size: 26px; }
   .port-business-flow { flex-wrap: wrap; left: 20px; right: 20px; bottom: 20px; gap: 18px; }
   .port-business-flow span { width: calc(50% - 9px); }
-  .status-summary { min-height: 240px; }
-  .operation-row { flex-wrap: wrap; gap: 8px; }
-  .operation-row dl { gap: 14px; }
-  .operation-row dd { font-size: 17px; }
+  .status-summary { min-height: 320px; padding: 16px; }
+  .distribution-body { gap: 10px; grid-template-columns: minmax(95px,.9fr) minmax(125px,1fr); }
+  .distribution-chart strong { font-size: 28px; }
+  .state-distribution button { min-height: 44px; }
+  .operation-visual { grid-template-columns: 1fr; gap: 16px; }
+  .operations-summary { padding: 18px; }
 }
 
 /* 真实账号入口；登录需要受保护焦点，沿用现有冰蓝字段与深蓝操作。 */
@@ -393,3 +412,74 @@ button, .appointment-table tbody tr { transition: background-color 140ms ease-ou
 .login-error { font-size: 12px; color: #943d34; line-height: 1.6; margin-bottom: 14px; }
 .login-error .text-action { padding: 4px; }
 @media (max-width: 700px) { .sidebar.is-open .sidebar-bottom { display: block; padding-top: 0; } .login-dialog { padding: 20px; } }
+
+/* 业务阅读字号按桌面14px起步；窄屏仅压缩间距，不把正文缩成注脚。 */
+.page-title h1 { font-size: 20px; }.panel-heading h2, .recent-events h2 { font-size: 18px; }
+.side-nav button { font-size: 15px; }.side-nav small { font-size: 11px; }
+.header-search input, .button, .text-action, .filter-tabs button, select, .appointment-table, .detail-facts, .review-comment { font-size: 14px; }
+.header-date, .search-submit, .metric > div > span, .status-badge, .summary-time span, .summary-status > span:first-child { font-size: 13px; }
+.metric strong { font-size: 36px; }.metric > div { gap: 7px; }
+.workspace-account strong, .account-action, .event-ship { font-size: 14px; }.workspace-account small { font-size: 12px; }
+.port-summary-title h2 { font-size: 30px; }.port-business-flow span { font-size: 14px; }
+.recent-events li, .recent-events time, .overview-bottom .recent-events time { font-size: 13px; }
+.port-workspace { min-height: 900px; }
+.overview-pane { grid-template-rows: 96px minmax(320px, .95fr) minmax(330px, 1fr); }
+.account-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.account-options button { display: flex; align-items: center; gap: 12px; border: 1px solid #bbd1df; border-radius: 8px; background: #f4faff; padding: 12px; text-align: left; }
+.account-options button[aria-pressed="true"] { border-color: #2d739e; background: #d7eaf7; }
+.account-options strong, .account-options small { display: block; font-size: 14px; }.account-options small { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.initial-password { margin-top: 14px; font-size: 14px; color: var(--muted); }.initial-password strong { margin-left: 8px; color: var(--ink); letter-spacing: 1px; }
+.password-field { position: relative; }.password-field input { padding-right: 65px; }.password-field .text-action { position: absolute; right: 12px; top: 0; padding: 12px 0; }
+.login-dialog label, .login-error, .account-error { font-size: 14px; }.login-dialog { width: min(440px, calc(100% - 32px)); }
+/* 详情场景复用用户认可的图文进度；无轮播，始终绑定清单选中的预约。 */
+.detail-panel { padding: 18px; }
+.appointment-progress { position: relative; overflow: hidden; isolation: isolate; border-radius: 10px; min-height: 300px; margin-top: 18px; display: flex; flex-direction: column; justify-content: space-between; background: #12364f; }
+.appointment-progress > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 55% 35%; z-index: -3; }
+.progress-shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(0deg, #103349 8%, rgba(16,51,73,.94) 36%, transparent 73%), linear-gradient(90deg,rgba(214,233,243,.96),rgba(214,233,243,.5) 40%,transparent 78%); }
+.progress-identity { padding: 18px; }.progress-identity h3 { font-size: 24px; line-height: 1.35; overflow-wrap: anywhere; }.progress-identity p { color: #25465c; margin: 6px 0 10px; font-size: 13px; }
+.progress-content { padding: 20px 18px 16px; color: #effaff; }.progress-content h4 { margin: 0 0 12px; font-size: 13px; font-weight: 500; }
+.progress-track { display: grid; grid-template-columns: repeat(var(--steps),1fr); list-style: none; padding: 0; margin: 0 0 18px; }
+.progress-track li { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; font-size: 12px; color: #c4dce9; }
+.progress-track li::before { content: ''; position: absolute; top: 14px; left: -50%; width: 100%; height: 2px; background: #638396; z-index: -1; }.progress-track li:first-child::before { display: none; }
+.progress-node { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; }.progress-node:empty::after { content: ''; width: 7px; height: 7px; background: #153d53; border: 1px solid #a4c6d8; border-radius: 50%; }
+.progress-track .reached::before { background: #76e2b2; }.progress-track .reached .progress-node:empty::after { background: #76e2b2; border-color: #76e2b2; }.progress-track .current .progress-node { background: #0d6c53; border: 1px solid #76e2b2; color: #e3fff1; }.progress-track .current { color: white; }
+/* 当前节点只表达该状态；待审核不能用获批绿色，历史到达连线仍保留。 */
+.appointment-progress[data-status="DRAFT"] .current .progress-node { background: #405a70; border-color: #c4dce9; color: #effaff; }
+.appointment-progress[data-status="PENDING"] .current .progress-node { background: #785008; border-color: #f4d686; color: #fff5d9; }
+.appointment-progress[data-status="COMPLETED"] .current .progress-node { background: #205b8a; border-color: #a3d8f7; color: #effaff; }
+.is-ended .progress-track .current .progress-node { background: #75493c; border-color: #edbb9f; color: #fff4e9; }.is-ended .progress-track .current::before { background: #a3bdc9; }
+.progress-times { display: flex; justify-content: space-between; gap: 12px; }.progress-times > div { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }.progress-times > div:last-child { text-align: right; }.progress-times time { font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.declaration-section { margin-top: 24px; }.declaration-section h3, .review-section h3 { font-size: 16px; margin-bottom: 14px; }.detail-facts { margin: 0; }.detail-facts > div { gap: 12px; padding: 7px 0; font-size: 14px; }.detail-facts dt { flex-shrink: 0; }.detail-facts dd { overflow-wrap: anywhere; text-align: right; }.long-value { white-space: pre-wrap; }.dangerous-goods { color: #943d34; font-weight: 600; }
+.call-details { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }.call-details summary { cursor: pointer; font-size: 15px; font-weight: 600; }.call-details summary span { display: block; font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 400; }.call-details .detail-facts { margin-top: 14px; }
+.review-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }.save-feedback { padding: 13px 16px; margin-bottom: 10px; background: #d7eee7; color: #155842; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+.review-dialog { width: min(460px, calc(100% - 32px)); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid var(--glass-line); border-radius: 12px; padding: 24px; background: #edf6fb; color: var(--ink); box-shadow: 0 14px 40px rgba(28,55,77,.18); }.review-dialog::backdrop { background: rgba(12,28,53,.35); }
+.review-target { font-size: 17px; font-weight: 600; margin: 18px 0; }.review-target span { display: block; font-weight: 400; color: var(--muted); font-size: 13px; margin-top: 6px; }.review-dialog label { display: block; margin-bottom: 10px; font-size: 14px; }.review-dialog textarea { font: inherit; width: 100%; resize: vertical; min-height: 110px; padding: 12px; border: 1px solid #9ebdd1; border-radius: 8px; background: #f9fcff; color: var(--ink); margin-bottom: 12px; }.review-dialog textarea:focus-visible { outline: 2px solid #0763c1; outline-offset: 2px; }.dialog-actions { display: flex; justify-content: flex-end; gap: 12px; }
+@media (max-width: 1250px) { .side-nav button { font-size: 14px; }.side-nav small { font-size: 10px; }.distribution-body { grid-template-columns: minmax(85px,.75fr) minmax(125px,1fr); gap: 9px; }.distribution-chart strong { font-size: 28px; }.status-summary { padding: 16px; }.operation-visual { grid-template-columns: 106px minmax(0,1fr); gap: 12px; } }
+@media (max-width: 1000px) { .port-workspace { min-height: calc(100dvh - 28px); }.detail-panel { display: block; }.appointment-progress { min-height: 320px; }.operation-visual { grid-template-columns: 118px minmax(0,1fr); } }
+@media (max-width: 700px) { .port-workspace { min-height: calc(100dvh - 20px); }.metric > div > span { font-size: 12px; }.metric strong { font-size: 30px; }.side-nav button { font-size: 14px; }.operation-visual { grid-template-columns: 1fr; }.appointment-progress { min-height: 300px; }.detail-panel { padding: 14px; }.progress-identity, .progress-content { padding-left: 14px; padding-right: 14px; }.progress-times time { font-size: 11px; }.detail-facts > div { font-size: 13px; }.login-dialog { padding: 20px; }.review-dialog { padding: 20px; }.summary-status { min-width: 100px; }.summary-time strong { font-size: 12px; } }
+
+/* 首轮验收修正：表内独立字号不再覆盖阅读基线；320px导航允许次要标记换行。 */
+.appointment-table th { font-size: 13px; }.appointment-table th span { font-size: 11px; }.vessel-row strong, .review-line strong { font-size: 14px; }.vessel-row small, .review-line small { font-size: 12px; }.tabular, .appointment-table .status-text, .pagination { font-size: 13px; }.page-number { font-size: 14px; }
+@media (min-width: 1800px) {
+  .port-workspace { width: min(2200px, calc(100% - 64px)); }
+  .workspace-main { padding-left: 28px; padding-right: 28px; }
+  .side-nav button { font-size: 17px; }.panel-heading h2, .recent-events h2 { font-size: 21px; }.page-title h1 { font-size: 23px; }.port-summary-title h2 { font-size: 34px; }
+  .state-distribution button { min-height: 52px; }.state-distribution .status-text, .operation-title h3, .event-ship, .detail-facts > div, .vessel-row strong { font-size: 16px; }
+  .state-distribution strong { font-size: 22px; }.distribution-chart { max-width: 220px; }.distribution-chart strong { font-size: 40px; }
+  .queue-legend, .execution-bars > div, .plan-sequence li, .port-business-flow span, .tabular, .appointment-table .status-text, .recent-events li, .overview-bottom .recent-events time { font-size: 15px; }
+  .operation-visual { grid-template-columns: 145px minmax(0,1fr); }.appointment-progress { min-height: 350px; }.progress-identity h3 { font-size: 28px; }.progress-times time, .progress-track li { font-size: 14px; }
+}
+@media (max-width: 700px) {
+  .side-nav { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .side-nav button { display: grid; grid-template-columns: 22px minmax(0,1fr); align-content: center; gap: 4px 8px; min-width: 0; white-space: normal; padding: 8px; }
+  .side-nav small { grid-column: 2; margin-left: 0; }
+  .account-options { grid-template-columns: repeat(2,minmax(0,1fr)); }.account-options button { padding: 10px; gap: 8px; min-width: 0; }
+}
+
+/* 总览图形遵循蓝色层次；少量留白分隔真实扇区，避免大块多色抢夺场景主次。 */
+.distribution-chart svg circle { stroke-width: 12px; }
+.state-distribution .status-text { color: #294c66; background: transparent; }
+.state-distribution .status-text i { background: var(--state-color); width: 8px; height: 8px; border-radius: 2px; }
+.state-distribution button { border-bottom-color: rgba(80,125,155,.13); }
+.state-distribution button > svg { color: #66879d; }
+.execution-bars { gap: 14px; }

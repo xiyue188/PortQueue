@@ -230,6 +230,17 @@ test('总览涵盖全部状态且不请求单船摘要，批准入口覆盖完�
     await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${data.totalCount} 条预约`)
     await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(Math.min(data.totalCount, 20))
     await expect(page.getByLabel('预约关键词', { exact: true })).toHaveValue('')
+    if (data.items.length) {
+      await expect(page.locator('#appointment-detail .status-badge')).toHaveClass(new RegExp(`status-${state.code.toLowerCase()}`))
+      await expect(page.locator('#appointment-detail .progress-track [aria-current="step"]')).toContainText({ DRAFT: '草稿', PENDING: '待审核', APPROVED: '已批准', COMPLETED: '已完成', REJECTED: '已驳回', CANCELLED: '已撤销' }[state.code as 'DRAFT'])
+      if (['REJECTED', 'CANCELLED'].includes(state.code)) await expect(page.locator('#appointment-detail .progress-track')).not.toContainText('已完成')
+      // 逐状态截图供语义颜色审查：正常办理、批准与终止不能共用误导色。
+      await page.screenshot({ path: `../../.impeccable/review/stage3b-state-${state.code}.png`, fullPage: true })
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.locator('.appointment-progress').scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `../../.impeccable/review/stage3b-state-${state.code}-mobile.png` })
+      await page.setViewportSize({ width: 1440, height: 1024 })
+    }
     await page.getByRole('button', { name: '总览', exact: true }).click()
   }
 })
