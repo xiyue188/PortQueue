@@ -23,7 +23,10 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
         var events = JsonSerializer.Deserialize<RecentPortEvent[]>(counts.RecentEventsJson)
             ?? throw new InvalidOperationException("Overview event payload is missing.");
         return new PortOverview(counts.PendingAppointments, counts.AnchorageVessels, counts.ConfirmedPlans,
-            counts.TotalEvents, eventsPage, eventPageSize, events);
+            counts.TotalEvents, eventsPage, eventPageSize, events, counts.WaitingQueue, counts.AssignedQueue,
+            counts.DraftPlans, counts.ExecutingPlans, counts.PortEntries, counts.Berthings, counts.Unberthings,
+            JsonSerializer.Deserialize<AppointmentStateCount[]>(counts.AppointmentStatesJson)
+                ?? throw new InvalidOperationException("Overview states payload is missing."));
     }
 
     private static string LoadSql()
@@ -40,6 +43,14 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
         public long AnchorageVessels { get; init; }
         public long ConfirmedPlans { get; init; }
         public long TotalEvents { get; init; }
+        public long WaitingQueue { get; init; }
+        public long AssignedQueue { get; init; }
+        public long DraftPlans { get; init; }
+        public long ExecutingPlans { get; init; }
+        public long PortEntries { get; init; }
+        public long Berthings { get; init; }
+        public long Unberthings { get; init; }
+        public string AppointmentStatesJson { get; init; } = "[]";
         public string RecentEventsJson { get; init; } = "[]";
     }
 }

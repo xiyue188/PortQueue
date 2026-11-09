@@ -46,6 +46,16 @@ public sealed class OverviewScenarioTests(AppointmentDatabaseFixture fixture) : 
         Assert.Equal(10, overview.AnchorageVessels);
         Assert.Equal(4, overview.ConfirmedPlans);
         Assert.Equal(12, overview.RecentEvents.Count);
+        Assert.Equal(6, overview.AppointmentStates.Count);
+        Assert.Equal(56, overview.AppointmentStates.Sum(state => state.Count));
+        Assert.Equal(10, overview.AppointmentStates.Single(state => state.Code == "APPROVED").Count);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_anchorage_queue WHERE queue_status_code='WAITING'"), overview.WaitingQueue);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_anchorage_queue WHERE queue_status_code='ASSIGNED'"), overview.AssignedQueue);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_current_berth_plan WHERE plan_status_code='DRAFT'"), overview.DraftPlans);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_current_berth_plan WHERE plan_status_code='EXECUTING'"), overview.ExecutingPlans);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_port_event WHERE event_type_code='PORT_ENTER'"), overview.PortEntries);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_port_event WHERE event_type_code='BERTHING'"), overview.Berthings);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.v_port_event WHERE event_type_code='UNBERTHING'"), overview.Unberthings);
         Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.port_event"), overview.TotalEvents);
         Assert.Equal(overview.RecentEvents.OrderByDescending(item => item.EventTime), overview.RecentEvents);
         // 遍历所有页，核对数量、主键唯一和跨页时间顺序，避免只是增大 TOP 上限。
