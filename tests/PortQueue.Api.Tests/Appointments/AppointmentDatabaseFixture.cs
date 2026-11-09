@@ -38,7 +38,7 @@ public sealed class AppointmentDatabaseFixture : IAsyncLifetime
                 { InitialCatalog = _databaseName }.ConnectionString;
             var root = FindRepository();
             foreach (var file in new[] { "00_create_database.sql", "01_schema.sql", "02_views.sql",
-                         "03_triggers.sql", "04_procedures.sql", "05_seed_reference.sql",
+                         "03_triggers.sql", "04_procedures.sql", "14_appointment_registration.sql", "05_seed_reference.sql",
                          "09_permissions.sql", "10_seed_demo.sql" })
             {
                 var sql = (await File.ReadAllTextAsync(Path.Combine(root, "database", file)))

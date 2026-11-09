@@ -43,5 +43,14 @@ GRANT SELECT ON dbo.ship(ship_type_item_id,shipping_company_id,length_m,breadth_
 GRANT SELECT ON dbo.dictionary_item(dictionary_item_id,item_name) TO portqueue_app;
 GRANT SELECT ON dbo.shipping_company(company_id,company_name) TO portqueue_app;
 GRANT SELECT ON dbo.port(port_id,port_name) TO portqueue_app;
+-- 阶段3C：仍禁止直接写表，登记只授予过程；审计只暴露版本计算所需三列。
+GRANT EXECUTE ON dbo.usp_save_appointment TO portqueue_app;
+GRANT SELECT ON dbo.audit_log(audit_id,table_name,record_id) TO portqueue_app;
+GRANT SELECT ON dbo.ship(status_code) TO portqueue_app;
+GRANT SELECT ON dbo.dictionary_item(dictionary_type,is_enabled) TO portqueue_app;
+GRANT SELECT ON dbo.port(port_code,country_code,timezone,status_code) TO portqueue_app;
+GRANT SELECT ON dbo.terminal(terminal_id,port_id) TO portqueue_app;
+GRANT SELECT ON dbo.anchorage(anchorage_id,port_id) TO portqueue_app;
+GRANT SELECT ON dbo.berth(berth_id,terminal_id) TO portqueue_app;
 COMMIT TRANSACTION;
 GO

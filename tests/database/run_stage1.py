@@ -284,12 +284,12 @@ def structural_and_demo_cases():
     for name in ['06_smoke_tests.sql','07_business_smoke_test.sql','08_constraint_smoke_tests.sql']:
         deploy(DB,name)
     RESULTS.append({'case':'existing_06_07_08_regression','status':'passed'})
-    for name in ['02_views.sql','03_triggers.sql','04_procedures.sql','05_seed_reference.sql','09_permissions.sql']:
+    for name in ['02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
         deploy(DB,name)
     run("""
         IF (SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0)<>21 THROW 53999,'Table count.',1;
         IF (SELECT COUNT(*) FROM sys.views WHERE is_ms_shipped=0)<>3 THROW 53999,'View count.',1;
-        IF (SELECT COUNT(*) FROM sys.procedures WHERE is_ms_shipped=0)<>7 THROW 53999,'Procedure count.',1;
+        IF (SELECT COUNT(*) FROM sys.procedures WHERE is_ms_shipped=0)<>8 THROW 53999,'Procedure count.',1;
         IF (SELECT COUNT(*) FROM sys.triggers WHERE is_ms_shipped=0)<>8 THROW 53999,'Trigger count.',1;
         IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE is_disabled=1 OR is_not_trusted=1)
             OR EXISTS(SELECT 1 FROM sys.check_constraints WHERE is_disabled=1 OR is_not_trusted=1) THROW 53999,'Untrusted constraint.',1;
@@ -338,7 +338,7 @@ def main():
     run(f'CREATE DATABASE [{DB}];', 'master')
     try:
         deploy(DB,'00_create_database.sql')
-        for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql','05_seed_reference.sql','09_permissions.sql']:
+        for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
             deploy(DB,name)
             print('DEPLOY',name,flush=True)
         business_cases()
@@ -348,7 +348,7 @@ def main():
         DB='PortQueueStage1Test_'+uuid.uuid4().hex[:12]
         run(f'CREATE DATABASE [{DB}];','master')
         try:
-            for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql','05_seed_reference.sql','09_permissions.sql']:
+            for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
                 deploy(DB,name)
             structural_and_demo_cases()
         finally:

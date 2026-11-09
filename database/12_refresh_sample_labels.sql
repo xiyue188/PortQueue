@@ -58,6 +58,57 @@ BEGIN TRY
         VALUES('user_account',CONVERT(varchar(100),@u),'UPDATE',@before,
             (SELECT user_id,display_name,role_code FROM dbo.user_account WHERE user_id=@u FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@u);
     END;
+    -- 新查询页复用旧设施：只规范明确匹配的初始显示名称，不重解释代码。
+    SET @id=NULL;
+    SELECT @id=port_id FROM dbo.port WHERE port_code='CNTAO' AND port_name=N'Qingdao Port';
+    IF @id IS NOT NULL
+    BEGIN
+        SET @before=(SELECT * FROM dbo.port WHERE port_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER);
+        UPDATE dbo.port SET port_name=N'青岛港' WHERE port_id=@id;
+        INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
+        VALUES('port',CONVERT(varchar(100),@id),'UPDATE',@before,
+            (SELECT * FROM dbo.port WHERE port_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER),@u);
+    END;
+    SET @id=NULL;
+    SELECT @id=company_id FROM dbo.shipping_company WHERE company_code='DEMO-SC' AND company_name=N'Demo Ocean Shipping';
+    IF @id IS NOT NULL
+    BEGIN
+        SET @before=(SELECT * FROM dbo.shipping_company WHERE company_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER);
+        UPDATE dbo.shipping_company SET company_name=N'海岚航运有限公司' WHERE company_id=@id;
+        INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
+        VALUES('shipping_company',CONVERT(varchar(100),@id),'UPDATE',@before,
+            (SELECT * FROM dbo.shipping_company WHERE company_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER),@u);
+    END;
+    SET @id=NULL;
+    SELECT @id=terminal_id FROM dbo.terminal WHERE terminal_code='PQ-DEMO-T' AND terminal_name=N'Demo Terminal';
+    IF @id IS NOT NULL
+    BEGIN
+        SET @before=(SELECT * FROM dbo.terminal WHERE terminal_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER);
+        UPDATE dbo.terminal SET terminal_name=N'综合作业码头' WHERE terminal_id=@id;
+        INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
+        VALUES('terminal',CONVERT(varchar(100),@id),'UPDATE',@before,
+            (SELECT * FROM dbo.terminal WHERE terminal_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER),@u);
+    END;
+    SET @id=NULL;
+    SELECT @id=berth_id FROM dbo.berth WHERE berth_code='PQ-DEMO-B' AND berth_name=N'Demo Berth';
+    IF @id IS NOT NULL
+    BEGIN
+        SET @before=(SELECT * FROM dbo.berth WHERE berth_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER);
+        UPDATE dbo.berth SET berth_name=N'综合作业泊位' WHERE berth_id=@id;
+        INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
+        VALUES('berth',CONVERT(varchar(100),@id),'UPDATE',@before,
+            (SELECT * FROM dbo.berth WHERE berth_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER),@u);
+    END;
+    SET @id=NULL;
+    SELECT @id=anchorage_id FROM dbo.anchorage WHERE anchorage_code='PQ-DEMO-A' AND anchorage_name=N'Demo Anchorage';
+    IF @id IS NOT NULL
+    BEGIN
+        SET @before=(SELECT * FROM dbo.anchorage WHERE anchorage_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER);
+        UPDATE dbo.anchorage SET anchorage_name=N'港外待泊锚地' WHERE anchorage_id=@id;
+        INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
+        VALUES('anchorage',CONVERT(varchar(100),@id),'UPDATE',@before,
+            (SELECT * FROM dbo.anchorage WHERE anchorage_id=@id FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER),@u);
+    END;
     COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH
