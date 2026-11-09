@@ -18,3 +18,10 @@ GET {{baseUrl}}/api/appointments?page=0
 
 ### 字面百分号，不作为任意字符串匹配
 GET {{baseUrl}}/api/appointments?keyword=%25
+
+### 独立详情：先从列表响应复制 appointmentId，不改变清单筛选。
+@appointmentId = 1
+GET {{baseUrl}}/api/appointments/{{appointmentId}}
+
+### 不存在的主键：404，不回退成其他预约。
+GET {{baseUrl}}/api/appointments/9223372036854775807

@@ -114,6 +114,35 @@ public sealed class AppointmentQueryTests(AppointmentDatabaseFixture fixture) : 
     }
 
     [Fact]
+    public async Task DetailUsesExactBigintAndPreservesListScope()
+    {
+        using var client = fixture.Factory.CreateClient();
+        var before = await Query("?pageSize=2");
+        var item = (await client.GetFromJsonAsync<AppointmentListItem>("/api/appointments/9007199254740993"))!;
+        Assert.Equal("9007199254740993", item.AppointmentId);
+        Assert.Equal("S2-TIE-A", item.AppointmentNo);
+        var after = await Query("?pageSize=2");
+        Assert.Equal(before.TotalCount, after.TotalCount);
+        Assert.Equal(before.Items, after.Items);
+        using var missing = await client.GetAsync("/api/appointments/9223372036854775807");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task DetailWorksWithExistingColumnPermissions()
+    {
+        await using var stream = typeof(SqlAppointmentQueries).Assembly.GetManifestResourceStream("PortQueue.Queries.AppointmentDetail.sql")!;
+        using var reader = new StreamReader(stream);
+        await using var connection = new SqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync();
+        using var command = new SqlCommand("EXECUTE AS USER='portqueue_probe';\n" + await reader.ReadToEndAsync() + "\nREVERT;", connection);
+        command.Parameters.Add("@AppointmentId", System.Data.SqlDbType.BigInt).Value = 9007199254740993L;
+        using var rows = await command.ExecuteReaderAsync();
+        Assert.True(await rows.ReadAsync());
+        Assert.Equal("S2-TIE-A", rows.GetString(rows.GetOrdinal("AppointmentNo")));
+    }
+
+    [Fact]
     public async Task CompleteQueryWorksWithExistingColumnPermissions()
     {
         await using var stream = typeof(SqlAppointmentQueries).Assembly.GetManifestResourceStream("PortQueue.Queries.Appointments.sql")!;

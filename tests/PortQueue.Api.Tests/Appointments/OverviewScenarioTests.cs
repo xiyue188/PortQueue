@@ -45,15 +45,45 @@ public sealed class OverviewScenarioTests(AppointmentDatabaseFixture fixture) : 
         Assert.Equal(9, overview.PendingAppointments);
         Assert.Equal(10, overview.AnchorageVessels);
         Assert.Equal(4, overview.ConfirmedPlans);
-        Assert.Equal(5, overview.RecentEvents.Count);
-        Assert.All(overview.RecentEvents, item => Assert.Equal("ANCHORAGE_ENTER", item.EventTypeCode));
+        Assert.Equal(12, overview.RecentEvents.Count);
+        Assert.Equal(await Scalar("SELECT COUNT_BIG(*) FROM dbo.port_event"), overview.TotalEvents);
         Assert.Equal(overview.RecentEvents.OrderByDescending(item => item.EventTime), overview.RecentEvents);
+        // 遍历所有页，核对数量、主键唯一和跨页时间顺序，避免只是增大 TOP 上限。
+        var events = new List<RecentPortEvent>();
+        for (var page = 1; page <= Math.Ceiling(overview.TotalEvents / 12d); page++)
+        {
+            var batch = (await client.GetFromJsonAsync<PortOverview>($"/api/overview?eventsPage={page}"))!;
+            Assert.Equal(page, batch.EventsPage);
+            Assert.Equal(12, batch.EventsPageSize);
+            Assert.Equal(overview.TotalEvents, batch.TotalEvents);
+            events.AddRange(batch.RecentEvents);
+        }
+        Assert.Equal(overview.TotalEvents, events.Count);
+        Assert.Equal(events.Count, events.Select(item => item.EventId).Distinct().Count());
+        Assert.Equal(events.OrderByDescending(item => item.EventTime).ThenByDescending(item => long.Parse(item.EventId, System.Globalization.CultureInfo.InvariantCulture)), events);
+        var empty = (await client.GetFromJsonAsync<PortOverview>("/api/overview?eventsPage=1000000"))!;
+        Assert.Empty(empty.RecentEvents);
+        Assert.Equal(overview.TotalEvents, empty.TotalEvents);
 
         await using var stream = typeof(SqlOverviewQueries).Assembly.GetManifestResourceStream("PortQueue.Queries.Overview.sql")!;
         using var reader = new StreamReader(stream);
         using var permission = new SqlCommand("EXECUTE AS USER='portqueue_probe';\n" + await reader.ReadToEndAsync() + "\nREVERT;", connection);
+        permission.Parameters.AddWithValue("@EventOffset", 0);
+        permission.Parameters.AddWithValue("@EventPageSize", 12);
         using var result = await permission.ExecuteReaderAsync();
         Assert.True(await result.ReadAsync());
         Assert.Equal(9, result.GetInt64(result.GetOrdinal("PendingAppointments")));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("1000001")]
+    [InlineData("abc")]
+    public async Task InvalidEventPageReturnsValidationError(string page)
+    {
+        using var client = fixture.Factory.CreateClient();
+        using var response = await client.GetAsync("/api/overview?eventsPage=" + page);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

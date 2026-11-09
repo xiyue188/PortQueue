@@ -8,3 +8,18 @@ GET {{PortQueue.Api_HostAddress}}/
 Accept: application/json
 
 ###
+# 港口总览：业务计数及首批动态（每页 12 条）。
+GET {{PortQueue.Api_HostAddress}}/api/overview
+Accept: application/json
+
+###
+# 继续浏览较早事件。
+GET {{PortQueue.Api_HostAddress}}/api/overview?eventsPage=2
+Accept: application/json
+
+###
+# 参数边界：返回 400，不执行 SQL 查询。
+GET {{PortQueue.Api_HostAddress}}/api/overview?eventsPage=0
+Accept: application/json
+
+###

@@ -42,6 +42,17 @@ public sealed class AppointmentHttpContractTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task InvalidDetailKeyIsRejectedBeforeDatabaseAccess()
+    {
+        using var client = _factory.CreateClient();
+        foreach (var id in new[] { "0", "-1", "9223372036854775808", "abc" })
+        {
+            using var response = await client.GetAsync("/api/appointments/" + id);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task OverlongKeywordIsRejected()
     {
         using var client = _factory.CreateClient();
@@ -52,6 +63,7 @@ public sealed class AppointmentHttpContractTests : IClassFixture<WebApplicationF
     [Theory]
     [InlineData("/api/appointments")]
     [InlineData("/api/overview")]
+    [InlineData("/api/appointments/1")]
     public async Task UnreachableSqlReturns503WithoutSensitiveDetails(string endpoint)
     {
         using var client = _factory.CreateClient();

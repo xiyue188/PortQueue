@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using PortQueue.Application.Overview;
 
@@ -10,7 +11,9 @@ public sealed class OverviewController(IOverviewQueries queries) : ControllerBas
 {
     [HttpGet]
     [ProducesResponseType<PortOverview>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
-    public async Task<ActionResult<PortOverview>> Get(CancellationToken cancellationToken)
-        => Ok(await queries.GetAsync(cancellationToken));
+    public async Task<ActionResult<PortOverview>> Get(CancellationToken cancellationToken,
+        [FromQuery, Range(1, 1_000_000, ErrorMessage = "动态页码须为 1 至 1000000 的整数。")] int eventsPage = 1)
+        => Ok(await queries.GetAsync(eventsPage, cancellationToken));
 }

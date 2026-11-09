@@ -10,16 +10,20 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
 {
     private static readonly string QuerySql = LoadSql();
 
-    public async Task<PortOverview> GetAsync(CancellationToken cancellationToken)
+    public async Task<PortOverview> GetAsync(int eventsPage, CancellationToken cancellationToken)
     {
+        const int eventPageSize = 12;
+        if (eventsPage is < 1 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(eventsPage));
         await using var connection = connectionFactory.Create();
         await connection.OpenAsync(cancellationToken);
-        var command = new CommandDefinition(QuerySql, commandTimeout: 8,
+        var command = new CommandDefinition(QuerySql,
+            new { EventOffset = (eventsPage - 1) * eventPageSize, EventPageSize = eventPageSize }, commandTimeout: 8,
             cancellationToken: cancellationToken);
         var counts = await connection.QuerySingleAsync<OverviewCounts>(command);
         var events = JsonSerializer.Deserialize<RecentPortEvent[]>(counts.RecentEventsJson)
             ?? throw new InvalidOperationException("Overview event payload is missing.");
-        return new PortOverview(counts.PendingAppointments, counts.AnchorageVessels, counts.ConfirmedPlans, events);
+        return new PortOverview(counts.PendingAppointments, counts.AnchorageVessels, counts.ConfirmedPlans,
+            counts.TotalEvents, eventsPage, eventPageSize, events);
     }
 
     private static string LoadSql()
@@ -35,6 +39,7 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory) 
         public long PendingAppointments { get; init; }
         public long AnchorageVessels { get; init; }
         public long ConfirmedPlans { get; init; }
+        public long TotalEvents { get; init; }
         public string RecentEventsJson { get; init; } = "[]";
     }
 }

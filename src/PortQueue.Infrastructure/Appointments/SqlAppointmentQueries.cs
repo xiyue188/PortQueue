@@ -7,7 +7,18 @@ namespace PortQueue.Infrastructure.Appointments;
 /// <summary>执行仓库维护的预约 SQL；连接逐请求释放，取消信号贯穿连接与命令。</summary>
 public sealed class SqlAppointmentQueries(ISqlConnectionFactory connectionFactory) : IAppointmentQueries
 {
-    private static readonly string QuerySql = LoadSql();
+    private static readonly string QuerySql = LoadSql("PortQueue.Queries.Appointments.sql");
+    private static readonly string DetailSql = LoadSql("PortQueue.Queries.AppointmentDetail.sql");
+
+    // 主键精确定位详情，独立于清单的关键词、状态和页码。
+    public async Task<AppointmentListItem?> GetByIdAsync(long appointmentId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(appointmentId);
+        await using var connection = connectionFactory.Create();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<AppointmentListItem>(new CommandDefinition(
+            DetailSql, new { AppointmentId = appointmentId }, commandTimeout: 8, cancellationToken: cancellationToken));
+    }
 
     public async Task<AppointmentPage> GetPageAsync(AppointmentQuery query, CancellationToken cancellationToken)
     {
@@ -37,10 +48,10 @@ public sealed class SqlAppointmentQueries(ISqlConnectionFactory connectionFactor
         .Replace("_", "\\_", StringComparison.Ordinal)
         .Replace("[", "\\[", StringComparison.Ordinal);
 
-    private static string LoadSql()
+    private static string LoadSql(string resourceName)
     {
         using var stream = typeof(SqlAppointmentQueries).Assembly
-            .GetManifestResourceStream("PortQueue.Queries.Appointments.sql")
+            .GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException("Embedded appointment query is missing.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
