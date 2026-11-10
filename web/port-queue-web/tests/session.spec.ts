@@ -7,7 +7,9 @@ import { randomUUID } from 'node:crypto'
 
 const root = resolve('../..')
 const database = `PortQueueSessionBrowser_${randomUUID().replaceAll('-', '')}`
-const connection = `Server=(localdb)\\PortQueueDev;Database=${database};Integrated Security=True;TrustServerCertificate=True`
+// 允许验收进程指定已核实的实例端点，避免代理会话的 LocalDB 别名解析影响用户服务。
+const sqlServer = process.env.PORTQUEUE_TEST_SQL_SERVER ?? '(localdb)\\PortQueueDev'
+const connection = `Server=${sqlServer};Database=${database};Integrated Security=True;TrustServerCertificate=True`
 const api = 'http://127.0.0.1:5280'
 const password = randomUUID() + '!a9'
 const sqlcmd = 'C:/Program Files/Microsoft SQL Server/Client SDK/ODBC/170/Tools/Binn/SQLCMD.EXE'
@@ -19,7 +21,7 @@ function sql(source: string, db = database) {
   const inputFile = resolve(root, 'artifacts', `${database}.sql`)
   writeFileSync(inputFile, source, 'utf8')
   try {
-    return execFileSync(sqlcmd, ['-S', '(localdb)\\PortQueueDev', '-d', db, '-E', '-b', '-f', '65001', '-i', inputFile], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return execFileSync(sqlcmd, ['-S', sqlServer, '-d', db, '-E', '-b', '-f', '65001', '-i', inputFile], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (failure) {
     const result = failure as { stdout?: string; stderr?: string }
     throw new Error(`SQL fixture failed: ${result.stdout ?? ''} ${result.stderr ?? ''}`)
@@ -341,4 +343,36 @@ test('审核响应丢失先读取结果，不自动重复写入', async ({ page 
   await expect(page.locator('#appointment-detail')).toContainText(no)
   await expect(page.locator('.appointments-pane tbody')).not.toContainText(no)
   expect(writes).toBe(1)
+})
+
+// 两个页面共享真实测试库：别处新增后，总览无需手动刷新即可读取提交结果。
+test('调度员页面新增后，另一总览按轮询更新真实待审核数量', async ({ page, browser }) => {
+  // Playwright 时钟属于浏览器上下文，观察页必须隔离，不能冻结登记页的候选防抖。
+  const observerContext = await browser.newContext({ baseURL: 'http://127.0.0.1:5173', locale: 'zh-CN', timezoneId: 'Asia/Shanghai' })
+  const observerPage = await observerContext.newPage()
+  try {
+    await observerPage.route(url => url.pathname.startsWith('/api/'), async route => {
+      const url = new URL(route.request().url())
+      await route.fulfill({ response: await route.fetch({ url: api + url.pathname + url.search }) })
+    })
+    await observerPage.emulateMedia({ reducedMotion: 'reduce' })
+    await observerPage.clock.install()
+    await observerPage.clock.pauseAt(new Date())
+    await observerPage.goto('/')
+    const before = await (await fetch(api + '/api/overview')).json()
+    await expect(observerPage.locator('.metric strong').first()).toHaveText(String(before.pendingAppointments))
+    await presetLogin(page, '调度员')
+    await page.getByRole('navigation').getByRole('button', { name: '进港预约', exact: true }).click()
+    await page.getByRole('button', { name: '登记预约', exact: true }).click()
+    const drawer = await fillRegistration(page)
+    await drawer.getByRole('button', { name: '提交审核', exact: true }).click()
+    await expect(page.locator('.save-feedback')).toContainText('预约已提交')
+    await observerPage.bringToFront()
+    await observerPage.clock.runFor(30_001)
+    await expect(observerPage.locator('.metric strong').first()).toHaveText(String(before.pendingAppointments + 1))
+    const after = await (await fetch(api + '/api/overview')).json()
+    expect(after.pendingAppointments).toBe(before.pendingAppointments + 1)
+    await page.reload()
+    await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${after.appointmentStates.reduce((sum: number, item: {count: number}) => sum + item.count, 0)} 条预约`)
+  } finally { await observerContext.close() }
 })

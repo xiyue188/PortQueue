@@ -62,17 +62,19 @@ test('加载候选失败可重试，新关键词不会被旧分页覆盖', async
   expect(names.every(name => name.includes('海岚'))).toBeTruthy()
 })
 
-test('动态翻页失败停止轮播，重试恢复首批真实记录', async ({ page }) => {
+test('动态翻页失败停止轮播，重试恢复原请求页的真实记录', async ({ page, request }) => {
   await page.goto('/')
   await expect(page.locator('.recent-events li')).toHaveCount(12)
-  await page.route(url => url.pathname === '/api/overview' && url.searchParams.get('eventsPage') === '2', route => route.fulfill({ status: 503, body: '{}' }))
+  const expected = await (await request.get('/api/overview?eventsPage=2')).json()
+  await page.route(url => url.pathname === '/api/overview' && url.searchParams.get('eventsPage') === '2', route => route.fulfill({ status: 503, body: '{}' }), { times: 1 })
   await page.getByRole('button', { name: '较早动态' }).click()
   await expect(page.locator('.recent-events [role=alert]')).toBeVisible()
   await expect(page.locator('.recent-events li')).toHaveCount(0)
   await expect(page.locator('.metric strong')).toHaveText(['—', '—', '—'])
   await page.getByRole('button', { name: '重试', exact: true }).click()
   await expect(page.locator('.recent-events li')).toHaveCount(12)
-  await expect(page.locator('.event-range')).toContainText('1–12')
+  await expect(page.locator('.event-range')).toContainText('13–24')
+  await expect(page.locator('.recent-events .event-ship').first()).toHaveText(expected.recentEvents[0].shipName)
 })
 
 test('动态遍历完整历史，标题固定，暂停和关联预约可用', async ({ page, request }) => {

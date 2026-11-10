@@ -6,7 +6,7 @@ import { formatDate } from '../utils/appointmentPresentation'
 import PortIcon from './PortIcon.vue'
 
 const props = defineProps<{ overview: PortOverview | null; loading: boolean; error: string; active: boolean }>()
-const emit = defineEmits<{ page: [page: number]; select: [appointmentId: string] }>()
+const emit = defineEmits<{ page: [page?: number]; select: [appointmentId: string] }>()
 const viewport = ref<HTMLElement>()
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 const paused = ref(reducedMotion.matches)
@@ -98,7 +98,7 @@ onScopeDispose(() => {
     <div ref="viewport" class="events-viewport" tabindex="0" role="region" aria-label="港口动态记录"
       @pointerenter="hovering = $event.pointerType === 'mouse'" @pointerleave="hovering = false"
       @focusin="focused = true" @focusout="focusout" @wheel.passive="pauseReading" @touchstart.passive="pauseReading">
-      <p v-if="error" role="alert">{{ error }} <button class="text-action" @click="emit('page', 1)">重试</button></p>
+      <p v-if="error" role="alert">{{ error }} <button class="text-action" @click="emit('page')">重试</button></p>
       <ol v-else-if="overview?.recentEvents.length">
         <li v-for="event in overview.recentEvents" :key="event.eventId">
           <PortIcon :name="event.eventTypeCode.includes('ANCHORAGE') ? 'anchor' : 'ship'" :size="19" />

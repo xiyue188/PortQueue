@@ -13,9 +13,7 @@ const emit = defineEmits<{
   load: [query?: AppointmentQuery]; reset: []; all: []
   'clear-keyword': []
 }>()
-const tabs = [{ label: '全部', code: '' }, { label: '待审核', code: 'PENDING' },
-  { label: '已批准', code: 'APPROVED' }, { label: '已完成', code: 'COMPLETED' }] as const
-function changeStatus(event: Event) { emit('filter', (event.target as HTMLSelectElement).value as AppointmentStatus | '') }
+const tabs: ReadonlyArray<{ label: string; code: AppointmentStatus | '' }> = [{ label: '全部', code: '' }, ...appointmentStatuses]
 function changePageSize(event: Event) { emit('load', { ...props.query, page: 1, pageSize: Number((event.target as HTMLSelectElement).value) }) }
 </script>
 
@@ -28,10 +26,9 @@ function changePageSize(event: Event) { emit('load', { ...props.query, page: 1, 
       <button v-else class="text-action" @click="emit('all')">查看全部预约<PortIcon name="arrow" :size="16" /></button>
     </div>
     <div v-if="!compact" class="filters-bar">
-      <div class="filter-tabs" role="group" aria-label="常用预约状态">
+      <div class="filter-tabs" role="group" aria-label="预约状态筛选">
         <button v-for="tab in tabs" :key="tab.code" :aria-pressed="query.status === tab.code" @click="emit('filter', tab.code)">{{ tab.label }}</button>
       </div>
-      <div class="all-statuses"><label class="sr-only" for="appointment-status">预约状态</label><select id="appointment-status" :value="query.status" @change="changeStatus"><option value="">全部状态</option><option v-for="status in appointmentStatuses" :key="status.code" :value="status.code">{{ status.label }}</option></select></div>
     </div>
     <div v-if="!compact && query.keyword" class="applied-keyword"><span>关键词：{{ query.keyword }}</span><button class="text-action" aria-label="清除关键词筛选" @click="emit('clear-keyword')"><PortIcon name="reset" :size="14" />清除</button></div>
     <p v-if="rows.length" class="scroll-hint">左右滑动查看完整记录</p>

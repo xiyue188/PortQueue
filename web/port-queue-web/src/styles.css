@@ -111,6 +111,16 @@ h1, h2, h3, p { margin: 0; }
 .metric > div { display: flex; flex-direction: column; gap: 3px; }
 .metric > div > span { font-size: 12px; white-space: nowrap; }
 .metric strong { font-size: 32px; font-weight: 720; line-height: 1.05; letter-spacing: -.6px; font-variant-numeric: tabular-nums; }
+.metric-definition { display: block; min-width: 0; }
+.metric-definition summary { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 58px; cursor: pointer; list-style: none; }
+.metric-definition summary::-webkit-details-marker { display: none; }
+.metric-definition summary::after { content: ''; width: 6px; height: 6px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg); flex-shrink: 0; }
+.metric-definition[open] summary::after { transform: rotate(225deg); }
+.metric-definition summary:focus-visible { outline: 2px solid #0763c1; outline-offset: 3px; border-radius: 6px; }
+.metric-definition .metric-copy { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.metric-definition .metric-copy > span { font-size: 13px; white-space: nowrap; }
+.metric-definition p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.metric-definition[open] { align-self: start; }
 .selection-strip { display: flex; align-items: center; gap: 16px; min-height: 88px; margin-bottom: 0; padding: 13px 18px; }
 .summary-vessel { width: 82px; height: 54px; border: 1px solid rgba(255, 255, 255, .75); object-fit: cover; border-radius: 9px; }
 .summary-identity { display: flex; flex-direction: column; gap: 9px; flex: 1; min-width: 0; }
@@ -151,7 +161,7 @@ h1, h2, h3, p { margin: 0; }
 .applied-keyword { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .applied-keyword span { overflow-wrap: anywhere; min-width: 0; }
 .applied-keyword .text-action { padding: 4px; white-space: nowrap; }
-.filter-tabs { display: flex; gap: 4px; }
+.filter-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
 .filter-tabs button { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 6px 13px; min-height: 32px; font-size: 11px; white-space: nowrap; }
 .filter-tabs button[aria-pressed="true"] { background: rgba(255, 255, 255, .9); border-color: rgba(255, 255, 255, .6); color: #102442; font-weight: 650; }
 .filter-tabs button:hover { background: rgba(242, 251, 255, .8); }
@@ -328,10 +338,8 @@ button, .appointment-table tbody tr { transition: background-color 140ms ease-ou
   .summary-status { min-width: 96px; padding: 0 0 0 12px; }
   .records-panel { padding: 14px 10px 0; }
   .filters-bar { flex-wrap: wrap; gap: 8px; }
-  .filter-tabs { flex: 1; justify-content: space-between; }
+  .filter-tabs { flex: 1; justify-content: flex-start; }
   .filter-tabs button { padding: 8px 12px; min-height: 40px; }
-  .all-statuses { width: 100%; }
-  .all-statuses select { width: 100%; min-height: 40px; }
   .scroll-hint { display: block; line-height: 1.6; }
   .appointment-table { min-width: 570px; }
   .pagination { align-items: flex-start; flex-direction: column; gap: 12px; }

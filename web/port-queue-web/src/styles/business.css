@@ -15,7 +15,7 @@
 .port-business-flow button:focus-visible { outline-color: #c0e8ff; }
 .port-business-flow button > svg:last-child { width: 12px; }
 /* 面板由内容决定高度；短窗口在总览区滚动，页脚不能挤出圆角边界。 */
-.overview-pane { grid-template-rows: 96px max-content minmax(310px, 1fr); overflow: auto; padding-right: 3px; padding-bottom: 3px; scrollbar-width: thin; scrollbar-color: #8eb8d1 transparent; }
+.overview-pane { grid-template-rows: max-content max-content minmax(310px, 1fr); overflow: auto; padding-right: 3px; padding-bottom: 3px; scrollbar-width: thin; scrollbar-color: #8eb8d1 transparent; }
 .overview-focus { height: auto; align-items: stretch; }
 .status-summary { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 16px; padding: 22px 24px; min-height: min-content; }
 .distribution-body { flex: none; padding: 0; min-width: 0; }
@@ -31,30 +31,38 @@
 .unavailable-dialog h2 { font-size: 22px; }
 .unavailable-dialog p { margin: 18px 0 24px; font-size: 15px; color: var(--muted); }
 .unavailable-dialog .button { float: right; }
-/* 分叉与汇合表达两条真实业务路径；节点只是流程说明，不伪装已开放功能。 */
+/* 流程内容居中，轨道端点与各节点中心共用四等分坐标。 */
 .port-process { padding: 24px; display: flex; flex-direction: column; min-height: 310px; }
-.process-route { flex: 1; padding-top: 58px; position: relative; min-height: 220px; }
-.direct-route { position: absolute; left: 22px; right: calc(50% - 30px); top: 27px; height: 30px; border: 1px solid #4e9bce; border-bottom: 0; border-radius: 10px 10px 0 0; }
-.direct-route span { position: absolute; left: 50%; top: -9px; transform: translateX(-50%); background: #dfedf5; padding: 0 8px; white-space: nowrap; font-size: 12px; color: #285f88; }
-.direct-route::after { content: ''; position: absolute; right: -4px; bottom: 0; width: 6px; height: 6px; border-right: 1px solid #4e9bce; border-bottom: 1px solid #4e9bce; transform: rotate(45deg); }
-.process-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; }
-.process-steps li { position: relative; min-width: 0; }
-.process-steps li:not(:last-child)::after { content: '→'; position: absolute; right: -7px; top: 12px; color: #5d91b6; font-size: 20px; }
-.process-symbol { width: 45px; height: 45px; display: grid; place-items: center; border-bottom: 2px solid #91c6e9; color: #347eaf; }
-.process-entry .process-symbol { border-color: #168ee6; color: #0872ce; }
-.process-steps h3 { font-size: 16px; font-weight: 650; margin-top: 15px; line-height: 1.4; }
+.port-process .panel-heading { margin-bottom: 0; }
+.process-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px 0 16px; }
+.process-diagram { width: 100%; max-width: 1000px; position: relative; }
+.process-track { display: block; width: 100%; height: 100px; overflow: visible; }
+.process-track .route-main { stroke: #6cadd9; stroke-width: 1.5; fill: none; }
+.process-track .route-bypass { stroke: #80afce; stroke-width: 1; stroke-dasharray: 4 4; fill: none; }
+.process-track circle { fill: #f0f8fc; stroke: #4e9bce; stroke-width: 1.5; }
+.process-track text { fill: #285f88; font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; }
+.route-boat { fill: #1165a0; stroke: #1165a0; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.process-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); padding: 0; margin: 0; list-style: none; }
+.process-steps li { min-width: 0; text-align: center; }
+.process-symbol { display: flex; justify-content: center; color: #347eaf; }
+.process-entry .process-symbol { color: #0872ce; }
+.process-steps h3 { font-size: 16px; font-weight: 650; margin-top: 12px; line-height: 1.4; }
 .process-steps p { font-size: 12px; line-height: 1.6; color: var(--muted); margin-top: 7px; }
-.process-steps small { display: block; margin-top: 10px; color: #526e83; font-size: 11px; }
+.process-steps small { display: block; margin-top: 8px; color: #526e83; font-size: 11px; }
+.mobile-track, .mobile-bypass-label { display: none; }
+.is-reduced .route-boat { display: none; }
+.metric { justify-content: center; }
+.metric strong { text-align: center; }
 @media (min-width: 1800px) {
   .port-profile { padding: 32px; max-width: 470px; }.port-facilities { margin-top: 28px; gap: 34px; }
   .port-facilities dt, .port-business-flow button { font-size: 16px; }
-  .process-steps h3 { font-size: 19px; }.process-steps p { font-size: 15px; }.process-steps small, .direct-route span { font-size: 13px; }
+  .process-steps h3 { font-size: 19px; }.process-steps p { font-size: 15px; }.process-steps small, .process-track text { font-size: 13px; }
 }
 @media (max-width: 1200px) {
   .port-business-flow { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 14px; }
   .port-profile { padding: 22px; }.port-facilities { gap: 24px; margin-top: 18px; }
   .port-summary { min-height: 350px; }.status-summary { padding: 20px; }
-  .process-steps { gap: 12px; }.process-steps h3 { font-size: 14px; }.port-process { padding: 20px; }
+  .process-steps h3 { font-size: 14px; }.port-process { padding: 20px; }
 }
 @media (max-width: 1000px) {
   .overview-pane { overflow: visible; padding: 0; }
@@ -62,17 +70,20 @@
   .distribution-chart { max-width: 180px; }
 }
 @media (max-width: 700px) {
+  .metric-definition { padding: 0 6px; }
+  .metric-definition summary { gap: 4px; }
+  .metric-definition .metric-copy > span { font-size: 12px; }
   .status-summary { padding: 20px 16px; gap: 16px; }.distribution-footer { padding-top: 12px; }
   .port-summary { min-height: 370px; }.port-profile { padding: 24px 20px; }.port-profile h2 { font-size: 27px; }
   .registration-role { padding: 0 20px 12px; font-size: 13px; }
   .records-heading .button { font-size: 13px; padding: 0 10px; }.records-heading .button svg { display: none; }
-  .process-route { padding: 16px 0 0 24px; }
-  .process-steps { display: flex; flex-direction: column; gap: 24px; }
-  .process-steps li { display: grid; grid-template-columns: 42px 1fr; column-gap: 14px; }
-  .process-symbol { grid-row: 1/4; width: 40px; }
-  .process-steps h3 { font-size: 16px; margin: 0; }.process-steps p { margin-top: 4px; }.process-steps small { margin-top: 4px; }
-  .process-steps li:not(:last-child)::after { content: '↓'; left: 15px; right: auto; top: auto; bottom: -24px; font-size: 16px; }
-  .direct-route { top: 35px; left: 0; right: auto; width: 16px; height: 180px; border: 1px solid #4e9bce; border-right: 0; border-radius: 8px 0 0 8px; }
-  .direct-route span { top: 50%; left: 0; transform: translate(-50%,-50%); writing-mode: vertical-rl; font-size: 10px; padding: 5px 0; }
-  .direct-route::after { right: -1px; bottom: -4px; transform: rotate(-45deg); }
+  .process-body { padding: 18px 0 6px; }
+  .process-diagram { width: min(100%, 330px); min-height: 360px; }
+  .desktop-track { display: none; }.mobile-track { display: block; position: absolute; left: 0; top: 0; width: 80px; height: 360px; }
+  .process-steps { display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(4, 60px); gap: 40px; margin-left: 85px; }
+  .process-steps li { display: grid; grid-template-columns: 25px 1fr; column-gap: 10px; text-align: left; align-content: center; }
+  .process-symbol { grid-row: 1 / 4; align-self: center; }
+  .process-steps h3 { font-size: 16px; margin: 0; }.process-steps p { margin-top: 3px; }.process-steps small { margin-top: 3px; }
+  .mobile-bypass-label { display: block; position: absolute; top: 78px; left: 0; writing-mode: vertical-rl; padding: 4px 0; background: #dfedf5; font-size: 10px; color: #285f88; }
 }
+@media (prefers-reduced-motion: reduce) { .route-boat { display: none; } }

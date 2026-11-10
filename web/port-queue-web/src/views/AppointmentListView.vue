@@ -37,7 +37,7 @@ watch(detail.requestedId, (id, previous) => { if (id !== previous) saveFeedback.
 const { query, rows, totalCount, totalPages, loading, error, load, search } = list
 const selected = computed(() => detail.loading.value || detail.error.value ? undefined
   : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
-const { overview, overviewError, overviewLoading, refreshOverview } = useOverview()
+const { overview, overviewError, overviewLoading, refreshOverview } = useOverview(computed(() => activeView.value === 'overview'))
 const title = computed(() => activeView.value === 'overview' ? '总览' : '进港预约')
 const dateLabel = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 const plannedNavigation = [
@@ -141,14 +141,23 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
 
       <div class="view-pane overview-pane" :hidden="activeView !== 'overview'" aria-label="港口总览">
         <section class="glass-panel metrics-strip wave-summary" aria-label="港口业务概况" :aria-busy="overviewLoading">
-          <div class="metric"><span class="metric-icon"><PortIcon name="document" :size="25" /></span><div><span>待审核预约</span><strong>{{ overview?.pendingAppointments ?? '—' }}</strong></div></div>
-          <div class="metric"><span class="metric-icon"><PortIcon name="anchor" :size="25" /></span><div><span>锚地在场</span><strong>{{ overview?.anchorageVessels ?? '—' }}</strong></div></div>
-          <div class="metric"><span class="metric-icon"><PortIcon name="berth" :size="25" /></span><div><span>待靠泊计划</span><strong>{{ overview?.confirmedPlans ?? '—' }}</strong></div></div>
+          <details class="metric metric-definition">
+            <summary><span class="metric-icon"><PortIcon name="document" :size="25" /></span><span class="metric-copy"><span>待审核预约</span><strong>{{ overview?.pendingAppointments ?? '—' }}</strong></span></summary>
+            <p>已提交、尚未批准或驳回的预约数量。</p>
+          </details>
+          <details class="metric metric-definition">
+            <summary><span class="metric-icon"><PortIcon name="anchor" :size="25" /></span><span class="metric-copy"><span>锚地在场</span><strong>{{ overview?.anchorageVessels ?? '—' }}</strong></span></summary>
+            <p>已进入锚地、尚未登记离锚的停留记录数。</p>
+          </details>
+          <details class="metric metric-definition">
+            <summary><span class="metric-icon"><PortIcon name="berth" :size="25" /></span><span class="metric-copy"><span>待靠泊计划</span><strong>{{ overview?.confirmedPlans ?? '—' }}</strong></span></summary>
+            <p>状态为已确认、尚未开始执行的当前泊位计划数量。</p>
+          </details>
           <span v-if="overviewLoading" class="sr-only" role="status">正在更新总览</span>
         </section>
         <PortOverview :overview="overview" :loading="overviewLoading" @appointments="openStatus" @navigate="openBusiness" />
         <div class="overview-bottom">
-          <PortProcess />
+          <PortProcess :active="activeView === 'overview'" />
           <RecentPortEvents :overview="overview" :loading="overviewLoading" :error="overviewError" :active="activeView === 'overview'" @page="refreshOverview" @select="openEvent" />
         </div>
       </div>
