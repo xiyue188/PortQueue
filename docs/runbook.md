@@ -1,23 +1,68 @@
-# PortQueue VS Code 启停手册
+# PortQueue VS Code 启停与验证手册
 
-## 环境前提
+更新：2026-11-10。当前开放范围见 [中期交付说明](stages/midterm-delivery-guide.md)。
 
-- VS Code、.NET 8 SDK、Node.js 22.13+ 和 Git 已安装；当前实测 Node.js 22.20.0，仓库指定 pnpm 11.25.0。
-- SQL Server Developer/Express 或 LocalDB 已安装；数据库恢复步骤见 `database/README.md`。
-- 在项目根目录 `D:\program\database design` 打开 VS Code。
+## 日常启动：两个长期终端
 
-## 第一次准备
+在 VS Code 打开 `D:\program\database design`。数据库已部署时，不需要每天重跑建表、迁移或场景导入。LocalDB 在后台运行，不需要一个终端一直挂着 SQL 文件。
 
-先在普通 VS Code 终端确认 `node --version` 和 `pnpm.cmd --version`。缺少 pnpm 时只需安装一次；`npm` 在这里用于安装包管理器，不用于重新安装项目依赖：
+终端一启动后端：
 
 ```powershell
-npm.cmd install --global pnpm@11.25.0
+Set-Location 'D:\program\database design'
+$env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
+$env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
+dotnet run --project src/PortQueue.Api --configuration Release --launch-profile http
+```
+
+出现 `Now listening on: http://localhost:5180` 后保持终端运行。`http` 配置会使用 Development 和本机数据库；个人连接密码不得提交。后端健康检查为 `http://localhost:5180/api/health`。
+
+终端二启动前端：
+
+```powershell
+Set-Location 'D:\program\database design'
+pnpm.cmd --dir web/port-queue-web run dev
+```
+
+出现 Vite ready 后访问 `http://127.0.0.1:5173/`。浏览器通过 Vite 将 `/api` 转发到 5180，后端再查询 SQL Server。登录、登记和审核都使用真实 API；失败不会回退 Mock。
+
+只复制命令，不复制 `PS ...>` 或 `>>`。若终端卡在 `>>`，先按 Ctrl+C 取消未完成输入。前端任务与命令行二选一，不重复启动。日常启动无需再次 install。
+
+## 停止与端口占用
+
+正常停止：分别在前端和后端原终端按 **Ctrl+C**，等待回到 PowerShell 提示符。只关浏览器不会停止服务。5173 或 5180 已占用时，新服务无法再监听同一端口，这是重复运行造成的占用，不是 pnpm 或代码突然失效。
+
+找不到原终端时，在一个临时终端查看监听进程：
+
+```powershell
+Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalPort -in 5173,5180 } |
+    Select-Object LocalAddress,LocalPort,OwningProcess
+```
+
+将输出中的实际 PID 填入下列变量，先核对命令行包含本项目目录、Vite 或 PortQueue.Api，再停止。示例 12345 仅为占位，不能直接照抄使用：
+
+```powershell
+$portQueueProcessId = 12345
+Get-CimInstance Win32_Process -Filter "ProcessId=$portQueueProcessId" |
+    Select-Object ProcessId,ParentProcessId,CommandLine
+# 核对属于本项目后执行：
+Stop-Process -Id $portQueueProcessId
+```
+
+重新执行监听查询，确认端口已释放，再启动。不要批量结束所有 node、dotnet 或 SQL Server 进程，也无需重启计算机。在同一配置下重新 build 前先停止 API，避免 Windows 锁定输出 DLL。本次自动验收的服务由验收结束时清理；用户日常服务由自己的两个终端管理。
+
+## 首次环境与依赖
+
+需要 .NET 8 SDK、Node.js 22.13+、仓库指定 pnpm 11.25.0、SQL Server/LocalDB。先在普通 VS Code 终端检查：
+
+```powershell
+dotnet --version
+node --version
 pnpm.cmd --version
 ```
 
-2026-11-07 已在本机完成安装，命令位于 `C:\npm-global\pnpm.cmd`，该目录已在系统 PATH 中，无需再次安装。若旧 VS Code 终端仍找不到命令，关闭该终端后新建；如 VS Code 继承的是旧 PATH，再重启 VS Code。
-
-恢复项目依赖只在首次获取项目或依赖变更后进行，在仓库根目录执行：
+缺少 pnpm 时只安装包管理器一次：`npm.cmd install --global pnpm@11.25.0`。首次获取仓库或依赖变更后，在根目录执行：
 
 ```powershell
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
@@ -26,211 +71,57 @@ dotnet restore PortQueue.sln
 pnpm.cmd install --frozen-lockfile
 ```
 
-项目以根目录 pnpm 工作区和 `pnpm-lock.yaml` 为准。不要对现有 pnpm 依赖目录执行 `npm install` 或 `npm ci`，也不要生成第二份 `package-lock.json`。2026-11-06 的 npm 安装日志显示，它在 pnpm junction 目标中执行了 axios/ECharts 的 prepare 脚本，并因找不到 husky 失败；本项目没有新增 Husky 的需求。2026-11-07 使用正确的 pnpm 检查依赖和构建均通过，未删除依赖目录、未修改锁文件。
+不要在 pnpm 管理的依赖目录执行 `npm install`；不生成另一份 package-lock.json。旧 VS Code 若继承旧 PATH，可新建终端或重开 VS Code。
 
-日常启动不需要先 install。依赖已存在时，`npm.cmd --prefix web/port-queue-web run dev` 也能运行同一个 Vite 脚本；这里允许的是 `run`，不是 `install`。不要提交依赖目录、缓存或日志。
+## 数据库恢复与展示
 
-## 恢复数据库
-
-`.sql` 文件不是 PowerShell 可直接执行的程序。把 `database/00_create_database.sql` 直接输入终端不会运行其中的 T-SQL；必须通过 SQL Server 客户端执行。SQL Server 扩展不是必需品，但在 VS Code 中最直观，`sqlcmd` 更适合重复执行和保存命令结果。
-
-### 先区分 LocalDB 实例和数据库
-
-本项目涉及两个名称：
-
-- `(localdb)\PortQueueDev` 是 SQL Server LocalDB **实例**，相当于运行数据库引擎的本机容器。
-- `PortQueue` 是该实例中的 **数据库**，其中包含 21 张表、3 个视图和其他数据库对象。
-
-`database/00_create_database.sql` 只负责在已经连接到 SQL Server 的情况下创建 `PortQueue` 数据库，不能创建 LocalDB 实例。LocalDB 实例由 Windows 的 `SqlLocalDB` 工具管理。实例停止时，VS Code 会提示“指定的 LocalDB 实例不存在/不可访问”，即使数据库文件仍然存在。
-
-检查和启动实例：
+`(localdb)\PortQueueDev` 是 SQL Server 实例，`PortQueue` 是其中的数据库。实例停止时可执行：
 
 ```powershell
-SqlLocalDB info
-SqlLocalDB info PortQueueDev
-SqlLocalDB start PortQueueDev
+& 'C:\Program Files\Microsoft SQL Server\150\Tools\Binn\SqlLocalDB.exe' start PortQueueDev
 ```
 
-如果 `SqlLocalDB info PortQueueDev` 显示 `State: Running`，再进行 VS Code 连接。只有在确实显示实例不存在时，才需要创建实例；当前本机的 `PortQueueDev` 已经存在，不要重复创建：
-
-```powershell
-SqlLocalDB create PortQueueDev 15.0
-SqlLocalDB start PortQueueDev
-```
-
-实例启动后，验证数据库是否存在：
-
-```powershell
-$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d master -Q "SELECT name FROM sys.databases WHERE name = N'PortQueue';" -b
-```
-
-如果能返回 `PortQueue`，说明之前的数据库仍然可用；此时只需在 VS Code 中连接，不要重新运行建表脚本。
-
-### 一条命令完成本机准备
-
-如果你不确定实例是否存在、是否停止或数据库是否已经创建，直接在仓库根目录执行：
+首次准备或需要检查本机环境时，才使用：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 ```
 
-脚本会自动完成以下判断：
+该脚本检查/启动实例，数据库不存在时恢复结构；已有数据库执行受控主港参考资料迁移、补齐参考数据并验证，不重复建表、不自动加载业务场景、不更新既有业务过程。完整部署及升级顺序见 [数据库说明](../database/README.md)，旧青岛场景库必须先 15、后更新版 05。`.sql` 文件必须通过 SQL Server 扩展、SSMS 或 sqlcmd 执行，不能把路径当作 PowerShell 命令。
 
-1. 检查 `PortQueueDev` 是否存在；不存在才创建。
-2. 检查实例是否运行；停止才启动。
-3. 检查 `PortQueue` 是否存在；不存在才按 `00` 至 `05` 恢复。
-4. 数据库登记不存在但旧 MDF/LDF 文件存在时，尝试安全附加旧数据库文件；附加失败立即停止，不删除文件。
-5. 数据库已经存在时不执行建表脚本、不改写业务过程、不删除现有数据；参考种子只补齐缺失基础资料。升级按 `database/README.md` 显式执行 `03`、`04`、`05`、`09`，环境启动不兼任对象升级。
-6. 每一个 SQL 命令失败都会立即停止，不会继续执行后续脚本。
-7. 最后验证并输出表、视图、存储过程、触发器、索引和参考种子数据数量。
+查看对象用 SQL Server 扩展连接 `(localdb)\PortQueueDev / PortQueue`。表结构可展示列、主外键、约束、索引；表数据用 SELECT；业务视图展开 Views 后查询；表级触发器在所属表下查看，不在数据库级 DDL Triggers 节点。
 
-正常结果应包含：
-
-```text
-current_database    PortQueue
-table_count         21
-view_count          3
-procedure_count     7
-trigger_count        8
-index_count         45
-```
-
-这个脚本解决的是本地环境准备问题，不属于应用业务功能；它不会修改 21 个关系的设计。旧文件无法附加时，脚本会明确报错并停止，不能继续往下执行。
-
-### 方式一：使用 VS Code SQL Server 扩展
-
-项目已经在 `.vscode/extensions.json` 推荐 `ms-mssql.mssql`。安装后：
-
-1. 在扩展面板安装 **SQL Server (mssql)**。
-2. 按 `Ctrl+Shift+P`，执行 `MS SQL: Connect`。
-3. 连接服务器 `(localdb)\PortQueueDev`，选择 Windows 身份验证。
-4. 打开一个 SQL 文件，确认数据库下拉框为 `PortQueue`（初始化脚本除外）。
-5. 点击编辑器右上角 **Run Query**，查看下方结果和错误消息。
-
-连接成功后，在左侧数据库树展开 `PortQueue`：
-
-- `Tables`：应看到 21 张基本表。
-- `Views`：应看到 `v_port_event`、`v_anchorage_queue`、`v_current_berth_plan`。
-- `Programmability > Stored Procedures`：应看到 7 个业务过程。
-- `Programmability > Database Triggers` 通常只展示数据库级 DDL 触发器，本项目没有这类对象，因此显示 `No items` 是正常的。
-- 8 个业务触发器是表级 DML 触发器，应在所属表的 `Triggers` 节点查看；如果扩展不显示表级节点，用 `sys.triggers` 查询确认。
-- 展开任意表的 `Indexes`：可查看主键、唯一索引和查询索引。
-- 运行对象清单查询时，应看到 45 个业务表索引（包括主键、唯一索引和查询索引；只统计 21 张 dbo 业务表，不混入系统对象）。
-
-如果对象树没有及时刷新，在 `PortQueue` 数据库节点上右键选择 **Refresh**。也可以运行 `database/06_smoke_tests.sql`，结果面板会同时显示对象数量和参考种子数据行数。
-
-确认表级触发器的查询：
-
-```sql
-SELECT
-    t.name AS trigger_name,
-    OBJECT_SCHEMA_NAME(t.parent_id) AS parent_schema,
-    OBJECT_NAME(t.parent_id) AS parent_table,
-    t.parent_class_desc,
-    t.is_disabled
-FROM sys.triggers AS t
-WHERE t.parent_class = 1
-  AND t.is_ms_shipped = 0
-ORDER BY t.name;
-```
-
-预期返回 8 行，`parent_class_desc` 为 `OBJECT_OR_COLUMN`。不要为了填充数据库级触发器节点而新增无业务意义的 DDL 触发器。
-
-### 方式二：使用 sqlcmd（推荐用于可重复验收）
-
-先确认 `sqlcmd` 已在 PATH；如果没有，使用 `database/README.md` 中的完整路径。每条命令执行完都应看到命令输出或错误，不应只把文件路径当作命令输入：
+现有库不要重跑 `01_schema.sql`。日常检查使用：
 
 ```powershell
-$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d master -b -i 'database\00_create_database.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\01_schema.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\02_views.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\03_triggers.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\04_procedures.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\05_seed_reference.sql'
+& 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE' -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i database/06_smoke_tests.sql
 ```
 
-验证脚本：
+`-b` 让失败立即返回，`-f 65001` 按 UTF-8 解释中文。数据库结构和基线的完整验证与页面业务验收分别记录，数据库对象已存在不代表后续页面已接入。
 
-```powershell
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\06_smoke_tests.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\07_business_smoke_test.sql'
-& $sqlcmd -C -S '(localdb)\PortQueueDev' -E -d PortQueue -b -i 'database\08_constraint_smoke_tests.sql'
-```
+## 可重复的中期演示
 
-`-E` 使用 Windows 身份验证，`-C` 信任本地开发证书，`-b` 让 SQL 错误返回失败状态。没有 `sqlcmd` 时可使用 SQL Server 扩展或 SSMS，执行顺序不变。
+1. 打开总览：上海洋山深水港、系统登记设施、真实预约分布及港口动态；后续入口显示待接入。
+2. 用调度员登录，初始密码 `123456`（仅显式启用的 Development 专用账号），登记并编辑草稿。
+3. 申请到港选择未来时间，提交；切换审核员，批准或填写原因驳回。
+4. 刷新或重开浏览器，核对状态、责任人和审核时间；在数据库核对本次预约及审计。
 
-### 数据库终端的作用
+不要为恢复截图数字重置数据库。原场景是 53 条，用户可以继续新增；本轮验收时 54 条，系统以当前查询为准。日期、账号权限及无效输入按真实约束处理。
 
-数据库命令只需要在恢复或验证时执行一次，不需要保持一个“数据库终端”长期运行。数据库服务由 SQL Server/LocalDB 后台运行；命令执行结束后终端回到提示符是正常现象。
-
-## 三个 VS Code 终端分别做什么
-
-建议打开三个终端，职责不同：
-
-- **终端一：数据库操作**。按上面的 `sqlcmd` 命令恢复或测试数据库；脚本执行结束后可以关闭或继续使用。
-- **终端二：后端服务**。持续运行 ASP.NET Core，保持窗口不要关闭。
-- **终端三：前端开发服务器**。持续运行 Vite，保持窗口不要关闭。
-
-终端二执行：
-
-```powershell
-$env:ASPNETCORE_ENVIRONMENT = 'Development'
-dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localhost:5180
-```
-
-看到 `Now listening on: http://localhost:5180` 和 `Application started` 就表示后端启动成功。截图中的这两行已经说明启动成功；`Failed to determine the https port for redirect` 只是 HTTP 启动配置与 HTTPS 重定向不一致的警告，本项目已经通过 Development 配置关闭本地重定向。
-
-后端端口和前端端口不是同一个地址：
-
-- `http://localhost:5180/` 是 API 根路径，现在返回服务状态 JSON。
-- `http://localhost:5180/api/health` 是后端健康接口。
-- `http://127.0.0.1:5173/` 才是 Vue 前端页面，与 Vite 的监听地址一致。
-
-如果在浏览器打开 `http://localhost:5180/`，看到 JSON 或 API 响应，说明后端已启动；不要把后端端口当成前端页面地址。
-
-终端三执行：
-
-```powershell
-Set-Location 'D:\program\database design'
-pnpm.cmd --dir web/port-queue-web run dev
-```
-
-只复制代码块中的命令，不复制 `PS D:\...>` 或 `>>` 提示符。如果终端已经停在 `>>` 续行状态，先按 Ctrl+C 退出未完成输入。看到 `VITE ... ready` 和 `Local: http://127.0.0.1:5173/` 表示启动成功；终端持续运行是正常现象，用 Ctrl+C 停止。Windows 下 `.cmd` 直接调用命令入口，避免选择 PowerShell 同名 `.ps1` 包装脚本。
-
-也可按 Ctrl+Shift+P → `Tasks: Run Task` → `frontend: dev`，任务固定以仓库根目录执行。命令行和任务二选一，只启动一个前端服务。项目设置了 `strictPort: true`，5173 已占用时会明确报错，不自动改用 5174；先访问已有页面或在原启动终端按 Ctrl+C，不要直接关闭所有 Node 进程。
-
-当前第三阶段登录与预约审核见 [3B 交付说明](stages/stage-3b-delivery-guide.md)。登录窗口可选择四个真实账号并自动填入初始密码 123456，本机已初始化。总览已改为全港概要，旧单船轮播与五条预约摘要已移除。
-
-访问 `http://127.0.0.1:5173` 查看“总览”，点击“进港预约”打开列表与详情。总览通过 `/api/overview?eventsPage=1` 独立读取待审核、锚地在场、待靠泊计划和事件分页；完整清单使用 `/api/appointments`，动态关联详情使用 `/api/appointments/{appointmentId}`。查询均来自 SQL Server。场景图与小图是装饰素材，来源记录在素材元数据中，不绑定某一艘船。
-
-阶段 2 的快速验证：本机已装载 53 条预约、42 条事件，总览应显示待审核 9、锚地在场 10、待靠泊计划 4。搜索浮层显示匹配总量，每批 6 条，可加载更多或打开全部结果；方向键和 Enter 可选择，Escape 关闭。选择候选或动态只改变所选详情，清单保持原筛选与页码。主动输入 `PQ202611-1044` 并点“查询”才会筛成一条，清单显示可清除关键词。清除筛选后选“每页 2 条”再点“下一页”，记录改变且总数仍为 53。
-
-港口动态标题固定，正文可自动滚动并在页尾继续后续记录；工具区可暂停或手动翻页。鼠标悬停、键盘聚焦、触摸阅读、后台和离开总览时停止；系统启用减少动画时默认暂停。自动滚动不代表 AIS 实时推送；工具栏“刷新”会重读数据。若浏览器保留了改版前的筛选状态，刷新整个页面后从总览重新进入即可。
-
-两页往返保留预约筛选、页码与选择；总览独立读取全量状态和业务概要，不查询最近几条预约。点击状态分布是明确筛选入口，按状态打开全部结果并清除旧关键词。相同桌面视口下两页外框、侧栏与主次栏比例相同；首次查询显示占位，后续查询仅结果区标记正在更新，保留表格和滚动位置，完成后替换。缓存只在本次页面打开期间保留；需要最新数据可点“刷新”。数据库不可用时清除失效结果并提供重试，不回退假数据。第三阶段 3A 已接入真实登录/退出与权限基础，3B 已开放管理员/审核员批准或驳回待审核预约；3C 登记提交尚未开放。
-
-其他环境加载相同场景，按 `database/README.md` 执行 `10 → 12 → 13`，每条 `sqlcmd` 命令使用 `-b -f 65001`。本机已完成，无需每次启动重跑；该操作增加业务样例，不是启动数据库服务。账号区在未登录时提供“登录”入口，登录后显示数据库中的姓名和角色；账号初始化和个人账号维护见 3B 交付说明。
-
-## 质量检查
+## 自动验证
 
 ```powershell
 dotnet build PortQueue.sln --configuration Release
 dotnet test PortQueue.sln --configuration Release --no-restore
-pnpm --dir web/port-queue-web run build
+powershell -ExecutionPolicy Bypass -File tests/database/check-sql.ps1
+python tests/database/run_stage1.py
+pnpm.cmd --dir web/port-queue-web run build
 ```
 
-每次新阶段完成后，把上述命令结果、数据库脚本验证和未完成项记录在 `docs/reviews/`，再进行下一阶段。
-
-## 前端浏览器验收
-
-已提供基于本机 Microsoft Edge 的 Playwright 验收。先启动 5180 后端，并确认开发库为上述 53 条场景基线，再执行：
+浏览器验收先启动 5180 开发 API，再执行：
 
 ```powershell
 pnpm.cmd --dir web/port-queue-web run test:e2e
 ```
 
-该命令复用已有 5173 前端，或自动启动一个测试用 Vite。当前 30 项测试覆盖真实登录/审核及独立总览、筛选分页、空/错恢复、迟到响应、候选/键盘/输入法、页面缓存、慢刷新节点与滚动保留、连续查询条件合并，以及 1440/2470/973/390/320px。查询正向测试访问开发 API；登录和审核测试另建随机独立 SQL 库与 5280 测试 API，结束后清理。故障与迟到响应仅在浏览器内拦截，不停开发数据库、不写开发库业务记录。测试中 9/10/4 和每页 20 条等断言针对固定场景基线；未来业务写入后应更新前置条件，不为测试清空用户数据。截图位于仓库根 `.impeccable/review/`，JSON 和失败 trace 位于 `artifacts/`，均不提交。
-
-在同一配置下重建后端前，先在其终端按 Ctrl+C 停止本项目 API，避免 Windows 锁定输出 DLL；构建完成后再启动，不需要重启计算机或终止所有 dotnet 进程。
+Playwright 使用本机 Edge，自动启动测试 Vite 或复用已有 5173；查询测试读取开发库，写入测试创建独立随机库及 5280 API 后清理，不修改开发库的预约。需要已装载原场景作为搜索样本，但总量和待审核数不再写死，保留用户新增数据。截图在 `.impeccable/review/`，结果和失败 trace 在 `artifacts/`，都不提交。结束后核对 5173/5180；原本由用户启动的服务由用户停止。

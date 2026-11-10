@@ -47,7 +47,9 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 ## 当前运行方式
 
-当前仓库具备可验证的 SQL Server 数据库基线、真实预约查询，以及独立的港口只读总览：SQL Server → Dapper → ASP.NET Core API → Vue。“总览”展示全量预约状态分布、锚地排队、泊位计划与实际事件概要；“进港预约”负责检索、分页和详情。界面沿用用户确认的冰蓝商务风格，摘要加入克制波浪边。开发库已装载 53 条可重复的合成场景；3A 已接入真实账号登录/退出与角色权限基础，账号区显示实际姓名和角色；3B 已接入完整申报资料及批准/驳回，状态、审核责任人、时间与审计由数据库事务一致提交。3C 已接通登记、草稿编辑与提交；锚地排队、泊位计划和进出港记录已接入既有视图的分页查询。
+当前为 **2026-11-10 中期冻结版**，服务上海洋山深水港（项目内部代码 SH-YS）。正式开放“总览”和“进港预约”：真实账号登录、查询、登记、草稿编辑、提交与批准/驳回已形成 SQL Server → API → Vue 的完整链路。调度员依据船方资料代为登记，审核员审批。
+
+锚地排队、泊位计划、进出港记录和查询统计均为**待接入**。总览保留四个主图入口，未开放模块只提示尚未接入，不用通用列表代替专用业务设计。已有数据库对象、种子事实及总览概要可展示，但不等于这些模块已经开发完成。开发库保留原场景及用户后续登记，数量以查询为准。
 
 数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端。使用 LocalDB 时，先确认 `(localdb)\PortQueueDev` 实例处于 Running；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
@@ -55,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 # 长期终端一：启动 ASP.NET Core API
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-cli-home')
 $env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
-dotnet run --project src/PortQueue.Api/PortQueue.Api.csproj --urls http://localhost:5180
+dotnet run --project src/PortQueue.Api --configuration Release --launch-profile http
 
 # 长期终端二：启动 Vue 开发服务器
 pnpm.cmd --dir web/port-queue-web run dev
@@ -71,9 +73,9 @@ pnpm.cmd --dir web/port-queue-web run dev
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
-业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色设计见 [`docs/business-flow.md`](docs/business-flow.md)。最新界面交互的范围与验收条件见 [`docs/stages/stage-2-interaction-polish.md`](docs/stages/stage-2-interaction-polish.md)：真实候选搜索、页面往返保留筛选与选择、局部加载及统一桌面布局。
+业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色设计见 [`docs/business-flow.md`](docs/business-flow.md)。早期查询交互设计见 [`docs/stages/stage-2-interaction-polish.md`](docs/stages/stage-2-interaction-polish.md)：真实候选搜索、页面往返保留筛选与选择、局部加载及统一桌面布局。
 
-第三阶段已推进到 **3C 预约登记与提交**。当前可在登录窗口选择管理员、调度员、审核员或记录员，初始密码统一为 `123456`，选择时自动填入；四个专用账号已在本机开发库建立，仍通过真实身份认证。仅在 Development 且显式启用时开放。操作步骤、权限和本轮输入输出见 [3B 交付说明](docs/stages/stage-3b-delivery-guide.md)，设计见 [3B 计划](docs/stages/stage-3b-review-and-usability.md)，结果见 [3B review](docs/reviews/2026-11-09-stage3b-review.md)。本轮登记、提交和审核已形成真实闭环，操作与验收见 [3C 交付说明](docs/stages/stage-3c-delivery-guide.md)。下一批先冻结中期答辩版本，再单独规划锚地入场与排队业务。
+第三阶段已推进到 **3C 预约登记与提交**。当前可在登录窗口选择管理员、调度员、审核员或记录员，初始密码统一为 `123456`，选择时自动填入；四个专用账号已在本机开发库建立，仍通过真实身份认证。仅在 Development 且显式启用时开放。操作步骤、权限和本轮输入输出见 [3B 交付说明](docs/stages/stage-3b-delivery-guide.md)，设计见 [3B 计划](docs/stages/stage-3b-review-and-usability.md)，结果见 [3B review](docs/reviews/2026-11-09-stage3b-review.md)。本轮登记、提交和审核已形成真实闭环，操作与验收见 [3C 交付说明](docs/stages/stage-3c-delivery-guide.md)。中期范围已收口，最新边界和演示顺序以 [中期交付说明](docs/stages/midterm-delivery-guide.md) 为准；之后先演练，答辩后再单独设计锚地业务。
 
 ## 交付要求
 

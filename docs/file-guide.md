@@ -19,7 +19,7 @@
 
 ## 数据库
 
-`database/` 是 SQL Server 物理设计和部署脚本的唯一来源。部署顺序以 database/README.md 为准；14 是新增过程文件，须在 09 权限脚本之前执行，不能只按文件编号排序。
+`database/` 是 SQL Server 物理设计和部署脚本的唯一来源。部署顺序以 database/README.md 为准；14 须在 09 权限脚本之前执行；旧青岛场景库须先执行 15，再重跑更新后的 05，不能只按编号排序。
 
 | 路径 | 职责 |
 |---|---|
@@ -41,12 +41,12 @@
 | `queries/overview.sql` | 单条 SELECT 读取独立总览指标、六状态分布及分页实际事件，不跟随预约筛选，不新增持久化对象。 |
 | `tests/database/run_stage1.py` | 创建随机独立测试库，执行业务、权限、回滚、并发和演示数据验收，默认结束后清理。 |
 | `tests/database/check-sql.ps1` | 调用 SQL Server ScriptDom 做静态语法检查，不连接数据库。 |
-| `bootstrap-localdb.ps1` | 本机环境引导：检查/创建/启动实例，数据库不存在时恢复，已有数据库补齐参考数据并验证；不自动更新过程或加载演示业务。 |
+| `bootstrap-localdb.ps1` | 本机环境引导：检查/创建/启动实例，数据库不存在时恢复，已有数据库先迁移已知主港场景、再补齐参考数据并验证；不自动更新过程或加载演示业务。 |
 | `README.md` | 说明 SQL Server 环境、执行顺序、验证方式和常见故障。 |
 
 ## 后端
 
-后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约查询、独立总览、真实会话、预约登记/草稿编辑/提交及审核；锚地、泊位和事件提供查询，后续写操作按“小阶段、可验收”节奏增加。
+后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约查询、独立总览、真实会话、预约登记/草稿编辑/提交及审核；锚地、泊位和事件专用页面/API 待中期后设计接入；总览仅保留已有数据概要。
 
 | 路径 | 职责 |
 |---|---|
@@ -77,7 +77,7 @@
 |---|---|
 | `web/port-queue-web/src/main.ts` | Vue 应用入口，挂载根组件和全局样式。 |
 | `web/port-queue-web/src/App.vue` | 工作区入口，挂载共用真实查询的预约工作台。 |
-| `web/port-queue-web/src/views/AppointmentListView.vue` | 组织总览、预约、锚地、泊位、事件五个页面的稳定工作区；协调浏览器前进/后退、查询/选择保留及写入后的局部刷新。 |
+| `web/port-queue-web/src/views/AppointmentListView.vue` | 组织总览、预约两个页面及未接入提示的稳定工作区；协调浏览器前进/后退、查询/选择保留及写入后的局部刷新。 |
 | `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
 | `web/port-queue-web/src/composables/useAppointments.ts` | 区分正在请求与已经显示的条件，管理取消、超时、分页和迟到响应；加载保留旧表格，失败清除。 |
 | `web/port-queue-web/src/composables/useAppointmentSelection.ts` | 独立保存所选详情，候选/表格直接选择，事件按主键读取；不修改清单查询，处理取消、失败与重试。 |
@@ -85,7 +85,7 @@
 | `web/port-queue-web/src/composables/useOverview.ts` | 独立请求和校验总览数据；请求失败清除旧数值，避免把过期数据当成当前概况。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
 | `web/port-queue-web/src/components/PortOverview.vue` | 全港场景与六状态分布，明确进入对应完整清单；替代旧单船轮播。 |
-| `web/port-queue-web/src/components/OperationDistribution.vue` | 按锚地、泊位、事件切换同类数量图；已替代并删除旧 PortOperationsSummary.vue。 |
+| `web/port-queue-web/src/components/PortProcess.vue` | 说明预约审核、可选等泊、泊位安排和实际作业的路径；是流程说明，不是实时进度。 |
 | `web/port-queue-web/src/components/SessionAccount.vue` | 真实账号入口与登录表单、错误反馈、原生模态焦点。 |
 | `web/port-queue-web/src/composables/useSession.ts` | 同源 Cookie 会话和内存防伪造令牌，不保存密码。 |
 | `web/port-queue-web/src/components/RecentPortEvents.vue` | 固定标题、真实事件分页、可暂停自动滚动及事件到预约的导航；管理可见性/聚焦/触摸和资源清理。 |
@@ -172,19 +172,28 @@
 | --- | --- |
 | `database/14_appointment_registration.sql` | CREATE/EDIT/SUBMIT 受控事务，校验角色、状态、引用和时间；创建幂等、版本冲突和审计一起提交。 |
 | `database/queries/registration-options.sql` | 已启用船舶及港口的真实搜索候选，20 条分页。 |
-| `database/queries/business-records.sql` | 三个既有视图的统一分页读取，每类保持业务字段及排序。 |
 | `src/PortQueue.Api/Controllers/AppointmentRegistrationController.cs` | 登记、编辑、提交 HTTP 边界，字段校验、会话、CSRF 及错误响应。 |
 | `src/PortQueue.Application/Appointments/AppointmentRegistration.cs` | 登记业务数据、结果与持久化接口。 |
 | `src/PortQueue.Infrastructure/Appointments/SqlAppointmentRegistration.cs` | 调用唯一登记过程，将 SQL 业务错误映射为中文错误。 |
-| `src/PortQueue.Api/Controllers/BusinessQueriesController.cs` | 船舶/港口候选、锚地/计划/事件查询接口。 |
-| `src/PortQueue.Application/Overview/BusinessQueries.cs` | 查询结果与分页契约。 |
-| `src/PortQueue.Infrastructure/Overview/SqlBusinessQueries.cs` | 参数化执行仓库 SQL，不拼接用户输入。 |
+| `src/PortQueue.Api/Controllers/RegistrationOptionsController.cs` | 登记所需的船舶和港口候选 HTTP 接口，不开放后续业务列表。 |
+| `src/PortQueue.Application/Appointments/RegistrationOptions.cs` | 登记候选结果、分页和接口契约。 |
+| `src/PortQueue.Infrastructure/Appointments/SqlRegistrationOptions.cs` | 参数化执行仓库 SQL，不拼接用户输入。 |
 | `web/port-queue-web/src/components/AppointmentRegistration.vue` | 登记抽屉、草稿编辑及提交确认；处理未知写入结果。 |
 | `web/port-queue-web/src/components/ReferenceSelect.vue` | 真实资料搜索、键盘选择、输入法、翻页与请求取消。 |
-| `web/port-queue-web/src/components/BusinessRecords.vue` | 锚地、计划、事件只读表格，检索、翻页及关联预约。 |
-| `web/port-queue-web/src/components/OperationDistribution.vue` | 同类作业数量横条图，替代旧 PortOperationsSummary。 |
-| `web/port-queue-web/src/styles/business.css`、`styles/registration.css` | 港口概览/查询页及登记表单各自的响应式样式。 |
+| `web/port-queue-web/src/styles/business.css`、`styles/registration.css` | 港口概览/流程图及登记表单各自的响应式样式。 |
 | `tests/PortQueue.Api.Tests/Appointments/AppointmentRegistrationTests.cs` | 独立 SQL 库中的 API、事务、并发与最小权限验收。 |
-| `web/port-queue-web/tests/stage3c-overview.spec.ts`、`tests/session.spec.ts` | 真实导航、登记提交闭环、未知响应恢复与截图证据。 |
+| `web/port-queue-web/tests/midterm-overview.spec.ts`、`tests/session.spec.ts` | 真实导航、登记提交闭环、未知响应恢复与截图证据。 |
 
 既有 `AppointmentListView.vue` 负责页面装配与刷新，`AppointmentDetail` 负责详情；`appointment-detail.sql` 增加编辑所需标识和审计版本；`overview.sql` 增加配置港口资料。没有复制表结构或引入新的状态管理框架。
+
+## 中期定稿调整
+
+| 文件 | 职责 |
+|---|---|
+| `database/15_yangshan_reference.sql` | 事务迁移已知合成设施到上海洋山主港；保留外部青岛港、历史业务引用，变更留审计，清空旧坐标。 |
+| `tests/PortQueue.Api.Tests/Appointments/YangshanReferenceTests.cs` | 验证旧场景迁移、引用不变和重复执行无重复资料/审计。 |
+| `docs/stages/midterm-finalization.md` | 本批范围、设计及 M01—M07 验收条件。 |
+| `docs/stages/midterm-delivery-guide.md` | 实际改动、业务口径、演示步骤及未接入边界。 |
+| `docs/runbook.md` | VS Code 两个长期终端的启停、端口定位及数据库恢复入口。 |
+
+已删除三个通用查询页和其专用 SQL/API，不保留无用途的组件或查询层。历史阶段报告说明的是当时实现，当前开放范围以中期交付说明为准。
