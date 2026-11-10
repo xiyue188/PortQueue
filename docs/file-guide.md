@@ -82,10 +82,10 @@
 | `web/port-queue-web/src/composables/useAppointments.ts` | 区分正在请求与已经显示的条件，管理取消、超时、分页和迟到响应；加载保留旧表格，失败清除。 |
 | `web/port-queue-web/src/composables/useAppointmentSelection.ts` | 独立保存所选详情，候选/表格直接选择，事件按主键读取；不修改清单查询，处理取消、失败与重试。 |
 | `database/queries/appointment-detail.sql` | 按主键精确读取预约及船舶/审核信息，供详情独立选择使用；纯 SELECT，不新增数据库对象。 |
-| `web/port-queue-web/src/composables/useOverview.ts` | 独立请求和校验总览数据；请求失败清除旧数值，避免把过期数据当成当前概况。 |
+| `web/port-queue-web/src/composables/useOverview.ts` | 独立请求、30秒快照轮询及可见性生命周期；请求失败清除旧数值，保持动态页码与旧响应保护。 |
 | `web/port-queue-web/src/types/appointment.ts` | 前端预约状态、查询和响应类型。 |
 | `web/port-queue-web/src/components/PortOverview.vue` | 全港场景与六状态分布，明确进入对应完整清单；替代旧单船轮播。 |
-| `web/port-queue-web/src/components/PortProcess.vue` | 说明预约审核、可选等泊、泊位安排和实际作业的路径；是流程说明，不是实时进度。 |
+| `web/port-queue-web/src/components/PortProcess.vue` | 居中业务路径与沿线小船；管理暂停/减少动画/可见性，不表示真实船位。 |
 | `web/port-queue-web/src/components/SessionAccount.vue` | 真实账号入口与登录表单、错误反馈、原生模态焦点。 |
 | `web/port-queue-web/src/composables/useSession.ts` | 同源 Cookie 会话和内存防伪造令牌，不保存密码。 |
 | `web/port-queue-web/src/components/RecentPortEvents.vue` | 固定标题、真实事件分页、可暂停自动滚动及事件到预约的导航；管理可见性/聚焦/触摸和资源清理。 |
@@ -197,3 +197,5 @@
 | `docs/runbook.md` | VS Code 两个长期终端的启停、端口定位及数据库恢复入口。 |
 
 已删除三个通用查询页和其专用 SQL/API，不保留无用途的组件或查询层。历史阶段报告说明的是当时实现，当前开放范围以中期交付说明为准。
+
+`web/port-queue-web/tests/dashboard-final.spec.ts` 验证全状态入口、指标说明、轮询生命周期、动画控制与居中截图；同目录 `session.spec.ts` 用独立测试库验证页面新增后另一看板自动更新。计划及验收条件见 `docs/stages/midterm-dashboard-final.md`，交付口径见 `docs/stages/midterm-dashboard-delivery.md`，最终测试与复核见 `docs/reviews/2026-11-10-dashboard-final-review.md`。
