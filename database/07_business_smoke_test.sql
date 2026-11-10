@@ -23,7 +23,7 @@ DECLARE @user_id bigint = (SELECT TOP (1) user_id FROM dbo.user_account WHERE us
 -- 审核与调度使用不同业务身份；本账号随外层事务回滚。
 INSERT dbo.user_account(username,display_name,role_code,password_hash,status_code) VALUES('smoke.reviewer',N'Smoke Reviewer','REVIEWER',CRYPT_GEN_RANDOM(32),'ENABLED');
 DECLARE @reviewer_id bigint=SCOPE_IDENTITY();
-DECLARE @port_id bigint = (SELECT TOP (1) port_id FROM dbo.port WHERE port_code = 'CNTAO');
+DECLARE @port_id bigint = (SELECT TOP (1) port_id FROM dbo.port WHERE port_code = 'SH-YS');
 DECLARE @ship_type_item_id bigint = (SELECT TOP (1) dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type = 'SHIP_TYPE' AND item_code = 'CONTAINER');
 
 IF @company_id IS NULL OR @user_id IS NULL OR @port_id IS NULL OR @ship_type_item_id IS NULL

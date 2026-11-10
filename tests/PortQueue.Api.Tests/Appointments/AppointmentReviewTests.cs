@@ -25,7 +25,7 @@ public sealed class AppointmentReviewTests(AppointmentDatabaseFixture fixture) :
         await using var connection = await Connection();
         return await connection.QuerySingleAsync<long>("""
             INSERT dbo.port_call(call_no,ship_id,planned_arrival_at,planned_departure_at,previous_port_id,cargo_teu,cargo_weight_t,call_status_code)
-            SELECT @no,MIN(ship_id),'2030-01-01','2030-01-03',(SELECT port_id FROM dbo.port WHERE port_code='CNTAO'),120,2200,'PLANNED' FROM dbo.ship;
+            SELECT @no,MIN(ship_id),'2030-01-01','2030-01-03',(SELECT port_id FROM dbo.port WHERE port_code='SH-YS'),120,2200,'PLANNED' FROM dbo.ship;
             DECLARE @call bigint=SCOPE_IDENTITY();
             INSERT dbo.arrival_appointment(appointment_no,port_call_id,requested_arrival_at,requested_departure_at,estimated_operation_hours,declared_draft_m,priority_level,dangerous_goods_flag,special_requirement,appointment_status_code,submitted_at)
             VALUES(@no,@call,'2030-01-01T01:00:00','2030-01-02',5.5,8.25,2,1,N'危险品单独核验','PENDING',SYSUTCDATETIME());

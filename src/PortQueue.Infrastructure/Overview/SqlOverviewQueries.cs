@@ -17,7 +17,7 @@ public sealed class SqlOverviewQueries(ISqlConnectionFactory connectionFactory, 
         await using var connection = connectionFactory.Create();
         await connection.OpenAsync(cancellationToken);
         var command = new CommandDefinition(QuerySql,
-            new { HomePortCode = configuration["Port:Code"] ?? "CNTAO", EventOffset = (eventsPage - 1) * eventPageSize, EventPageSize = eventPageSize }, commandTimeout: 8,
+            new { HomePortCode = configuration["Port:Code"] ?? "SH-YS", EventOffset = (eventsPage - 1) * eventPageSize, EventPageSize = eventPageSize }, commandTimeout: 8,
             cancellationToken: cancellationToken);
         var counts = await connection.QuerySingleAsync<OverviewCounts>(command);
         var events = JsonSerializer.Deserialize<RecentPortEvent[]>(counts.RecentEventsJson)

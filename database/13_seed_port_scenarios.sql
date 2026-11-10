@@ -22,7 +22,7 @@ BEGIN TRY
     EXEC @lock=sys.sp_getapplock @Resource=N'PortQueue.Schedule',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;
     IF @lock<0 THROW 53310,'Scenario import is busy.',1;
     IF SYSUTCDATETIME()<'2026-11-07' THROW 53311,'Scenario event dates are in the future.',1;
-    DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='CNTAO'),
+    DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='SH-YS'),
         @type bigint=(SELECT dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type='SHIP_TYPE' AND item_code='CONTAINER' AND is_enabled=1);
     IF @port IS NULL OR @type IS NULL THROW 53312,'Port or enabled ship type is missing.',1;
     IF NOT EXISTS(SELECT 1 FROM dbo.user_account WHERE username='scenario.reviewer')
@@ -38,7 +38,7 @@ BEGIN TRY
         INSERT dbo.shipping_company(company_code,company_name,status_code) VALUES('PQ-HL',N'海岚航运有限公司','ACTIVE');
     DECLARE @company bigint=(SELECT company_id FROM dbo.shipping_company WHERE company_code='PQ-HL');
     IF NOT EXISTS(SELECT 1 FROM dbo.terminal WHERE port_id=@port AND terminal_code='PQ-CT')
-        INSERT dbo.terminal(port_id,terminal_code,terminal_name,status_code) VALUES(@port,'PQ-CT',N'前湾集装箱作业区','AVAILABLE');
+        INSERT dbo.terminal(port_id,terminal_code,terminal_name,status_code) VALUES(@port,'PQ-CT',N'集装箱作业区 B','AVAILABLE');
     DECLARE @terminal bigint=(SELECT terminal_id FROM dbo.terminal WHERE port_id=@port AND terminal_code='PQ-CT');
     IF NOT EXISTS(SELECT 1 FROM dbo.berth WHERE terminal_id=@terminal AND berth_code='PQ-C01')
         INSERT dbo.berth(terminal_id,berth_code,berth_name,length_m,max_draft_m,max_dwt,status_code)

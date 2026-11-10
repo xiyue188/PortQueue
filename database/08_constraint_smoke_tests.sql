@@ -13,7 +13,7 @@ SET QUOTED_IDENTIFIER ON;
 
 BEGIN TRANSACTION;
 
-DECLARE @port_id bigint = (SELECT TOP (1) port_id FROM dbo.port WHERE port_code = 'CNTAO');
+DECLARE @port_id bigint = (SELECT TOP (1) port_id FROM dbo.port WHERE port_code = 'SH-YS');
 DECLARE @bad_type_id bigint = (SELECT TOP (1) dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type = 'TERMINAL_TYPE');
 DECLARE @passed int = 0;
 

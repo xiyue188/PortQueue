@@ -33,27 +33,27 @@ USING (VALUES
 ON target.dictionary_type = source.dictionary_type AND target.item_code = source.item_code
 WHEN NOT MATCHED THEN INSERT (dictionary_type, item_code, item_name, sort_no, is_enabled) VALUES (source.dictionary_type, source.item_code, source.item_name, source.sort_no, 1);
 
-IF NOT EXISTS (SELECT 1 FROM dbo.port WHERE port_code = 'CNTAO')
-    INSERT dbo.port(port_code, port_name, country_code, timezone, status_code) VALUES ('CNTAO', N'Qingdao Port', 'CN', 'Asia/Shanghai', 'ENABLED');
+IF NOT EXISTS (SELECT 1 FROM dbo.port WHERE port_code = 'SH-YS')
+    INSERT dbo.port(port_code, port_name, country_code, timezone, status_code) VALUES ('SH-YS', N'上海洋山深水港', 'CN', 'Asia/Shanghai', 'ENABLED');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.shipping_company WHERE company_code = 'DEMO-SC')
     INSERT dbo.shipping_company(company_code, company_name, status_code) VALUES ('DEMO-SC', N'Demo Ocean Shipping', 'ACTIVE');
 
-DECLARE @port_id bigint = (SELECT port_id FROM dbo.port WHERE port_code = 'CNTAO');
+DECLARE @port_id bigint = (SELECT port_id FROM dbo.port WHERE port_code = 'SH-YS');
 IF @port_id IS NULL
-    THROW 53010, 'Reference port CNTAO is required before seeding facilities.', 1;
+    THROW 53010, 'Reference port SH-YS is required before seeding facilities.', 1;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.terminal WHERE port_id = @port_id AND terminal_code = 'T-A')
     INSERT dbo.terminal(port_id, terminal_code, terminal_name, terminal_type_code, status_code)
-    VALUES (@port_id, 'T-A', N'Container Terminal A', 'CONTAINER', 'AVAILABLE');
+    VALUES (@port_id, 'T-A', N'集装箱作业区 A', 'CONTAINER', 'AVAILABLE');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.anchorage WHERE port_id = @port_id AND anchorage_code = 'ANCH-OUTER-A')
     INSERT dbo.anchorage(port_id, anchorage_code, anchorage_name, anchorage_type_code, capacity_vessel_count, longitude, latitude, status_code)
-    VALUES (@port_id, 'ANCH-OUTER-A', N'Outer Anchorage A', 'OUTER', 20, 120.320000, 36.080000, 'AVAILABLE');
+    VALUES (@port_id, 'ANCH-OUTER-A', N'外侧待泊锚地 A', 'OUTER', 20, NULL, NULL, 'AVAILABLE');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.anchorage WHERE port_id = @port_id AND anchorage_code = 'ANCH-INNER-A')
     INSERT dbo.anchorage(port_id, anchorage_code, anchorage_name, anchorage_type_code, capacity_vessel_count, longitude, latitude, status_code)
-    VALUES (@port_id, 'ANCH-INNER-A', N'Inner Anchorage A', 'INNER', 10, 120.300000, 36.090000, 'AVAILABLE');
+    VALUES (@port_id, 'ANCH-INNER-A', N'内侧待泊锚地 A', 'INNER', 10, NULL, NULL, 'AVAILABLE');
 
 DECLARE @terminal_id bigint = (SELECT terminal_id FROM dbo.terminal WHERE port_id = @port_id AND terminal_code = 'T-A');
 IF NOT EXISTS (SELECT 1 FROM dbo.berth WHERE terminal_id = @terminal_id AND berth_code = 'B-01')

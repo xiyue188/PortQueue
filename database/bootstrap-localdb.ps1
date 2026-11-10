@@ -122,6 +122,9 @@ if ($databaseState -eq 'MISSING') {
 
 # Insert missing reference rows after a new restore, safe attach or existing-database check.
 # Never overwrite stored procedures or load demo facts as a side effect of starting the environment.
+$portScenePath = Join-Path $PSScriptRoot '15_yangshan_reference.sql'
+Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-f', '65001', '-i', $portScenePath) "Applying known home-port reference update"
+
 $seedPath = Join-Path $PSScriptRoot '05_seed_reference.sql'
 Invoke-Checked $sqlCmd @('-C', '-S', "(localdb)\$InstanceName", '-E', '-d', 'master', '-b', '-f', '65001', '-i', $seedPath) "Running 05_seed_reference.sql"
 

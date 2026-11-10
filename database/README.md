@@ -1,6 +1,6 @@
 # PortQueue 数据库脚本
 
-脚本面向 SQL Server Developer/Express。执行顺序固定为：
+脚本面向 SQL Server Developer/Express。以下为全新空库部署顺序；已有青岛场景库先阅读末尾“中期主港资料调整”，执行 15 后才能重跑更新后的 05/10/13：
 
 1. `00_create_database.sql`：创建数据库并设置基础选项。
 2. `01_schema.sql`：创建 21 个基本关系、约束和索引。
@@ -9,17 +9,18 @@
 5. `04_procedures.sql`：创建预约审核、队列调序、计划版本、计划确认、锚地事件、实际进港和靠离泊过程。
 6. `14_appointment_registration.sql`：创建登记、草稿编辑与提交事务入口（增量文件，须先于权限脚本）。
 7. `05_seed_reference.sql`：写入可重复执行的角色、字典和参考设施；不重新启用已停用字典项。
-8. `09_permissions.sql`：创建应用最小权限角色和无登录验证用户。
-9. `10_seed_demo.sql`：按需加载原五条流程样例，同时识别整理后的业务编号，重跑不会复制旧样例；不由启动脚本自动装载。
-10. `11_statistics.sql`：按明确口径执行统计查询，不新增持久化指标关系。
-11. `12_refresh_sample_labels.sql`：整理原五条样例的编号、船名、IMO 和旧审核文案，保留关联及业务事实，追加修改快照。
-12. `13_seed_port_scenarios.sql`：按需增加 48 条合成场景，覆盖六种预约状态、锚地等待、确认计划和已完成作业；重跑跳过已存在编号。
+8. `15_yangshan_reference.sql`：新库确认主港资料；已有旧场景库使用文末单独升级顺序。
+9. `09_permissions.sql`：创建应用最小权限角色和无登录验证用户。
+10. `10_seed_demo.sql`：按需加载原五条流程样例，同时识别整理后的业务编号，重跑不会复制旧样例；不由启动脚本自动装载。
+11. `11_statistics.sql`：按明确口径执行统计查询，不新增持久化指标关系。
+12. `12_refresh_sample_labels.sql`：整理原五条样例的编号、船名、IMO 和旧审核文案，保留关联及业务事实，追加修改快照。
+13. `13_seed_port_scenarios.sql`：按需增加 48 条合成场景，覆盖六种预约状态、锚地等待、确认计划和已完成作业；重跑跳过已存在编号。
 
 建议在 SSMS、VS Code SQL Server 扩展或 `sqlcmd` 中按顺序执行。脚本中的 `GO` 是 SQL Server 客户端批处理分隔符，不是 T-SQL 语句。
 
 `01_schema.sql` 是空数据库的一次性建表脚本。对已经存在业务表的 `PortQueue` 再次执行时，脚本会在第一张表之前给出一条明确提示并停止，不会重复建表。已有数据库的对象更新请只执行“阶段 1 已有数据库升级”中的增量脚本；查看当前结构请执行 `06_smoke_tests.sql`，不要把 `01_schema.sql` 当作日常启动或升级命令。
 
-如果不确定本机 LocalDB 实例是否存在，优先执行仓库内的 `bootstrap-localdb.ps1`。它会检查并启动 `PortQueueDev`，只在 `PortQueue` 不存在时恢复 `00` 至 `05`、`14` 和 `09` 脚本；已有数据库不会重复建表，也不会自动加载业务演示数据。
+如果不确定本机 LocalDB 实例是否存在，优先执行仓库内的 `bootstrap-localdb.ps1`。它会检查并启动 `PortQueueDev`，只在 `PortQueue` 不存在时恢复 `00` 至 `05`、`14`、`15` 和 `09` 脚本；已有数据库不重复建表；会先执行 15 迁移已知参考设施，再补齐 05；不自动加载业务场景或改写既有过程。
 
 ## 本地连接示例
 
@@ -45,17 +46,17 @@ $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\
 
 `06_smoke_tests.sql` 检查 21 张表、3 个视图、8 个业务过程、8 个表级业务触发器、过滤唯一索引、业务表索引和参考种子数据；参考数据包括港口、码头、锚地、泊位及泊位船型关系。`07_business_smoke_test.sql` 回滚式贯通审核、锚地事件、计划确认、实际进港、靠泊和离泊；`08_constraint_smoke_tests.sql` 回滚式验证错误字典类型被拒绝。
 
-SQL 文件按 UTF-8 保存。通过 Windows ODBC 版 `sqlcmd` 执行含中文脚本时必须显式指定 `-f 65001`；否则可能把中文解析为错误字节并报字符串未闭合等误导性错误。早期参考设施保留英文名称，本轮场景脚本使用中文业务名称；不要通过改中文内容来绕过客户端编码配置。
+SQL 文件按 UTF-8 保存。通过 Windows ODBC 版 `sqlcmd` 执行含中文脚本时必须显式指定 `-f 65001`；否则可能把中文解析为错误字节并报字符串未闭合等误导性错误。当前参考设施与场景使用中文业务名称；不要通过改中文内容来绕过客户端编码配置。
 
 连接成功后，SQL Server 扩展的对象树可以直接展开 `PortQueue` 查看这些对象；对象树不显示行数据，行数据通过 `SELECT` 查询或 `06_smoke_tests.sql` 结果查看。
 
 ## 阶段 1 已有数据库升级
 
-本机开发库已于 2026-11-02 完成升级。其他已有数据库按以下命令更新可重复的过程、触发器、参考数据和权限；不要重跑 `01_schema.sql`，也不删除旧数据库文件。`bootstrap-localdb.ps1` 仅准备环境和验证数量，不在启动时改写已有业务过程。
+本机开发库已于 2026-11-02 完成升级。其他已有数据库按以下命令更新可重复的过程、触发器、参考数据和权限；不要重跑 `01_schema.sql`，也不删除旧数据库文件。`bootstrap-localdb.ps1` 准备环境、迁移已知主港参考资料并验证数量，不在启动时改写已有业务过程。
 
 ```powershell
 $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
-foreach ($file in @('03_triggers.sql','04_procedures.sql','14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql')) {
+foreach ($file in @('03_triggers.sql','04_procedures.sql','14_appointment_registration.sql','15_yangshan_reference.sql','05_seed_reference.sql','09_permissions.sql')) {
     & $sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i (Join-Path 'database' $file)
     if ($LASTEXITCODE -ne 0) { throw "Database deployment failed: $file" }
 }
@@ -118,4 +119,20 @@ foreach ($file in @('14_appointment_registration.sql','09_permissions.sql','12_r
 
 当前对象数：21 表、3 视图、8 过程、8 表级触发器、45 个业务表索引。新增过程为 `usp_save_appointment`；编号生成、原请求重放、并发版本、值域、角色、状态与审计均在事务边界内处理。完整契约见 [3C 设计](../docs/stages/stage-3c-registration-and-port-overview.md)。
 
-总览的服务港口由 API 配置 `Port:Code` 指定（当前 CNTAO）。新增 `queries/business-records.sql` 与 `queries/registration-options.sql` 只查询既有关系，不新增数据库视图；SQL 源文件在构建时嵌入后端，修改查询 SQL 后需重新构建并重启 API。
+总览的服务港口由 API 配置 `Port:Code` 指定（当前 SH-YS）。`queries/registration-options.sql` 读取真实候选，不新增数据库视图；后续业务通用列表 SQL/API 已撤下。SQL 源文件在构建时嵌入后端，修改查询 SQL 后需重新构建并重启 API。
+
+## 中期主港资料调整（2026-11-10）
+
+当前主港为上海洋山深水港，`SH-YS` 是项目内部代码。对已有青岛场景库，**先执行 15，再重跑更新后的 05**；否则会先在新主港生成同编码设施，造成需要人工核对的冲突。全新库按上方顺序，05 已直接建立洋山资料，15 可安全重跑。
+
+```powershell
+$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
+foreach ($file in @('15_yangshan_reference.sql','05_seed_reference.sql')) {
+    & $sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i (Join-Path 'database' $file)
+    if ($LASTEXITCODE -ne 0) { throw "Reference migration failed: $file" }
+}
+```
+
+本机已执行 15。脚本只迁移匹配已知代码及名称的合成码头和锚地，保留设施主键、泊位引用、用户预约与历史事件；旧青岛港保留为前后港可用的外部资料。旧锚地坐标清空，不冒充洋山坐标。每次实际变化追加审计，重跑不重复写入。目标代码冲突时整笔回滚，不覆盖人工资料。21 表、3 视图、8 过程、8 表级触发器及 45 个业务索引保持不变。
+
+3 座码头、4 处锚地、3 个泊位是系统内课程场景登记量，不代表现实洋山港完整设施规模。所有预约总量和状态来自数据库，用户登记审核后应随之改变。数据库基线已具有后续业务规则；专用业务页面/API 仍待接入，两者分别验收。

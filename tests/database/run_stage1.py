@@ -77,7 +77,7 @@ DECLARE @u bigint=(SELECT user_id FROM dbo.user_account WHERE username='demo.dis
 INSERT dbo.user_account(username,display_name,role_code,password_hash,status_code) VALUES('S1-reviewer',N'Test reviewer','REVIEWER',CRYPT_GEN_RANDOM(32),'ENABLED');
 DECLARE @reviewer bigint=SCOPE_IDENTITY();
 DECLARE @company bigint=(SELECT company_id FROM dbo.shipping_company WHERE company_code='DEMO-SC');
-DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='CNTAO');
+DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='SH-YS');
 DECLARE @type bigint=(SELECT dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type='SHIP_TYPE' AND item_code='CONTAINER');
 INSERT dbo.terminal(port_id,terminal_code,terminal_name,status_code) VALUES(@port,'S1-T',N'Test terminal','AVAILABLE');
 DECLARE @terminal bigint=SCOPE_IDENTITY();

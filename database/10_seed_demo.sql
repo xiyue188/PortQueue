@@ -23,7 +23,7 @@ BEGIN TRY
     EXEC @lock=sys.sp_getapplock @Resource=N'PortQueue.Schedule',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;
     IF @lock<0 THROW 53200,'Demo data is busy.',1;
     DECLARE @u bigint=(SELECT user_id FROM dbo.user_account WHERE username='demo.dispatcher' AND status_code='ENABLED');
-    DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='CNTAO');
+    DECLARE @port bigint=(SELECT port_id FROM dbo.port WHERE port_code='SH-YS');
     DECLARE @company bigint=(SELECT company_id FROM dbo.shipping_company WHERE company_code='DEMO-SC');
     DECLARE @type bigint=(SELECT dictionary_item_id FROM dbo.dictionary_item WHERE dictionary_type='SHIP_TYPE' AND item_code='CONTAINER' AND is_enabled=1);
     IF @u IS NULL OR @port IS NULL OR @company IS NULL OR @type IS NULL THROW 53201,'Reference data is missing or disabled.',1;
