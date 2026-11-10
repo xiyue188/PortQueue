@@ -10,6 +10,9 @@ async function openList(page: Page) {
   await expect(page.locator('.view-pane:visible tbody tr').first()).toBeVisible()
 }
 test.beforeAll(async () => { await mkdir(shots, { recursive: true }) })
+// 开发库允许用户登记/审核；断言以本次读取为基线，不锁死早期53条场景。
+let baseline: { pendingAppointments: number; anchorageVessels: number; confirmedPlans: number }
+test.beforeEach(async ({ request }) => { baseline = await (await request.get('/api/overview')).json() })
 
 test('总览只读汇总与预约清单分别展示真实数据', async ({ page, request }) => {
   const errors: string[] = []
@@ -50,7 +53,7 @@ test('搜索分页与状态查询保留提交边界', async ({ page }) => {
   await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(1)
   await expect(page.locator('#appointment-detail')).toContainText('PQ202611-1002')
   await page.getByRole('button', { name: '总览', exact: true }).click()
-  await expect(page.locator('.metric strong').first()).toHaveText('9')
+  await expect(page.locator('.metric strong').first()).toHaveText(String(baseline.pendingAppointments))
 })
 
 test('无结果不保留旧详情，重置恢复', async ({ page }) => {
@@ -84,7 +87,7 @@ test('总览失败不显示过期数字，重试恢复', async ({ page }) => {
   await expect(page.locator('.metric strong')).toHaveText(['—', '—', '—'])
   await page.unroute(overviewEndpoint)
   await page.getByRole('button', { name: '重试', exact: true }).click()
-  await expect(page.locator('.metric strong')).toHaveText(['9', '10', '4'])
+  await expect(page.locator('.metric strong')).toHaveText([baseline.pendingAppointments, baseline.anchorageVessels, baseline.confirmedPlans].map(String))
 })
 
 test('先发慢请求不能覆盖新状态查询', async ({ page }) => {
@@ -103,9 +106,9 @@ test('先发慢请求不能覆盖新状态查询', async ({ page }) => {
   await page.getByRole('button', { name: '刷新', exact: true }).click()
   await started
   await page.getByRole('button', { name: '待审核', exact: true }).click()
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(9)
+  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(Math.min(20, baseline.pendingAppointments))
   release?.()
-  await expect(page.locator('.view-pane:visible tbody .status-text')).toHaveText(Array(9).fill('待审核'))
+  await expect(page.locator('.view-pane:visible tbody .status-text')).toHaveText(Array(Math.min(20, baseline.pendingAppointments)).fill('待审核'))
 })
 
 test('390和320窄屏无整页溢出，菜单与键盘选择可用', async ({ page }) => {
@@ -157,7 +160,7 @@ test('切换保留筛选和选择，外框一致且不会重复请求', async ({
   page.on('request', request => { if (endpoint(new URL(request.url()))) requests++ })
   await openList(page)
   await page.getByRole('button', { name: '待审核', exact: true }).click()
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(9)
+  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(Math.min(20, baseline.pendingAppointments))
   await page.locator('.view-pane:visible tbody .vessel-row').nth(1).click()
   const detail = await page.locator('#appointment-detail').innerText()
   const shell = await page.locator('.port-workspace').boundingBox()
@@ -168,7 +171,7 @@ test('切换保留筛选和选择，外框一致且不会重复请求', async ({
   expect(await page.locator('.sidebar').boundingBox()).toEqual(sidebar)
   await page.getByRole('navigation', { name: '业务导航' }).getByRole('button', { name: '进港预约', exact: true }).click()
   expect(await page.locator('#appointment-detail').innerText()).toBe(detail)
-  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(9)
+  await expect(page.locator('.view-pane:visible tbody tr')).toHaveCount(Math.min(20, baseline.pendingAppointments))
   expect(requests).toBe(count)
   await page.goBack()
   await expect(page.getByRole('heading', { name: '总览', exact: true })).toBeVisible()

@@ -56,7 +56,7 @@ const segments = computed(() => {
         <p v-if="!overview" class="summary-empty">{{ loading ? '正在读取…' : '暂时无法读取' }}</p>
       </div>
       </div>
-      <button class="text-action" @click="emit('appointments', '')">查看全部预约<PortIcon name="arrow" :size="16" /></button>
+      <footer class="distribution-footer"><button class="text-action" @click="emit('appointments', '')">查看全部预约<PortIcon name="arrow" :size="16" /></button></footer>
     </section>
   </div>
 </template>

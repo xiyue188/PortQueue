@@ -6,8 +6,7 @@ import AppointmentSearch from '../components/AppointmentSearch.vue'
 import AppointmentRecords from '../components/AppointmentRecords.vue'
 import AppointmentDetail from '../components/AppointmentDetail.vue'
 import PortOverview from '../components/PortOverview.vue'
-import OperationDistribution from '../components/OperationDistribution.vue'
-import BusinessRecords from '../components/BusinessRecords.vue'
+import PortProcess from '../components/PortProcess.vue'
 import AppointmentRegistration from '../components/AppointmentRegistration.vue'
 import SessionAccount from '../components/SessionAccount.vue'
 import RecentPortEvents from '../components/RecentPortEvents.vue'
@@ -19,8 +18,8 @@ import type { AppointmentItem, AppointmentQuery, AppointmentStatus } from '../ty
 import { formatDate, statusClass, statusLabel } from '../utils/appointmentPresentation'
 import vesselImage from '../assets/vessel-reference.png'
 
-type View = 'overview' | 'appointments' | 'queue' | 'plans' | 'events'
-const viewFromHash = (): View => ['appointments', 'queue', 'plans', 'events'].includes(location.hash.slice(1)) ? location.hash.slice(1) as View : 'overview'
+type View = 'overview' | 'appointments'
+const viewFromHash = (): View => location.hash === '#appointments' ? 'appointments' : 'overview'
 const activeView = ref<View>(viewFromHash())
 const mobileMenuOpen = ref(false)
 const keyword = ref('')
@@ -28,8 +27,9 @@ const selectedId = ref<string>()
 const accountSession = useSession()
 const saveFeedback = ref('')
 const registration = ref<InstanceType<typeof AppointmentRegistration>>()
-const businessRefreshKey = ref(0)
-const businessViews = ['queue', 'plans', 'events'] as const
+const unavailableDialog = ref<HTMLDialogElement>()
+const unavailableTitle = ref('')
+let unavailableTrigger: HTMLElement | null = null
 const list = useAppointments()
 const detail = useAppointmentSelection()
 // 审核反馈仅属于原预约；主动改变筛选或选择时不能挂到下一条记录上。
@@ -38,7 +38,7 @@ const { query, rows, totalCount, totalPages, loading, error, load, search } = li
 const selected = computed(() => detail.loading.value || detail.error.value ? undefined
   : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
 const { overview, overviewError, overviewLoading, refreshOverview } = useOverview()
-const title = computed(() => ({ overview: '总览', appointments: '进港预约', queue: '锚地排队', plans: '泊位计划', events: '进出港记录' })[activeView.value])
+const title = computed(() => activeView.value === 'overview' ? '总览' : '进港预约')
 const dateLabel = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 const plannedNavigation = [
   { label: '锚地排队', icon: 'anchor', view: 'queue' as const }, { label: '泊位计划', icon: 'berth', view: 'plans' as const },
@@ -77,6 +77,14 @@ function switchView(view: View) {
   mobileMenuOpen.value = false
   if (view === 'appointments') ensureList()
 }
+// 保留主图入口；未开放模块不创建替代页面，也不请求后续业务 API。
+function openBusiness(view: 'appointments' | 'queue' | 'plans' | 'events') {
+  if (view === 'appointments') { switchView(view); return }
+  unavailableTrigger = document.activeElement as HTMLElement
+  unavailableTitle.value = plannedNavigation.find(nav => nav.view === view)!.label
+  unavailableDialog.value?.showModal()
+}
+function closeUnavailable() { unavailableDialog.value?.close(); unavailableTrigger?.focus() }
 function historyChange() { activeView.value = viewFromHash(); mobileMenuOpen.value = false; if (activeView.value === 'appointments') ensureList() }
 // 连续操作基于最近已提交的意图合并；尚未提交的输入草稿不影响状态切换。
 function submit() { detail.clear(); listVisited = true; switchView('appointments'); void search(keyword.value, (list.pendingQuery.value ?? query.value).status) }
@@ -89,7 +97,7 @@ function chooseSuggestion(item: AppointmentItem) {
   detail.select(item)
   switchView('appointments')
 }
-function refresh() { businessRefreshKey.value++; detail.clear(); void refreshOverview(); if (listVisited) void load() }
+function refresh() { detail.clear(); void refreshOverview(); if (listVisited) void load() }
 function reset() { detail.clear(); keyword.value = ''; void search('', '') }
 function clearKeyword() { detail.clear(); keyword.value = ''; void search('', (list.pendingQuery.value ?? query.value).status) }
 function filterStatus(status: AppointmentStatus | '') { detail.clear(); void search((list.pendingQuery.value ?? query.value).keyword, status) }
@@ -115,7 +123,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
       <nav aria-label="业务导航" class="side-nav">
         <button :aria-current="activeView === 'overview' ? 'page' : undefined" @click="switchView('overview')"><PortIcon name="home" /><span>总览</span></button>
         <button :aria-current="activeView === 'appointments' ? 'page' : undefined" @click="switchView('appointments')"><PortIcon name="ship" /><span>进港预约</span></button>
-        <button v-for="nav in plannedNavigation" :key="nav.label" :aria-current="activeView === nav.view ? 'page' : undefined" @click="switchView(nav.view)"><PortIcon :name="nav.icon" /><span>{{ nav.label }}</span></button>
+        <button v-for="nav in plannedNavigation" :key="nav.label" disabled><PortIcon :name="nav.icon" /><span>{{ nav.label }}</span><small>待接入</small></button>
         <button disabled><PortIcon name="chart" /><span>查询统计</span><small>待接入</small></button>
       </nav>
       <div class="sidebar-bottom">
@@ -138,9 +146,9 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           <div class="metric"><span class="metric-icon"><PortIcon name="berth" :size="25" /></span><div><span>待靠泊计划</span><strong>{{ overview?.confirmedPlans ?? '—' }}</strong></div></div>
           <span v-if="overviewLoading" class="sr-only" role="status">正在更新总览</span>
         </section>
-        <PortOverview :overview="overview" :loading="overviewLoading" @appointments="openStatus" @navigate="switchView" />
+        <PortOverview :overview="overview" :loading="overviewLoading" @appointments="openStatus" @navigate="openBusiness" />
         <div class="overview-bottom">
-          <OperationDistribution :overview="overview" @navigate="switchView" />
+          <PortProcess />
           <RecentPortEvents :overview="overview" :loading="overviewLoading" :error="overviewError" :active="activeView === 'overview'" @page="refreshOverview" @select="openEvent" />
         </div>
       </div>
@@ -168,9 +176,11 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           </div>
         </div>
       </div>
-      <div v-for="business in businessViews" :key="business" class="view-pane business-pane" :hidden="activeView !== business">
-        <BusinessRecords :kind="business" :active="activeView === business" :refresh-key="businessRefreshKey" @select="openEvent" />
-      </div>
+
     </main>
   </div>
+  <dialog ref="unavailableDialog" class="unavailable-dialog" aria-labelledby="unavailable-title" @cancel.prevent="closeUnavailable">
+    <h2 id="unavailable-title">{{ unavailableTitle }}</h2><p>该模块尚未接入。</p>
+    <button class="button button-primary" @click="closeUnavailable">返回总览</button>
+  </dialog>
 </template>

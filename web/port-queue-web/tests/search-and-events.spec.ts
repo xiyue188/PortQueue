@@ -1,6 +1,13 @@
 // 验证完整检索、动态分页/轮播及状态语义；业务数据读取本机真实 SQL API。
 import { expect, test } from '@playwright/test'
 
+// 查询读取当前开发库总量，不因用户新增或审核预约而误报产品故障。
+let allCount = 0, approvedCount = 0
+test.beforeEach(async ({ request }) => {
+  allCount = (await (await request.get('/api/appointments')).json()).totalCount
+  approvedCount = (await (await request.get('/api/appointments?status=APPROVED')).json()).totalCount
+})
+
 test('候选总量、继续加载与全部结果一致，状态不会截断全局搜索', async ({ page, request }) => {
   const data = await (await request.get('/api/appointments?pageSize=100')).json()
   await page.goto('/#appointments')
@@ -96,18 +103,18 @@ test('动态遍历完整历史，标题固定，暂停和关联预约可用', as
   await page.locator('.event-ship').first().click()
   await expect(page.locator('#appointment-detail')).toContainText(label!.split('预约 ')[1])
   await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(20)
-  await expect(page.locator('.appointments-pane .pagination')).toContainText('共 53 条预约')
+  await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${allCount} 条预约`)
 })
 
 test('完整入口与候选保留清单范围，筛选和分页仍能查看其他预约', async ({ page, request }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '查看全部预约', exact: true }).click()
   await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(20)
-  await expect(page.locator('.appointments-pane .pagination')).toContainText('共 53 条预约')
+  await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${allCount} 条预约`)
   await expect(page.getByRole('combobox', { name: '预约关键词' })).toHaveValue('')
   await page.screenshot({ path: '../../.impeccable/review/details-with-full-list.png', fullPage: true })
   await page.getByRole('button', { name: '已批准', exact: true }).click()
-  await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(10)
+  await expect(page.locator('.appointments-pane tbody tr')).toHaveCount(Math.min(20, approvedCount))
   await page.getByLabel('每页条数').selectOption('2')
   await page.getByRole('button', { name: '下一页', exact: true }).click()
   await expect(page.locator('.page-number')).toHaveText('2')
@@ -131,7 +138,7 @@ test('完整入口与候选保留清单范围，筛选和分页仍能查看其�
   await expect(page.locator('.applied-keyword')).toContainText('海岚')
   await page.getByRole('button', { name: '清除关键词筛选' }).click()
   await expect(page.locator('.applied-keyword')).toHaveCount(0)
-  await expect(page.locator('.appointments-pane .pagination')).toContainText('共 10 条预约')
+  await expect(page.locator('.appointments-pane .pagination')).toContainText(`共 ${approvedCount} 条预约`)
 })
 
 test('独立详情失败可以恢复且不会清空清单，迟到详情不能覆盖新选择', async ({ page }) => {
@@ -222,7 +229,7 @@ test('总览涵盖全部状态且不请求单船摘要，批准入口覆盖完�
   await expect(page.locator('.state-distribution button')).toHaveCount(6)
   expect(listRequests).toBe(0)
   await expect(page.locator('.overview-pane tbody, .cycle-actions, .workflow-track, .metric-fact')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: '作业分布' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '进港流程' })).toBeVisible()
   for (const state of summary.appointmentStates) {
     const data = await (await request.get(`/api/appointments?status=${state.code}`)).json()
     expect(data.totalCount).toBe(state.count)

@@ -1,15 +1,14 @@
 using System.Text.Json;
 using Dapper;
-using PortQueue.Application.Overview;
+using PortQueue.Application.Appointments;
 using PortQueue.Infrastructure.Database;
 
-namespace PortQueue.Infrastructure.Overview;
+namespace PortQueue.Infrastructure.Appointments;
 
 /// <summary>参数化只读查询，以单SELECT返回总数及本页；数据库脚本为唯一SQL来源。</summary>
-public sealed class SqlBusinessQueries(ISqlConnectionFactory connections) : IBusinessQueries
+public sealed class SqlRegistrationOptions(ISqlConnectionFactory connections) : IRegistrationOptions
 {
-    private static readonly string Records = Load("BusinessRecords"), Options = Load("RegistrationOptions");
-    public Task<QueryPage<BusinessRecord>> RecordsAsync(string kind, string keyword, int page, CancellationToken token) => Read<BusinessRecord>(Records, kind, keyword, page, token);
+    private static readonly string Options = Load("RegistrationOptions");
     public Task<QueryPage<RegistrationOption>> OptionsAsync(string kind, string keyword, int page, CancellationToken token) => Read<RegistrationOption>(Options, kind, keyword, page, token);
     private async Task<QueryPage<T>> Read<T>(string sql, string kind, string keyword, int page, CancellationToken token)
     {
@@ -20,7 +19,7 @@ public sealed class SqlBusinessQueries(ISqlConnectionFactory connections) : IBus
     private sealed record JsonPage(long TotalCount, string ItemsJson);
     private static string Load(string name)
     {
-        using var stream = typeof(SqlBusinessQueries).Assembly.GetManifestResourceStream($"PortQueue.Queries.{name}.sql") ?? throw new InvalidOperationException("Missing business SQL.");
+        using var stream = typeof(SqlRegistrationOptions).Assembly.GetManifestResourceStream($"PortQueue.Queries.{name}.sql") ?? throw new InvalidOperationException("Missing business SQL.");
         using var reader = new StreamReader(stream); return reader.ReadToEnd();
     }
 }

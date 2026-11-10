@@ -25,7 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentReviews, SqlAppointmentReviews>();
         services.AddScoped<IOverviewQueries, SqlOverviewQueries>();
         services.AddScoped<IAppointmentRegistration, SqlAppointmentRegistration>();
-        services.AddScoped<IBusinessQueries, SqlBusinessQueries>();
+        services.AddScoped<IRegistrationOptions, SqlRegistrationOptions>();
         return services;
     }
 }

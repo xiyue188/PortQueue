@@ -46,7 +46,7 @@ function save(submit: boolean) {
   if (busy.value || uncertain.value || !form.value?.reportValidity()) return
   if (!ship.value) { error.value = '请从搜索结果中选择船舶。'; return }
   if (Date.parse(iso(fields.requestedDepartureAt)) <= Date.parse(iso(fields.requestedArrivalAt))) { error.value = '申请离港必须晚于申请到港。'; return }
-  if (fields.plannedDepartureAt && Date.parse(iso(fields.plannedDepartureAt)) <= Date.parse(iso(fields.plannedArrivalAt))) { error.value = '航次计划离港必须晚于计划到港。'; return }
+  if (fields.plannedDepartureAt && Date.parse(iso(fields.plannedDepartureAt)) <= Date.parse(iso(fields.plannedArrivalAt))) { error.value = '预计离港时间必须晚于预计到港时间。'; return }
   if (Number(fields.declaredDraftM) > (ship.value.maxDraftM ?? Infinity)) { error.value = `申报吃水不能超过该船最大吃水 ${ship.value.maxDraftM} 米。`; return }
   pendingRequest = mode.value === 'create' ? { path: '/api/appointments', method: 'POST', body: { requestKey, submit, data: data() } }
     : { path: `/api/appointments/${target.value!.appointmentId}/draft`, method: 'PUT', body: { expectedVersion: target.value!.editVersion, data: data() } }
@@ -98,8 +98,9 @@ defineExpose({ open })
   <Teleport to="body">
     <dialog ref="drawer" class="registration-drawer" aria-labelledby="registration-title" @cancel.prevent="close">
       <div class="registration-header"><div><h2 id="registration-title">{{ mode === 'create' ? '登记进港预约' : '编辑预约草稿' }}</h2></div><button class="icon-button" aria-label="关闭登记" :disabled="busy || uncertain" @click="close"><PortIcon name="reset" /></button></div>
+      <p class="registration-role">调度员依据船方提供的资料代为登记。</p>
       <form ref="form" class="registration-form" @submit.prevent="save(false)">
-        <fieldset :disabled="busy || uncertain"><legend>船舶与航次</legend><div class="form-grid">
+        <fieldset :disabled="busy || uncertain"><legend>船舶与本次到访</legend><div class="form-grid">
           <div class="form-span"><ReferenceSelect id="registration-ship" v-model="ship" kind="ships" label="船舶" required :disabled="busy || uncertain" /></div>
           <ReferenceSelect id="registration-previous" v-model="previous" kind="ports" label="上一港（选填）" :disabled="busy || uncertain" />
           <ReferenceSelect id="registration-next" v-model="next" kind="ports" label="下一港（选填）" :disabled="busy || uncertain" />
@@ -109,8 +110,8 @@ defineExpose({ open })
         <fieldset :disabled="busy || uncertain"><legend>申请与作业</legend><div class="form-grid">
           <label>申请到港 *<input v-model="fields.requestedArrivalAt" type="datetime-local" step="1" required /></label><label>申请离港 *<input v-model="fields.requestedDepartureAt" type="datetime-local" step="1" required /></label>
           <label>预计作业时长（小时）*<input v-model="fields.estimatedOperationHours" type="number" min="0.01" max="9999.99" step="0.01" required /></label><label>申报吃水（米）*<input v-model="fields.declaredDraftM" type="number" min="0.01" :max="ship?.maxDraftM ?? 9999.99" step="0.01" required /></label>
-          <div class="form-span planned-heading"><h3>航次计划</h3><button type="button" class="text-action" :disabled="!fields.requestedArrivalAt" @click="fields.plannedArrivalAt = fields.requestedArrivalAt; fields.plannedDepartureAt = fields.requestedDepartureAt">沿用申请时间</button></div>
-          <label>计划到港 *<input v-model="fields.plannedArrivalAt" type="datetime-local" step="1" required /></label><label>计划离港（选填）<input v-model="fields.plannedDepartureAt" type="datetime-local" step="1" /></label>
+          <div class="form-span planned-heading"><h3>本次到访预计时间</h3><button type="button" class="text-action" :disabled="!fields.requestedArrivalAt" @click="fields.plannedArrivalAt = fields.requestedArrivalAt; fields.plannedDepartureAt = fields.requestedDepartureAt">沿用申请时间</button></div>
+          <label>预计到港 *<input v-model="fields.plannedArrivalAt" type="datetime-local" step="1" required /></label><label>预计离港（选填）<input v-model="fields.plannedDepartureAt" type="datetime-local" step="1" /></label>
         </div></fieldset>
         <fieldset :disabled="busy || uncertain"><legend>补充要求</legend><div class="form-grid"><label>优先级<select v-model="fields.priorityLevel"><option v-for="value in 5" :key="value" :value="String(value)">{{ value }} 级</option></select></label><label class="checkbox-field"><input v-model="fields.dangerousGoodsFlag" type="checkbox" />载有危险品</label><label class="form-span">特殊要求（选填）<textarea v-model="fields.specialRequirement" rows="3" maxlength="1000" /></label></div></fieldset>
         <div class="registration-footer"><p v-if="error" role="alert" class="login-error">{{ error }}</p><div class="dialog-actions"><button type="button" class="button" :disabled="busy || uncertain" @click="close">取消</button><button v-if="uncertain" type="button" class="button button-primary" :disabled="busy" @click="reconcile">{{ mode === 'create' ? '核对登记结果' : '读取最新内容' }}</button><template v-else><button type="submit" class="button" :disabled="busy">{{ busy ? '正在保存…' : '保存草稿' }}</button><button v-if="mode === 'create'" type="button" class="button button-primary" :disabled="busy" @click="save(true)">提交审核</button></template></div></div>

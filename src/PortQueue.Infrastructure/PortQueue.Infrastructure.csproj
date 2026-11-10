@@ -25,7 +25,6 @@
     <!-- SQL 的唯一源文件在 database/，构建时嵌入，避免运行时依赖工作目录。 -->
     <EmbeddedResource Include="../../database/queries/appointments.sql" LogicalName="PortQueue.Queries.Appointments.sql" />
     <EmbeddedResource Include="../../database/queries/appointment-detail.sql" LogicalName="PortQueue.Queries.AppointmentDetail.sql" />
-    <EmbeddedResource Include="../../database/queries/business-records.sql" LogicalName="PortQueue.Queries.BusinessRecords.sql" />
     <EmbeddedResource Include="../../database/queries/registration-options.sql" LogicalName="PortQueue.Queries.RegistrationOptions.sql" />
     <EmbeddedResource Include="../../database/queries/overview.sql" LogicalName="PortQueue.Queries.Overview.sql" />
   </ItemGroup>

@@ -141,11 +141,11 @@ public sealed class AppointmentRegistrationTests(AppointmentDatabaseFixture fixt
         finally { await db.ExecuteAsync("UPDATE dbo.ship SET status_code='ACTIVE' WHERE ship_id=@id", new { id = input.ShipId }); }
     }
     [Fact]
-    public async Task ReadOnlyDestinationsAndCandidatesUseRealRows()
+    public async Task CandidatesUseRealRowsAndDeferredBusinessRoutesAreAbsent()
     {
         using var client = fixture.Factory.CreateClient(); var options = (await client.GetFromJsonAsync<QueryPage<RegistrationOption>>("/api/ships"))!; Assert.NotEmpty(options.Items);
-        foreach (var kind in new[] { "queue", "plans", "events" }) { var page = (await client.GetFromJsonAsync<QueryPage<BusinessRecord>>($"/api/business/{kind}"))!; Assert.Equal(20, page.PageSize); Assert.True(page.TotalCount >= page.Items.Count); }
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/business/invalid")).StatusCode);
+        foreach (var kind in new[] { "queue", "plans", "events" }) Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/business/{kind}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/business/invalid")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/ships?page=0")).StatusCode);
         Assert.Empty((await client.GetFromJsonAsync<QueryPage<RegistrationOption>>("/api/ships?keyword=%25_%5B"))!.Items);
     }
@@ -160,10 +160,10 @@ public sealed class AppointmentRegistrationTests(AppointmentDatabaseFixture fixt
         Assert.Equal("PENDING", row.AppointmentStatusCode);
         var failure = await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("EXECUTE AS USER='portqueue_probe'; UPDATE dbo.arrival_appointment SET appointment_status_code='DRAFT' WHERE appointment_id=@id;", new { id = row.AppointmentId }));
         Assert.Equal(229, failure.Number); await db.ExecuteAsync("REVERT;");
-        // 候选与三个新查询SQL也须在列授权边界内运行，不能只在LocalDB所有者身份验收。
-        foreach (var (name, kind) in new[] { ("RegistrationOptions", "ships"), ("BusinessRecords", "queue"), ("BusinessRecords", "plans"), ("BusinessRecords", "events") })
+        // 登记候选SQL也须在列授权边界内运行，不能只在LocalDB所有者身份验收。
+        foreach (var (name, kind) in new[] { ("RegistrationOptions", "ships"), ("RegistrationOptions", "ports") })
         {
-            await using var stream = typeof(PortQueue.Infrastructure.Overview.SqlBusinessQueries).Assembly.GetManifestResourceStream($"PortQueue.Queries.{name}.sql")!;
+            await using var stream = typeof(PortQueue.Infrastructure.Appointments.SqlRegistrationOptions).Assembly.GetManifestResourceStream($"PortQueue.Queries.{name}.sql")!;
             using var reader = new StreamReader(stream);
             var result = await db.QuerySingleAsync("EXECUTE AS USER='portqueue_probe'; " + await reader.ReadToEndAsync() + " REVERT;", new { Kind = kind, Keyword = "", Offset = 0 }); Assert.NotNull(result);
         }
