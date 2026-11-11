@@ -1,0 +1,9 @@
+# M2 增量设计
+
+两表仅扩展移动报送，不改变核心21表和到访事实。mobile_report以port_call_id引用原到访；submitted_by/request_id唯一。PHOTO类别、处理字段成组一致性、位置成组一致性、长度及字节范围由CHECK约束保护；PHOTO及其唯一照片在同一事务过程生成。rowversion用于Base64并发令牌。
+
+01_schema.sql先建两表，02_permissions.sql后建两个窄写过程。保留portqueue_app原有SCHEMA DENY INSERT/UPDATE/DELETE，只新增两表SELECT和两个过程EXECUTE。过程在事务中重验启用账号/角色，提交按用户+requestId获得事务级applock；相同规范元数据及图片SHA256重放，不同摘要409。决定以UPDLOCK及rowversion更新并追加原audit_log。
+
+文件先实际JPEG解码验证（最长边1600、5MiB），临时文件随后原子移动至不可猜测GUID键；调用过程及读取回执在事务内完成，提交后才返回。重放和确认回滚删除本次生成文件。CommitAsync抛错可能只是ACK丢失，提交开始后绝不直接删文件；独立连接按当前用户/request/hash核对，已保存则恢复原回执，无法核对保留文件供by-request/年龄阈值维护。注入真实提交后抛IOException的测试验证照片仍可读取。原记录文件不删除。崩溃孤立文件只按数据库不存在且超过24小时清理，维护脚本默认只预览。
+
+脚本无USE，拒绝PortQueue及master，只接受PortQueueMobileDev或隔离测试库名。M2部署使用显式独立入口，不自动改M1或冻结库。部署前父任务已只读审查两个SQL。JPEG解码最终使用纯托管StbImageSharp固定2.30.16（Unlicense OR MIT），无本机平台DLL；真实NuGet审计无该包公告。ImageSharp3.1.12有漏洞，修复线3.2.0实际Release需要许可证密钥，故未采用。

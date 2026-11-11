@@ -29,8 +29,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
         await using var factory = Factory();
         using var client = await Login(factory);
         using var cap = JsonDocument.Parse(await client.GetStringAsync("/api/mobile/session/capabilities"));
-        Assert.False(cap.RootElement.GetProperty("canSubmitMobileReport").GetBoolean());
-        Assert.False(cap.RootElement.GetProperty("canProcessMobileReport").GetBoolean());
+        Assert.True(cap.RootElement.GetProperty("canSubmitMobileReport").GetBoolean());
+        Assert.True(cap.RootElement.GetProperty("canProcessMobileReport").GetBoolean());
         var before = DateTimeOffset.UtcNow;
         var value = (await client.GetFromJsonAsync<VisitOverview>("/api/mobile/appointments/9007199254740993/overview"))!;
         Assert.Equal("9007199254740993", value.AppointmentId);
@@ -42,7 +42,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
         Assert.Equal(TimeSpan.Zero, value.ServerTime.Offset);
         Assert.Equal(TimeSpan.Zero, value.PlannedArrivalAt.Offset);
         Assert.InRange(value.ServerTime, before, DateTimeOffset.UtcNow);
-        foreach (var id in new[] { "0", "-1", "abc", "9223372036854775808" }) Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/mobile/appointments/{id}/overview")).StatusCode);
+        foreach (var id in new[] { "0", "-1", "abc", "9223372036854775808" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/mobile/appointments/{id}/overview")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/mobile/appointments/9223372036854775807/overview")).StatusCode);
     }
     [Fact]
@@ -54,7 +55,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
         using var client = await Login(factory);
         await using var connection = new SqlConnection(fixture.ConnectionString);
         await connection.OpenAsync();
-        using (var executing = new SqlCommand("UPDATE dbo.berth_plan SET plan_status_code='EXECUTING' WHERE berth_plan_id=(SELECT MIN(berth_plan_id) FROM dbo.berth_plan WHERE plan_status_code='CONFIRMED');", connection)) await executing.ExecuteNonQueryAsync();
+        using (var executing = new SqlCommand("UPDATE dbo.berth_plan SET plan_status_code='EXECUTING' WHERE berth_plan_id=(SELECT MIN(berth_plan_id) FROM dbo.berth_plan WHERE plan_status_code='CONFIRMED');", connection))
+            await executing.ExecuteNonQueryAsync();
         var cases = new List<(long Id, string Call, string? Anchorage, string? QueueStatus, DateTime? Entered, DateTime? Left, string? Berth, int? Version, string? PlanStatus)>();
         using (var command = new SqlCommand("""
    SELECT aa.appointment_id,pc.call_no,q.anchorage_name,q.queue_status_code,q.entered_anchorage_at,q.left_anchorage_at,p.berth_name,p.version_no,p.plan_status_code
@@ -64,7 +66,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
    """, connection))
         using (var reader = await command.ExecuteReaderAsync())
         {
-            while (await reader.ReadAsync()) cases.Add((reader.GetInt64(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetDateTime(4), reader.IsDBNull(5) ? null : reader.GetDateTime(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetInt32(7), reader.IsDBNull(8) ? null : reader.GetString(8)));
+            while (await reader.ReadAsync())
+                cases.Add((reader.GetInt64(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetDateTime(4), reader.IsDBNull(5) ? null : reader.GetDateTime(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetInt32(7), reader.IsDBNull(8) ? null : reader.GetString(8)));
         }
         Assert.Contains(cases, c => c.PlanStatus == "CONFIRMED");
         Assert.Contains(cases, c => c.PlanStatus == "EXECUTING");
@@ -78,7 +81,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
             Assert.Equal(row.QueueStatus, value.Queue?.StatusCode);
             Assert.Equal(row.Entered, value.Queue?.EnteredAt?.UtcDateTime);
             Assert.Equal(row.Left, value.Queue?.LeftAt?.UtcDateTime);
-            if (row.Left is not null) Assert.Equal(row.Left - row.Entered, value.Queue!.LeftAt - value.Queue.EnteredAt); // ended waiting uses facts, not query time
+            if (row.Left is not null)
+                Assert.Equal(row.Left - row.Entered, value.Queue!.LeftAt - value.Queue.EnteredAt); // ended waiting uses facts, not query time
             Assert.Equal(row.Berth, value.PublishedPlan?.BerthName);
             Assert.Equal(row.Version, value.PublishedPlan?.VersionNo);
             Assert.Equal(row.PlanStatus, value.PublishedPlan?.StatusCode);
@@ -133,7 +137,8 @@ public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IC
             await switchCurrent.ExecuteNonQueryAsync();
         }
         Assert.Null((await client.GetFromJsonAsync<VisitOverview>($"/api/mobile/appointments/{confirmed.Id}/overview"))!.PublishedPlan);
-        using (var makeDraft = new SqlCommand("UPDATE dbo.berth_plan SET plan_status_code='DRAFT' WHERE berth_plan_id=(SELECT MAX(berth_plan_id) FROM dbo.berth_plan WHERE plan_status_code='CONFIRMED');", connection)) await makeDraft.ExecuteNonQueryAsync();
+        using (var makeDraft = new SqlCommand("UPDATE dbo.berth_plan SET plan_status_code='DRAFT' WHERE berth_plan_id=(SELECT MAX(berth_plan_id) FROM dbo.berth_plan WHERE plan_status_code='CONFIRMED');", connection))
+            await makeDraft.ExecuteNonQueryAsync();
         using (var draft = new SqlCommand("SELECT TOP(1) appointment_id FROM dbo.v_current_berth_plan WHERE plan_status_code='DRAFT'", connection))
         {
             var id = (long)(await draft.ExecuteScalarAsync())!;

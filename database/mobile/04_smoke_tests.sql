@@ -1,0 +1,10 @@
+SET NOCOUNT ON;
+IF DB_NAME()<>N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
+IF OBJECT_ID('dbo.mobile_report','U') IS NULL OR OBJECT_ID('dbo.report_photo','U') IS NULL THROW 52501,'M2 schema missing.',1;
+IF EXISTS(SELECT 1 FROM dbo.mobile_report r LEFT JOIN dbo.report_photo p ON p.report_id=r.report_id WHERE (r.report_type='PHOTO' AND p.photo_id IS NULL) OR (r.report_type='ETA' AND p.photo_id IS NOT NULL)) THROW 52501,'Photo consistency failed.',1;
+EXECUTE AS USER='portqueue_probe';
+IF HAS_PERMS_BY_NAME('dbo.mobile_report','OBJECT','INSERT')<>0 OR HAS_PERMS_BY_NAME('dbo.report_photo','OBJECT','DELETE')<>0 OR HAS_PERMS_BY_NAME('dbo.audit_log','OBJECT','INSERT')<>0 THROW 52503,'Direct writes must remain denied.',1;
+IF HAS_PERMS_BY_NAME('dbo.usp_mobile_submit_photo','OBJECT','EXECUTE')<>1 OR HAS_PERMS_BY_NAME('dbo.usp_mobile_decide','OBJECT','EXECUTE')<>1 THROW 52503,'Controlled write permission missing.',1;
+SELECT TOP(0) r.report_id,p.photo_id,a.appointment_id,c.call_no,s.ship_name,u.display_name FROM dbo.mobile_report r LEFT JOIN dbo.report_photo p ON p.report_id=r.report_id JOIN dbo.arrival_appointment a ON a.port_call_id=r.port_call_id JOIN dbo.port_call c ON c.port_call_id=r.port_call_id JOIN dbo.ship s ON s.ship_id=c.ship_id JOIN dbo.user_account u ON u.user_id=r.submitted_by;
+REVERT;
+PRINT 'PASS M2 schema, photo consistency and least privilege';

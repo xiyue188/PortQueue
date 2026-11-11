@@ -11,6 +11,8 @@ public sealed class MobileGateTests
     {
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Mobile:Enabled"] = enabled })));
         using var client = factory.CreateClient();
-        foreach (var path in new[] { "/api/mobile/session/capabilities", "/api/mobile/appointments/1/overview" }) Assert.Equal(expected, (int)(await client.GetAsync(path)).StatusCode);
+        foreach (var path in new[] { "/api/mobile/session/capabilities", "/api/mobile/appointments/1/overview", "/api/mobile/reports", "/api/mobile/reports/1", "/api/mobile/photos/1" })
+            Assert.Equal(expected, (int)(await client.GetAsync(path)).StatusCode);
+        Assert.Equal(expected, (int)(await client.PostAsync("/api/mobile/reports/photo", new MultipartFormDataContent())).StatusCode);
     }
 }

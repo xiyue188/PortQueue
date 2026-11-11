@@ -14,8 +14,8 @@ public sealed class MobileController(IMobileVisitQueries queries) : ControllerBa
     [HttpGet("session/capabilities")]
     public IActionResult Capabilities() => Ok(new
     {
-        canSubmitMobileReport = false,
-        canProcessMobileReport = false
+        canSubmitMobileReport = User.IsInRole("ADMIN") || User.IsInRole("DISPATCHER") || User.IsInRole("RECORDER"),
+        canProcessMobileReport = User.IsInRole("ADMIN") || User.IsInRole("DISPATCHER")
     });
 
     [HttpGet("appointments/{appointmentId}/overview")]
@@ -28,6 +28,11 @@ public sealed class MobileController(IMobileVisitQueries queries) : ControllerBa
         CancellationToken cancellationToken)
     {
         var value = await queries.GetAsync(appointmentId, cancellationToken);
+        if (value is not null)
+            value = value with
+            {
+                CanSubmitReport = (User.IsInRole("ADMIN") || User.IsInRole("DISPATCHER") || User.IsInRole("RECORDER")) && value.AppointmentStatusCode == "APPROVED" && value.CallStatusCode is "PLANNED" or "IN_PROGRESS"
+            };
         return value is null ? Problem(statusCode: 404, title: "预约不存在。") : Ok(value);
     }
 }

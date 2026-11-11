@@ -27,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentRegistration, SqlAppointmentRegistration>();
         services.AddScoped<IRegistrationOptions, SqlRegistrationOptions>();
         services.AddScoped<PortQueue.Application.Mobile.IMobileVisitQueries, PortQueue.Infrastructure.Mobile.SqlMobileVisitQueries>();
+        services.AddSingleton<PortQueue.Infrastructure.Mobile.Reports.ReportPhotoStore>();
+        services.AddSingleton<PortQueue.Infrastructure.Mobile.Reports.IReportTransactionCommitter,PortQueue.Infrastructure.Mobile.Reports.ReportTransactionCommitter>();
+        services.AddScoped<PortQueue.Application.Mobile.Reports.IMobileReportService, PortQueue.Infrastructure.Mobile.Reports.SqlMobileReportService>();
         return services;
     }
 }
