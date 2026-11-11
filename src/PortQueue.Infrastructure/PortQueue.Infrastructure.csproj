@@ -29,4 +29,5 @@
     <EmbeddedResource Include="../../database/queries/overview.sql" LogicalName="PortQueue.Queries.Overview.sql" />
   </ItemGroup>
 
+  <ItemGroup><EmbeddedResource Include="../../database/queries/mobile-visit-overview.sql" LogicalName="PortQueue.Queries.MobileVisitOverview.sql" /></ItemGroup>
 </Project>

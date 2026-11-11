@@ -9,7 +9,9 @@ var builder = WebApplication.CreateBuilder(args.FirstOrDefault() == "account" ? 
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+builder.Services.AddControllers().ConfigureApplicationPartManager(parts =>
+    parts.FeatureProviders.Add(new PortQueue.Api.Mobile.MobileControllerFeatureProvider(builder.Configuration)))
+    .ConfigureApiBehaviorOptions(options =>
 {
     // 自动模型绑定失败（如 page=abc）与业务参数错误采用相同契约。
     options.InvalidModelStateResponseFactory = context =>

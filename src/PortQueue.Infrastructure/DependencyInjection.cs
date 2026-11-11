@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IOverviewQueries, SqlOverviewQueries>();
         services.AddScoped<IAppointmentRegistration, SqlAppointmentRegistration>();
         services.AddScoped<IRegistrationOptions, SqlRegistrationOptions>();
+        services.AddScoped<PortQueue.Application.Mobile.IMobileVisitQueries, PortQueue.Infrastructure.Mobile.SqlMobileVisitQueries>();
         return services;
     }
 }
