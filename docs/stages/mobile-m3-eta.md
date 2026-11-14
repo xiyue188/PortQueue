@@ -18,7 +18,7 @@ overview的`latestAcceptedEta`是同一port_call已接收ETA，按`processed_at 
 
 沿用M2的mobile_report.proposed_eta，不新增表，不改核心21表。新增`mobile/05_eta.sql`：受控`usp_mobile_submit_eta`、带ETA过期接受约束的`usp_mobile_decide`、已接收ETA查询索引及新增过程EXECUTE授权。保留schema范围直接写DENY与现有列读取授权。首次提交、处理及audit_log追加分别在同一事务完成；提交按用户/requestId事务级applock和唯一键串行化，SHA256摘要比较规范内容。
 
-先执行M2，再显式执行M3增量；升级不自动初始化、删除或重建库，不更改运行中API。`deploy-mobile-m3.ps1 -PlanOnly`只列出增量与冒烟检查，真正执行仅允许PortQueueMobileDev；脚本也允许既有隔离fixture命名的测试库。重放M2旧版过程后须重新应用M3，不能将旧版本过程当最新版本部署。
+先执行M2，再显式执行M3增量；升级不自动初始化、删除或重建库，不更改运行中API。`deploy-mobile-m3.ps1 -PlanOnly`只列出增量与冒烟检查；PowerShell部署入口仅允许PortQueueMobileDev。SQL增量文件另允许既有隔离fixture命名的测试库，由测试夹具直接加载，不经过该PowerShell入口。重放M2旧版过程后须重新应用M3，不能将旧版本过程当最新版本部署。
 
 ## 验收
 

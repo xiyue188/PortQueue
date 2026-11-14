@@ -28,3 +28,7 @@ decision保留rowversion和一次性处理，先检查状态/版本，再判定E
 本批未扩大核心数据库写授权。最小权限用户实际执行增量提交并重放，04/06断言mobile_report的INSERT/UPDATE/DELETE及audit_log INSERT仍拒绝。报送实体不赋值预约/航次/泊位字段；完整行快照对此提供行为证据。SQL迁移重复执行已在隔离fixture验证，实际开发库升级和部署后HTTP烟测尚未执行。
 
 当前服务继续是M2。Android ETA表单、记录类型区分、Room迁移、模拟器双账号及真机验收仍待下一批；现有照片、相机及定位的旧证据不算本批ETA手机验收。没有推送或部署。review记载的测试日志及TRX位于被Git忽略的artifacts目录，提交保留源码、测试和此证据索引。
+
+## 独立审查补充
+
+独立只读审查同时核对规格与质量，未发现P0–P2；复核TRX为125项全部通过，其中Mobile27、ETA14。唯一P3为部署文档把PowerShell目标库限制与SQL测试库白名单混写，已澄清：PowerShell仅允许PortQueueMobileDev，fixture直接加载SQL文件。没有放宽部署入口或为文档修改重跑测试。原“没有推送”描述实现者交接时状态，后续父任务负责正常功能分支推送；仍未部署运行服务。
