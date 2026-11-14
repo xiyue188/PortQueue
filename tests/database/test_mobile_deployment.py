@@ -9,8 +9,8 @@ SCRIPT = ROOT / 'database/deploy-mobile-dev.ps1'
 
 
 class MobileDeploymentTests(unittest.TestCase):
-    def invoke(self, database):
-        return subprocess.run(['pwsh', '-NoProfile', '-File', str(SCRIPT),
+    def invoke(self, database, script=SCRIPT):
+        return subprocess.run(['pwsh', '-NoProfile', '-File', str(script),
                                '-DatabaseName', database, '-PlanOnly'],
                               capture_output=True, encoding='utf-8', errors='replace')
 
@@ -35,6 +35,23 @@ class MobileDeploymentTests(unittest.TestCase):
             self.assertNotIn('[PortQueue]', text)
             self.assertNotIn("N'PortQueue'", text)
             self.assertIn('[PortQueueMobileDev]', text)
+        for path, content in before.items():
+            self.assertEqual(content, path.read_bytes())
+
+    def test_m3_plan_rejects_other_databases_and_never_mutates_sql(self):
+        script = ROOT / 'database/deploy-mobile-m3.ps1'
+        before = {p: p.read_bytes() for p in (ROOT / 'database/mobile').glob('*.sql')}
+        for database in ['PortQueue', 'master', 'PortQueueStage2Test_fake']:
+            with self.subTest(database=database):
+                result = self.invoke(database, script)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn('DatabaseName', result.stderr)
+        result = self.invoke('PortQueueMobileDev', script)
+        self.assertEqual(0, result.returncode, result.stderr)
+        plan = json.loads(result.stdout)
+        self.assertEqual('PortQueueMobileDev', plan['database'])
+        self.assertFalse(plan['executed'])
+        self.assertIn('05_eta.sql', plan['scripts'])
         for path, content in before.items():
             self.assertEqual(content, path.read_bytes())
 

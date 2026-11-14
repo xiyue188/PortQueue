@@ -23,6 +23,7 @@ public sealed class MobileReportTests(AppointmentDatabaseFixture fixture) : ICla
     {
         await fixture.ApplyScriptAsync("mobile/01_schema.sql");
         await fixture.ApplyScriptAsync("mobile/02_permissions.sql");
+        await fixture.ApplyScriptAsync("mobile/05_eta.sql");
         await DemoAccounts.SeedAsync(factory.Services);
         await using var c = new SqlConnection(fixture.ConnectionString);
         await c.OpenAsync();

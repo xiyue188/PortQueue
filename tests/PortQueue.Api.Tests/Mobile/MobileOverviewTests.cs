@@ -13,8 +13,11 @@ namespace PortQueue.Api.Tests.Mobile;
 public sealed class MobileOverviewTests(AppointmentDatabaseFixture fixture) : IClassFixture<AppointmentDatabaseFixture>
 {
     private WebApplicationFactory<Program> Factory() => fixture.Factory.WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Mobile:Enabled"] = "true" })));
-    private static async Task<HttpClient> Login(WebApplicationFactory<Program> factory)
+    private async Task<HttpClient> Login(WebApplicationFactory<Program> factory)
     {
+        await fixture.ApplyScriptAsync("mobile/01_schema.sql");
+        await fixture.ApplyScriptAsync("mobile/02_permissions.sql");
+        await fixture.ApplyScriptAsync("mobile/05_eta.sql");
         await DemoAccounts.SeedAsync(factory.Services);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), HandleCookies = true });
         var session = (await client.GetFromJsonAsync<SessionResponse>("/api/session"))!;

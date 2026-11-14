@@ -1,0 +1,10 @@
+SET NOCOUNT ON;
+IF DB_NAME()<>N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
+IF OBJECT_ID('dbo.usp_mobile_submit_eta','P') IS NULL THROW 52501,'ETA procedure missing.',1;
+IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.mobile_report') AND name='IX_mobile_report_accepted_eta') THROW 52501,'ETA index missing.',1;
+EXECUTE AS USER='portqueue_probe';
+IF ISNULL(HAS_PERMS_BY_NAME('dbo.usp_mobile_submit_eta','OBJECT','EXECUTE'),0)<>1 THROW 52503,'Controlled ETA write permission missing.',1;
+IF HAS_PERMS_BY_NAME('dbo.mobile_report','OBJECT','INSERT')<>0 OR HAS_PERMS_BY_NAME('dbo.mobile_report','OBJECT','UPDATE')<>0 OR HAS_PERMS_BY_NAME('dbo.mobile_report','OBJECT','DELETE')<>0 OR HAS_PERMS_BY_NAME('dbo.audit_log','OBJECT','INSERT')<>0 THROW 52503,'Direct writes must remain denied.',1;
+SELECT TOP(0) report_id,port_call_id,proposed_eta,processed_at FROM dbo.mobile_report WHERE report_type='ETA' AND status_code='ACCEPTED' ORDER BY processed_at DESC,report_id DESC;
+REVERT;
+PRINT 'PASS M3 ETA procedure, index and least privilege';

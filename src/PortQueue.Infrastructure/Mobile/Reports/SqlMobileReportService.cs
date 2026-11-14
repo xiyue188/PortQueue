@@ -12,7 +12,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
     private const string SelectSql = """
  SELECT CONVERT(varchar(20),r.report_id) ReportId,CONVERT(varchar(36),r.request_id) RequestId,
  CONVERT(varchar(20),a.appointment_id) AppointmentId,a.appointment_no AppointmentNo,c.call_no CallNo,s.ship_name ShipName,
- r.report_type ReportType,r.category Category,r.description Description,r.status_code StatusCode,
+ r.report_type ReportType,r.category Category,r.description Description,r.status_code StatusCode,TODATETIMEOFFSET(r.proposed_eta,'+00:00') ProposedEta,
  TODATETIMEOFFSET(r.submitted_at,'+00:00') SubmittedAt,CONVERT(varchar(20),r.submitted_by) SubmittedByUserId,u.display_name SubmittedByName,
  TODATETIMEOFFSET(r.processed_at,'+00:00') ProcessedAt,v.display_name ProcessedByName,r.process_comment ProcessComment,r.row_version Version,
  CONVERT(varchar(20),p.photo_id) PhotoId,p.mime_type MimeType,p.byte_size ByteSize,TODATETIMEOFFSET(p.captured_at,'+00:00') CapturedAt,
@@ -27,7 +27,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
     private static MobileReportException Invalid() => new(400, "INVALID_REPORT", "请检查报送内容、拍摄时间和位置。");
     private static CommandDefinition Command(string sql, object args, SqlTransaction? tx, CancellationToken token, CommandType? type = null) => new(sql, args, tx, commandTimeout: 20, commandType: type, cancellationToken: token);
     private static async Task<Row?> ReadAsync(SqlConnection c, SqlTransaction? tx, ReportActor a, long id, CancellationToken token) => await c.QuerySingleOrDefaultAsync<Row>(Command(SelectSql + " AND r.report_id=@Id", new { All = a.CanProcess, UserId = a.UserId, Id = id }, tx, token));
-    public async Task<PhotoSubmission> SubmitPhotoAsync(ReportActor actor, PhotoMetadata metadata, Stream photo, CancellationToken token)
+    public async Task<ReportSubmission> SubmitPhotoAsync(ReportActor actor, PhotoMetadata metadata, Stream photo, CancellationToken token)
     {
         if (!actor.CanSubmit)
             throw Forbidden();
@@ -135,6 +135,42 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
             throw;
         }
     }
+    public async Task<ReportSubmission> SubmitEtaAsync(ReportActor actor, EtaMetadata metadata, CancellationToken token)
+    {
+        if (!actor.CanSubmit)
+            throw Forbidden();
+        if (metadata.RequestId == Guid.Empty || !long.TryParse(metadata.AppointmentId, NumberStyles.None, CultureInfo.InvariantCulture, out var appointmentId) || appointmentId <= 0 || metadata.ProposedEta == default || string.IsNullOrWhiteSpace(metadata.Description) || metadata.Description.Trim().Length > 500)
+            throw new MobileReportException(400, "INVALID_ETA", "请检查预约、预计到达时间和说明。");
+        metadata = metadata with
+        {
+            AppointmentId = appointmentId.ToString(CultureInfo.InvariantCulture),
+            ProposedEta = metadata.ProposedEta.ToUniversalTime(),
+            Description = metadata.Description.Trim()
+        };
+        var hash = SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { reportType = "ETA", metadata }));
+        var args = new DynamicParameters(new
+        {
+            user_id = actor.UserId,
+            request_id = metadata.RequestId,
+            appointment_id = appointmentId,
+            description = metadata.Description,
+            payload_hash = hash
+        });
+        // datetime2 preserves the same seven fractional digits used by the canonical payload.
+        args.Add("proposed_eta", metadata.ProposedEta.UtcDateTime, DbType.DateTime2);
+        await using var c = connections.Create();
+        await c.OpenAsync(token);
+        await using var tx = (SqlTransaction)await c.BeginTransactionAsync(token);
+        try
+        {
+            // SQL checks replay before the moving time/visit eligibility window.
+            var receipt = await c.QuerySingleAsync<Receipt>(Command("dbo.usp_mobile_submit_eta", args, tx, token, CommandType.StoredProcedure));
+            var row = await ReadAsync(c, tx, actor, receipt.ReportId, token) ?? throw new InvalidOperationException("Receipt missing.");
+            await tx.CommitAsync(token);
+            return new(row.Detail(actor), receipt.IsReplay);
+        }
+        catch (SqlException ex) { throw Translate(ex); }
+    }
     public async Task<ReportDetail?> GetAsync(ReportActor actor, long reportId, CancellationToken token)
     {
         await using var c = connections.Create();
@@ -214,7 +250,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
         }
         catch (SqlException ex) { throw Translate(ex); }
     }
-    private static Exception Translate(SqlException ex) => ex.Number switch { 52503 => Forbidden(), 52504 => new MobileReportException(400, "VISIT_NOT_ELIGIBLE", "该航次当前不可报送。"), 52505 => new MobileReportException(404, "REPORT_NOT_FOUND", "报送不存在。"), 52509 => new MobileReportException(409, "REPORT_CONFLICT", "请求内容已变化或记录已处理，请核对原记录。"), _ => ex };
+    private static Exception Translate(SqlException ex) => ex.Number switch { 52503 => Forbidden(), 52504 => new MobileReportException(400, "VISIT_NOT_ELIGIBLE", "该航次当前不可报送。"), 52505 => new MobileReportException(404, "REPORT_NOT_FOUND", "报送不存在。"), 52506 => new MobileReportException(400, "INVALID_ETA", "预计到达时间须晚于当前时间且在未来30天内，请检查报送内容。"), 52507 => new MobileReportException(409, "ETA_EXPIRED", "预计到达时间已过期，可退回并请报送人更新。"), 52509 => new MobileReportException(409, "REPORT_CONFLICT", "请求内容已变化或记录已处理，请核对原记录。"), _ => ex };
     private sealed class Receipt
     {
         public long ReportId
@@ -240,6 +276,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
             get; init;
         }
         public string Description { get; init; } = "";
+        public DateTimeOffset? ProposedEta { get; init; }
         public string StatusCode { get; init; } = "";
         public DateTimeOffset SubmittedAt
         {
@@ -297,7 +334,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
         {
             get; init;
         }
-        public ReportSummary Summary() => new(ReportId, RequestId, AppointmentId, AppointmentNo, CallNo, ShipName, ReportType, Category, Description, StatusCode, SubmittedAt, SubmittedByUserId, SubmittedByName);
-        public ReportDetail Detail(ReportActor a) => new(ReportId, RequestId, AppointmentId, AppointmentNo, CallNo, ShipName, ReportType, Category, Description, StatusCode, SubmittedAt, SubmittedByUserId, SubmittedByName, ProcessedAt, ProcessedByName, ProcessComment, Convert.ToBase64String(Version), a.CanProcess && StatusCode == "SUBMITTED", PhotoId is null ? null : new(PhotoId, MimeType, ByteSize, CapturedAt, Latitude is null ? null : new(Latitude.Value, Longitude!.Value, AccuracyMeters!.Value, LocationAt!.Value, CoordinateSystem!)));
+        public ReportSummary Summary() => new(ReportId, RequestId, AppointmentId, AppointmentNo, CallNo, ShipName, ReportType, Category, Description, StatusCode, SubmittedAt, SubmittedByUserId, SubmittedByName, ProposedEta);
+        public ReportDetail Detail(ReportActor a) => new(ReportId, RequestId, AppointmentId, AppointmentNo, CallNo, ShipName, ReportType, Category, Description, StatusCode, SubmittedAt, SubmittedByUserId, SubmittedByName, ProcessedAt, ProcessedByName, ProcessComment, Convert.ToBase64String(Version), a.CanProcess && StatusCode == "SUBMITTED", PhotoId is null ? null : new(PhotoId, MimeType, ByteSize, CapturedAt, Latitude is null ? null : new(Latitude.Value, Longitude!.Value, AccuracyMeters!.Value, LocationAt!.Value, CoordinateSystem!)), ProposedEta);
     }
 }

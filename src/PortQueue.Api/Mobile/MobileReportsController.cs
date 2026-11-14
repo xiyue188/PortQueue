@@ -37,6 +37,18 @@ public sealed class MobileReportsController(IMobileReportService reports, IAntif
     }
     [HttpGet("reports")]
     public Task<IActionResult> List(string scope = "mine", int page = 1, int pageSize = 20, long? appointmentId = null, string? status = null, CancellationToken token = default) => Execute(async () => Ok(await reports.ListAsync(Actor, scope, page, pageSize, appointmentId, status, token)));
+    [HttpPost("reports/eta"), Authorize(Roles = "ADMIN,DISPATCHER,RECORDER"), RequestSizeLimit(8192)]
+    public Task<IActionResult> SubmitEta(EtaRequest request, CancellationToken token) => Execute(async () =>
+    {
+        await csrf.ValidateRequestAsync(HttpContext);
+        var text = request.ProposedEta;
+        // Require an explicit zone; never infer the API machine's local timezone.
+        if (text.Length < 20 || !(text.EndsWith('Z') || text[^6] is '+' or '-') ||
+            !DateTimeOffset.TryParseExact(text, "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var eta))
+            throw new MobileReportException(400, "INVALID_ETA", "预计到达时间须包含明确时区。");
+        var result = await reports.SubmitEtaAsync(Actor, new(request.RequestId, request.AppointmentId, eta, request.Description), token);
+        return StatusCode(result.IsReplay ? 200 : 201, result.Report);
+    });
     [HttpGet("reports/by-request/{requestId:guid}")]
     public Task<IActionResult> Find(Guid requestId, CancellationToken token) => Execute(async () => Found(await reports.FindByRequestAsync(Actor, requestId, token)));
     [HttpGet("reports/{reportId:long}")]
@@ -74,3 +86,5 @@ public sealed class MobileReportsController(IMobileReportService reports, IAntif
 }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DecisionRequest([Required] string Decision, [Required, StringLength(500)] string Comment, [Required] string ExpectedVersion);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record EtaRequest(Guid RequestId, [Required] string AppointmentId, [Required] string ProposedEta, [Required] string Description);

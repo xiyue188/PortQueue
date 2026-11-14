@@ -10,6 +10,10 @@ public sealed record PhotoMetadata(Guid RequestId,
     string Description,
     DateTimeOffset CapturedAt,
     LocationSample? Location);
+public sealed record EtaMetadata(Guid RequestId,
+    string AppointmentId,
+    DateTimeOffset ProposedEta,
+    string Description);
 public record ReportSummary(string ReportId,
     string RequestId,
     string AppointmentId,
@@ -22,7 +26,8 @@ public record ReportSummary(string ReportId,
     string StatusCode,
     DateTimeOffset SubmittedAt,
     string SubmittedByUserId,
-    string SubmittedByName);
+    string SubmittedByName,
+    DateTimeOffset? ProposedEta);
 public sealed record PhotoInfo(string PhotoId,
     string MimeType,
     long ByteSize,
@@ -46,7 +51,8 @@ public sealed record ReportDetail(string ReportId,
     string? ProcessComment,
     string Version,
     bool CanProcess,
-    PhotoInfo? Photo) : ReportSummary(ReportId,
+    PhotoInfo? Photo,
+    DateTimeOffset? ProposedEta) : ReportSummary(ReportId,
     RequestId,
     AppointmentId,
     AppointmentNo,
@@ -58,7 +64,8 @@ public sealed record ReportDetail(string ReportId,
     StatusCode,
     SubmittedAt,
     SubmittedByUserId,
-    SubmittedByName);
+    SubmittedByName,
+    ProposedEta);
 public sealed record ReportPage(IReadOnlyList<ReportSummary> Items,
     int TotalCount,
     int Page,
@@ -69,7 +76,7 @@ public sealed record ReportActor(long UserId,
     public bool CanSubmit => Role is "ADMIN" or "DISPATCHER" or "RECORDER";
     public bool CanProcess => Role is "ADMIN" or "DISPATCHER";
 }
-public sealed record PhotoSubmission(ReportDetail Report,
+public sealed record ReportSubmission(ReportDetail Report,
     bool IsReplay);
 public sealed record ProtectedPhoto(string Path);
 public sealed class MobileReportException(int status, string code, string message) : Exception(message)
@@ -79,7 +86,8 @@ public sealed class MobileReportException(int status, string code, string messag
 }
 public interface IMobileReportService
 {
-    Task<PhotoSubmission> SubmitPhotoAsync(ReportActor actor, PhotoMetadata metadata, Stream photo, CancellationToken token);
+    Task<ReportSubmission> SubmitPhotoAsync(ReportActor actor, PhotoMetadata metadata, Stream photo, CancellationToken token);
+    Task<ReportSubmission> SubmitEtaAsync(ReportActor actor, EtaMetadata metadata, CancellationToken token);
     Task<ReportDetail?> GetAsync(ReportActor actor, long reportId, CancellationToken token);
     Task<ReportDetail?> FindByRequestAsync(ReportActor actor, Guid requestId, CancellationToken token);
     Task<ReportPage> ListAsync(ReportActor actor, string scope, int page, int pageSize, long? appointmentId, string? status, CancellationToken token);

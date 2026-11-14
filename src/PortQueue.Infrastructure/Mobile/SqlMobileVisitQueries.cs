@@ -35,7 +35,7 @@ public sealed class SqlMobileVisitQueries(ISqlConnectionFactory connections) : I
         return new VisitOverview(
             row.AppointmentId, row.AppointmentNo, row.ShipName, row.CallNo,
             row.AppointmentStatusCode, row.CallStatusCode, row.PlannedArrivalAt,
-            queue, plan, null, false, row.ServerTime);
+            queue, plan, row.EtaReportId is null ? null : new(row.EtaReportId, row.ProposedEta!.Value, row.EtaProcessedAt!.Value), false, row.ServerTime);
     }
 
     private sealed class Row
@@ -58,5 +58,8 @@ public sealed class SqlMobileVisitQueries(ISqlConnectionFactory connections) : I
         public DateTimeOffset? PlannedBerthingAt { get; init; }
         public DateTimeOffset? PlannedUnberthingAt { get; init; }
         public DateTimeOffset ServerTime { get; init; }
+        public string? EtaReportId { get; init; }
+        public DateTimeOffset? ProposedEta { get; init; }
+        public DateTimeOffset? EtaProcessedAt { get; init; }
     }
 }
