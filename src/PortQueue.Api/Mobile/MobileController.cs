@@ -35,4 +35,15 @@ public sealed class MobileController(IMobileVisitQueries queries) : ControllerBa
             };
         return value is null ? Problem(statusCode: 404, title: "预约不存在。") : Ok(value);
     }
+    [HttpGet("appointments/{appointmentId}/changes")]
+    [Authorize(Roles = "ADMIN,DISPATCHER,RECORDER,REVIEWER")]
+    public async Task<ActionResult<VisitPlanHistory>> Changes(
+        [FromRoute, Range(typeof(long), "1", "9223372036854775807")] long appointmentId,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery, Range(1, 100)] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var value = await queries.GetHistoryAsync(appointmentId, page, pageSize, cancellationToken);
+        return value is null ? Problem(statusCode: 404, title: "预约不存在。") : Ok(value);
+    }
 }

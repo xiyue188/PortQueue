@@ -2,6 +2,7 @@ namespace PortQueue.Application.Mobile;
 
 public interface IMobileVisitQueries
 {
+    Task<VisitPlanHistory?> GetHistoryAsync(long appointmentId, int page, int pageSize, CancellationToken cancellationToken);
     Task<VisitOverview?> GetAsync(long appointmentId, CancellationToken cancellationToken);
 }
 
@@ -38,3 +39,9 @@ public sealed record AcceptedVisitEta(
     string ReportId,
     DateTimeOffset ProposedEta,
     DateTimeOffset ProcessedAt);
+
+public sealed record VisitPlanHistory(IReadOnlyList<VisitPlanChange> Items, int Page, int PageSize, long TotalCount, DateTimeOffset ServerTime);
+public sealed record VisitPlanChange(string RevisionId, int VersionNo, string BerthName,
+    DateTimeOffset PlannedBerthingAt, DateTimeOffset PlannedUnberthingAt, DateTimeOffset PublishedAt,
+    string Reason, int? PreviousVersionNo, string? PreviousBerthName,
+    DateTimeOffset? PreviousBerthingAt, DateTimeOffset? PreviousUnberthingAt);

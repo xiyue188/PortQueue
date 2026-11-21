@@ -38,6 +38,23 @@ public sealed class SqlMobileVisitQueries(ISqlConnectionFactory connections) : I
             queue, plan, row.EtaReportId is null ? null : new(row.EtaReportId, row.ProposedEta!.Value, row.EtaProcessedAt!.Value), false, row.ServerTime);
     }
 
+    public async Task<VisitPlanHistory?> GetHistoryAsync(long appointmentId, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(appointmentId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+        if (pageSize is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        await using var connection = connections.Create();
+        await connection.OpenAsync(cancellationToken);
+        using var results = await connection.QueryMultipleAsync(new CommandDefinition("dbo.usp_mobile_plan_history",
+            new { appointment_id = appointmentId, page, page_size = pageSize }, commandTimeout: 8,
+            commandType: System.Data.CommandType.StoredProcedure, cancellationToken: cancellationToken));
+        var meta = await results.ReadSingleAsync<HistoryMeta>();
+        if (!meta.AppointmentExists) return null;
+        var items = (await results.ReadAsync<VisitPlanChange>()).ToList();
+        return new(items, page, pageSize, meta.TotalCount, meta.ServerTime);
+    }
+    private sealed record HistoryMeta(bool AppointmentExists, long TotalCount, DateTimeOffset ServerTime);
+
     private sealed class Row
     {
         public string AppointmentId { get; init; } = "";
