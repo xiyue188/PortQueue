@@ -2,7 +2,7 @@
 SET XACT_ABORT ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-IF DB_NAME() <> N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%'
+IF DB_NAME() NOT IN (N'PortQueueMobileDev', N'PortQueueMobileShowcase') AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%'
     THROW 52500, 'Mobile schema requires isolated mobile/test database.', 1;
 GO
 IF OBJECT_ID(N'dbo.mobile_report',N'U') IS NULL

@@ -1,5 +1,5 @@
 SET NOCOUNT ON;
-IF DB_NAME()<>N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
+IF DB_NAME() NOT IN (N'PortQueueMobileDev', N'PortQueueMobileShowcase') AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
 IF OBJECT_ID('dbo.mobile_report','U') IS NULL OR OBJECT_ID('dbo.report_photo','U') IS NULL THROW 52501,'M2 schema missing.',1;
 IF EXISTS(SELECT 1 FROM dbo.mobile_report r LEFT JOIN dbo.report_photo p ON p.report_id=r.report_id WHERE (r.report_type='PHOTO' AND p.photo_id IS NULL) OR (r.report_type='ETA' AND p.photo_id IS NOT NULL)) THROW 52501,'Photo consistency failed.',1;
 EXECUTE AS USER='portqueue_probe';

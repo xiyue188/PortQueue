@@ -2,7 +2,7 @@
 SET XACT_ABORT ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-IF DB_NAME() <> N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%'
+IF DB_NAME() NOT IN (N'PortQueueMobileDev', N'PortQueueMobileShowcase') AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%'
  THROW 52500, 'ETA migration requires isolated mobile/test database.', 1;
 IF OBJECT_ID(N'dbo.mobile_report',N'U') IS NULL OR OBJECT_ID(N'dbo.usp_mobile_decide',N'P') IS NULL
  THROW 52500, 'Apply M2 before the ETA migration.', 1;

@@ -1,7 +1,8 @@
 # Isolated mobile database and port only; LAN binding is explicit and opt-in.
 [CmdletBinding()]
-param([switch]$SeedDemoAccounts, [switch]$NoBuild,[ValidateSet('Release','Debug')][string]$Configuration='Release', [string]$LanAddress)
+param([switch]$SeedDemoAccounts, [switch]$NoBuild,[ValidateSet('Release','Debug')][string]$Configuration='Release', [string]$LanAddress, [switch]$Showcase)
 $ErrorActionPreference = 'Stop'
+if ($Showcase -and $LanAddress) { throw 'Showcase is loopback only; use its explicit USB forwarding entry.' }
 if ($LanAddress) {
     $address = $null
     if (-not [Net.IPAddress]::TryParse($LanAddress, [ref]$address) -or
@@ -26,6 +27,12 @@ try {
     $env:ConnectionStrings__PortQueue = 'Server=(localdb)\PortQueueDev;Database=PortQueueMobileDev;Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=5'
     $env:Mobile__Enabled = 'true'
     $env:Mobile__PhotoDirectory = Join-Path $mobileRoot 'artifacts/mobile-private-photos'
+    if ($Showcase) {
+        if (-not (Test-Path (Join-Path $mobileRoot 'artifacts/showcase/manifest.json'))) { throw 'Initialize and verify the dedicated showcase database first.' }
+        $env:ASPNETCORE_URLS = 'http://127.0.0.1:5182'
+        $env:ConnectionStrings__PortQueue = 'Server=(localdb)\PortQueueDev;Database=PortQueueMobileShowcase;Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=5'
+        $env:Mobile__PhotoDirectory = Join-Path $mobileRoot 'artifacts/showcase/photos'
+    }
     $env:DemoAccounts__Enabled = 'true'
     $runArgs = @('run', '--project', (Join-Path $mobileRoot 'src/PortQueue.Api/PortQueue.Api.csproj'), '--configuration',$Configuration, '--no-launch-profile')
     if ($NoBuild) { $runArgs += '--no-build' }

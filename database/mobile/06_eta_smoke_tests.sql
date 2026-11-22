@@ -1,5 +1,5 @@
 SET NOCOUNT ON;
-IF DB_NAME()<>N'PortQueueMobileDev' AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
+IF DB_NAME() NOT IN (N'PortQueueMobileDev', N'PortQueueMobileShowcase') AND DB_NAME() NOT LIKE N'PortQueueStage2Test[_]%' THROW 52500,'Isolated mobile database required.',1;
 IF OBJECT_ID('dbo.usp_mobile_submit_eta','P') IS NULL THROW 52501,'ETA procedure missing.',1;
 IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.mobile_report') AND name='IX_mobile_report_accepted_eta') THROW 52501,'ETA index missing.',1;
 EXECUTE AS USER='portqueue_probe';
