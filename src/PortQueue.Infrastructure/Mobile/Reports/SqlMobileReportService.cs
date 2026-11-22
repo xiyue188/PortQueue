@@ -250,7 +250,7 @@ public sealed class SqlMobileReportService(ISqlConnectionFactory connections, Re
         }
         catch (SqlException ex) { throw Translate(ex); }
     }
-    private static Exception Translate(SqlException ex) => ex.Number switch { 52503 => Forbidden(), 52504 => new MobileReportException(400, "VISIT_NOT_ELIGIBLE", "该航次当前不可报送。"), 52505 => new MobileReportException(404, "REPORT_NOT_FOUND", "报送不存在。"), 52506 => new MobileReportException(400, "INVALID_ETA", "预计到达时间须晚于当前时间且在未来30天内，请检查报送内容。"), 52507 => new MobileReportException(409, "ETA_EXPIRED", "预计到达时间已过期，可退回并请报送人更新。"), 52509 => new MobileReportException(409, "REPORT_CONFLICT", "请求内容已变化或记录已处理，请核对原记录。"), _ => ex };
+    private static Exception Translate(SqlException ex) => ex.Number switch { 52503 => Forbidden(), 52504 => new MobileReportException(400, "VISIT_NOT_ELIGIBLE", "该航次当前不可报送。"), 52505 => new MobileReportException(404, "REPORT_NOT_FOUND", "报送不存在。"), 52506 => new MobileReportException(400, "INVALID_ETA", "预计到达时间须晚于当前时间且在未来30天内，请检查报送内容。"), 52507 => new MobileReportException(409, "ETA_EXPIRED", "预计到达时间已过期，可退回并请报送人更新。"), 52508 => new MobileReportException(400, "ARRIVAL_ALREADY_RECORDED", "本次进港已记录实际到达，不能再更新或接收预计到港；可查看现场情况或退回旧反馈。"), 52509 => new MobileReportException(409, "REPORT_CONFLICT", "请求内容已变化或记录已处理，请核对原记录。"), _ => ex };
     private sealed class Receipt
     {
         public long ReportId

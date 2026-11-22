@@ -16,7 +16,7 @@ $matches=@($list.items|Where-Object appointmentNo -eq 'PQ202611-1002')
 if($matches.Count -ne 1){throw 'Arrival task missing or ambiguous.'}
 $id=$matches[0].appointmentId
 $before=Invoke-RestMethod "$base/api/mobile/appointments/$id/overview" -WebSession $ws
-if($before.queue -or -not $before.publishedPlan -or -not $before.canSubmitReport){throw 'Expected approved direct-arrival task without anchorage event.'}
+if($before.hasArrivalFact -or $before.queue -or -not $before.publishedPlan -or -not $before.canSubmitReport){throw 'Expected approved direct-arrival task without anchorage event.'}
 $request='161cfc76-5a44-4ede-a030-bcf5ce3a0461'
 $record=$null
 try {$record=Invoke-RestMethod "$base/api/mobile/reports/by-request/$request" -WebSession $ws}

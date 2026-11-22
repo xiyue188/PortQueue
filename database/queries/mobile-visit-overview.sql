@@ -13,6 +13,7 @@ SELECT CONVERT(varchar(20),aa.appointment_id) AS AppointmentId,
  CONVERT(varchar(20),eta.report_id) AS EtaReportId,
  TODATETIMEOFFSET(eta.proposed_eta,'+00:00') AS ProposedEta,
  TODATETIMEOFFSET(eta.processed_at,'+00:00') AS EtaProcessedAt,
+ CAST(CASE WHEN EXISTS(SELECT 1 FROM dbo.v_port_event e WHERE e.appointment_id=aa.appointment_id) THEN 1 ELSE 0 END AS bit) AS HasArrivalFact,
  TODATETIMEOFFSET(SYSUTCDATETIME(),'+00:00') AS ServerTime
 FROM dbo.arrival_appointment aa
 JOIN dbo.port_call pc ON pc.port_call_id=aa.port_call_id

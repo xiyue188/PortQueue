@@ -15,6 +15,10 @@ AS
 BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
  IF @@TRANCOUNT=0 THROW 52501,'Transaction required.',1;
+ -- Same schedule lock as actual event registration: an arrival cannot race this decision.
+ DECLARE @scheduleLock int;
+ EXEC @scheduleLock=sys.sp_getapplock @Resource=N'PortQueue.Schedule',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;
+ IF @scheduleLock<0 THROW 52509,'Schedule busy.',1;
  IF NOT EXISTS(SELECT 1 FROM dbo.user_account u JOIN dbo.role r ON r.role_code=u.role_code WHERE u.user_id=@user_id AND u.status_code='ENABLED' AND r.status_code='ENABLED' AND u.role_code IN('ADMIN','DISPATCHER','RECORDER')) THROW 52503,'Forbidden.',1;
  IF @request_id IS NULL OR @request_id='00000000-0000-0000-0000-000000000000' OR @payload_hash IS NULL OR @appointment_id IS NULL OR @appointment_id<=0 OR @description IS NULL OR LEN(LTRIM(RTRIM(@description))) NOT BETWEEN 1 AND 500
   THROW 52506,'Invalid ETA report.',1;
@@ -32,6 +36,8 @@ BEGIN
  IF @proposed_eta IS NULL OR @proposed_eta<=@now OR @proposed_eta>DATEADD(day,30,@now) THROW 52506,'ETA must be in the next 30 days.',1;
  SELECT @call=pc.port_call_id FROM dbo.arrival_appointment a WITH(UPDLOCK,HOLDLOCK) JOIN dbo.port_call pc WITH(UPDLOCK,HOLDLOCK) ON pc.port_call_id=a.port_call_id WHERE a.appointment_id=@appointment_id AND a.appointment_status_code='APPROVED' AND pc.call_status_code IN('PLANNED','IN_PROGRESS');
  IF @call IS NULL THROW 52504,'Visit not eligible for submission.',1;
+ IF EXISTS(SELECT 1 FROM dbo.v_port_event WITH(HOLDLOCK) WHERE appointment_id=@appointment_id)
+  THROW 52508,'Arrival already recorded; ETA cannot be submitted.',1;
  INSERT dbo.mobile_report(request_id,port_call_id,report_type,description,proposed_eta,submitted_by,payload_hash)
  VALUES(@request_id,@call,'ETA',LTRIM(RTRIM(@description)),@proposed_eta,@user_id,@payload_hash);
  SET @id=SCOPE_IDENTITY();
@@ -46,6 +52,10 @@ AS
 BEGIN
  SET NOCOUNT ON; SET XACT_ABORT ON;
  IF @@TRANCOUNT=0 THROW 52501,'Transaction required.',1;
+ -- Same schedule lock as actual event registration: an arrival cannot race this decision.
+ DECLARE @scheduleLock int;
+ EXEC @scheduleLock=sys.sp_getapplock @Resource=N'PortQueue.Schedule',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;
+ IF @scheduleLock<0 THROW 52509,'Schedule busy.',1;
  IF NOT EXISTS(SELECT 1 FROM dbo.user_account u JOIN dbo.role r ON r.role_code=u.role_code WHERE u.user_id=@user_id AND u.status_code='ENABLED' AND r.status_code='ENABLED' AND u.role_code IN('ADMIN','DISPATCHER')) THROW 52503,'Forbidden.',1;
  IF @decision IS NULL OR @decision NOT IN('ACCEPTED','REJECTED') OR @comment IS NULL OR LEN(LTRIM(RTRIM(@comment))) NOT BETWEEN 1 AND 500 THROW 52504,'Invalid decision.',1;
  DECLARE @type varchar(10),@eta datetime2(7),@status varchar(12),@version binary(8),@now datetime2(7);
@@ -53,6 +63,8 @@ BEGIN
  IF @type IS NULL THROW 52505,'Not found.',1;
  IF @status<>'SUBMITTED' OR @expected_version IS NULL OR @version<>@expected_version THROW 52509,'Already processed or version conflict.',1;
  SET @now=SYSUTCDATETIME();
+ IF @type='ETA' AND @decision='ACCEPTED' AND EXISTS(SELECT 1 FROM dbo.mobile_report r JOIN dbo.arrival_appointment a ON a.port_call_id=r.port_call_id JOIN dbo.v_port_event e ON e.appointment_id=a.appointment_id WHERE r.report_id=@report_id)
+  THROW 52508,'Arrival already recorded; reject this obsolete ETA.',1;
  IF @type='ETA' AND @decision='ACCEPTED' AND @eta<=@now THROW 52507,'ETA has expired; reject or request a new report.',1;
  UPDATE dbo.mobile_report SET status_code=@decision,process_comment=@comment,processed_by=@user_id,processed_at=@now WHERE report_id=@report_id AND status_code='SUBMITTED' AND row_version=@expected_version;
  IF @@ROWCOUNT<>1 THROW 52509,'Already processed or version conflict.',1;

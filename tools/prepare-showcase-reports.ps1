@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -20,6 +20,7 @@ $task=@($list.items | Where-Object appointmentNo -eq 'PQ202611-1003')
 if ($task.Count -ne 1) { throw 'Main task is missing or ambiguous.' }
 $id=$task[0].appointmentId
 $overview=Invoke-RestMethod "$base/api/mobile/appointments/$id/overview" -WebSession $field.session
+if ($overview.hasArrivalFact) { throw 'This legacy scenario targets an arrived visit. Do not generate ETA history here; prepare the final clean story after development freeze.' }
 $eta=([datetimeoffset]::Parse($overview.publishedPlan.plannedBerthingAt)).AddHours(-1)
 if ($eta -le [datetimeoffset]::UtcNow) { throw 'Frozen scenario date has expired; do not rewrite existing history.' }
 $scenes=@(

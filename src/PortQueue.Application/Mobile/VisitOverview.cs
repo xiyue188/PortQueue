@@ -19,7 +19,8 @@ public sealed record VisitOverview(
     PublishedVisitPlan? PublishedPlan,
     AcceptedVisitEta? LatestAcceptedEta,
     bool CanSubmitReport,
-    DateTimeOffset ServerTime);
+    DateTimeOffset ServerTime,
+    bool HasArrivalFact = false);
 
 public sealed record VisitQueueEntry(
     string AnchorageName,

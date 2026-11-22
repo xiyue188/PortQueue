@@ -65,13 +65,62 @@ public sealed class MobileEtaTests(AppointmentDatabaseFixture fixture) : IClassF
     }
 
     [Fact]
+    public async Task ArrivalAfterSubmissionPreservesReplayButBlocksAcceptance()
+    {
+        await using var f = Factory();
+        await Setup(f);
+        using var recorder = await Login(f, "recorder");
+        using var dispatcher = await Login(f, "dispatcher");
+        // Use another fixture visit so this test does not alter the shared primary visit.
+        const string id = "9007199254740995";
+        await Sql("UPDATE dbo.arrival_appointment SET appointment_status_code='APPROVED' WHERE appointment_id=" + id);
+        var payload = Payload(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(2), id);
+        var report = await Created(recorder, payload);
+        await Sql("DECLARE @operator bigint=(SELECT user_id FROM dbo.user_account WHERE username='pq.dispatcher'),@at datetime2(0)=DATEADD(second,-2,SYSUTCDATETIME()); EXEC dbo.usp_record_port_entry @appointment_id=" + id + ",@event_time=@at,@operator_id=@operator;");
+        Assert.Equal(HttpStatusCode.OK, (await Submit(recorder, payload)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Decide(dispatcher, report)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Decide(dispatcher, report, "REJECTED")).StatusCode);
+        var visit = await recorder.GetFromJsonAsync<JsonElement>($"/api/mobile/appointments/{id}/overview");
+        Assert.True(visit.GetProperty("hasArrivalFact").GetBoolean());
+        Assert.True(visit.GetProperty("canSubmitReport").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ArrivalFactsBlockNewEtaButKeepPhotoCapabilityAndHistory()
+    {
+        await using var f = Factory();
+        await Setup(f);
+        await fixture.ApplyScriptAsync("12_refresh_sample_labels.sql");
+        await fixture.ApplyScriptAsync("13_seed_port_scenarios.sql");
+        using var client = await Login(f, "recorder");
+        var id = await Sql("SELECT TOP(1) CONVERT(varchar(20),a.appointment_id) FROM dbo.arrival_appointment a JOIN dbo.port_call pc ON pc.port_call_id=a.port_call_id WHERE a.appointment_status_code='APPROVED' AND pc.call_status_code IN('PLANNED','IN_PROGRESS') AND EXISTS(SELECT 1 FROM dbo.v_port_event e WHERE e.appointment_id=a.appointment_id) ORDER BY a.appointment_id");
+        Assert.NotEmpty(id);
+        var request = Guid.NewGuid();
+        using var response = await Submit(client, Payload(request, DateTimeOffset.UtcNow.AddDays(2), id));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var visit = await client.GetFromJsonAsync<JsonElement>($"/api/mobile/appointments/{id}/overview");
+        Assert.True(visit.GetProperty("hasArrivalFact").GetBoolean());
+        Assert.True(visit.GetProperty("canSubmitReport").GetBoolean());
+        Assert.Equal("0", await Sql("SELECT COUNT(*) FROM dbo.mobile_report WHERE request_id=@request", ("@request", request)));
+    }
+
+    [Fact]
     public async Task SubmitProcessAndOriginalAccountReadbackPreserveFormalScheduleAndAudit()
     {
         await using var f = Factory();
         await Setup(f);
         await fixture.ApplyScriptAsync("12_refresh_sample_labels.sql");
         await fixture.ApplyScriptAsync("13_seed_port_scenarios.sql");
-        var id = await Sql("SELECT TOP(1) CONVERT(varchar(20),appointment_id) FROM dbo.v_current_berth_plan WHERE plan_status_code='CONFIRMED' AND confirmed_at IS NOT NULL ORDER BY berth_plan_id");
+        var id = AppointmentId;
+        await Sql("""
+            DECLARE @operator bigint=(SELECT user_id FROM dbo.user_account WHERE username='pq.dispatcher'),
+              @berth bigint=(SELECT berth_id FROM dbo.berth WHERE berth_code='PQ-C01'),
+              @start datetime2(0)=DATEADD(day,20,SYSUTCDATETIME()),@finish datetime2(0)=DATEADD(day,21,SYSUTCDATETIME()),@plan bigint,@revision bigint;
+            DECLARE @created TABLE(berth_plan_id bigint,revision_id bigint,version_no int);
+            INSERT @created EXEC dbo.usp_create_berth_plan_revision 9007199254740993,@berth,@start,@finish,N'到港前安排',@operator;
+            SELECT @plan=berth_plan_id,@revision=revision_id FROM @created;
+            EXEC dbo.usp_confirm_berth_plan @plan,@revision,@operator;
+            """);
         const string snapshot = """
             SELECT (SELECT a.* FROM dbo.arrival_appointment a WHERE a.appointment_id=@id FOR JSON PATH) appointment,
             (SELECT c.* FROM dbo.port_call c JOIN dbo.arrival_appointment a ON a.port_call_id=c.port_call_id WHERE a.appointment_id=@id FOR JSON PATH) portCall,
