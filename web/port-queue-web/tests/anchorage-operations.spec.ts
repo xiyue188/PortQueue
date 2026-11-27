@@ -1,11 +1,7 @@
 // 真库办理链路；仅“响应丢失”用网络故障注入，服务端仍执行真实事务。
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { loginAnchorage as login } from './anchorage-support'
 const local = (value: Date) => new Date(value.getTime() + 8*3600_000).toISOString().slice(0,19)
-async function login(page: Page, username: string) {
-  const session = await (await page.request.get('/api/session')).json()
-  expect((await page.request.post('/api/session/login',{data:{username,password:'123456'},headers:{'X-CSRF-TOKEN':session.csrfToken}})).ok()).toBeTruthy()
-  await page.goto('/#queue'); await expect(page.locator('.aq-tabs button').first()).toBeVisible()
-}
 test('登记入锚、维护预计、丢失响应核对、离锚释放容量',async({page}) => {
   await login(page,'pq.dispatcher')
   const areas = await (await page.request.get('/api/anchorages')).json()

@@ -1,14 +1,8 @@
 // 阶段4浏览器验收走真实API与本机数据库，截图进入忽略目录；不使用route.fulfill伪造业务。
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { loginAnchorage as login } from './anchorage-support'
 import { mkdirSync } from 'node:fs'
 const evidence = '../../artifacts/stage4'
-async function login(page: Page, username = 'pq.dispatcher') {
-  const session = await (await page.request.get('/api/session')).json()
-  const response = await page.request.post('/api/session/login', { data:{username,password:'123456'}, headers:{'X-CSRF-TOKEN':session.csrfToken} })
-  expect(response.ok()).toBeTruthy()
-  await page.goto('/#queue')
-  await expect(page.locator('.aq-tabs button').first()).toBeVisible()
-}
 test('匿名锚地入口明确要求登录',async({page}) => {
   await page.goto('/#queue')
   await expect(page.getByText('请在账号区登录后继续。')).toBeVisible()

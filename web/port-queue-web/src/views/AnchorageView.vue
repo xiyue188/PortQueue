@@ -4,7 +4,7 @@ import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import type { SessionClient } from '../composables/useSession'
 import { useAnchorages } from '../composables/useAnchorages'
 import PortIcon from '../components/PortIcon.vue'
-import QueueShip from '../components/QueueShip.vue'
+import AnchorageQueueLane from '../components/AnchorageQueueLane.vue'
 import AnchorageOperation from '../components/AnchorageOperation.vue'
 import { appointmentStatuses } from '../types/appointment'
 import { formatDate } from '../utils/appointmentPresentation'
@@ -14,7 +14,7 @@ const emit = defineEmits<{ appointment: [id: string]; changed: [] }>()
 const model = useAnchorages()
 const { facilities, queue, detail, areaId, selectedId, loading, detailLoading, error, detailError } = model
 const query = ref(''), composing = ref(false), occupancyOpen = ref(false)
-const timeline = ref<HTMLDialogElement>(), lane = ref<HTMLElement>()
+const timeline = ref<HTMLDialogElement>(), lane = ref<InstanceType<typeof AnchorageQueueLane>>()
 const operation = ref<InstanceType<typeof AnchorageOperation>>(), feedback = ref('')
 let timelineTrigger: HTMLElement | null = null
 const identity = computed(() => { const user = props.accountSession.session.value?.user; return user ? `${user.userId}:${user.roleCode}` : '' })
@@ -38,14 +38,8 @@ const steps = computed(() => !detail.value ? [] : [
   { title: '实际离锚', time: detail.value.leftAt },
 ])
 async function select(id: string) { await model.select(id); await nextTick(); locateSelected() }
-function locateSelected() {
-  const element = lane.value?.querySelector<HTMLElement>(`[data-stay="${selectedId.value}"]`)
-  if (!element || !lane.value) return
-  const left = element.offsetLeft, right = left + element.offsetWidth
-  if (left < lane.value.scrollLeft || right > lane.value.scrollLeft + lane.value.clientWidth)
-    lane.value.scrollLeft = Math.max(0, left - (lane.value.clientWidth-element.offsetWidth)/2)
-}
-async function changeArea(id: string) { occupancyOpen.value = false; query.value = ''; await model.load(id); await nextTick(); if (lane.value) lane.value.scrollLeft = 0 }
+function locateSelected() { void lane.value?.locateSelected() }
+async function changeArea(id: string) { occupancyOpen.value = false; query.value = ''; await model.load(id); await nextTick(); lane.value?.scrollStart() }
 function search() { if (!composing.value && matching.value[0]) void select(matching.value[0].queueEntryId) }
 function openTimeline() { timelineTrigger = document.activeElement as HTMLElement; timeline.value?.showModal() }
 function closeTimeline() { timeline.value?.close(); timelineTrigger?.focus({preventScroll:true}) }
@@ -75,7 +69,7 @@ defineExpose({ refresh, locateAppointment })
     <p v-if="feedback" class="aq-feedback" role="status">{{ feedback }}<button class="icon-button" aria-label="关闭操作结果" @click="feedback = ''"><PortIcon name="close" :size="15"/></button></p>
     <div v-if="!identity" class="aq-empty glass-panel"><PortIcon name="anchor" :size="32"/><h2>锚地排队</h2><p>请在账号区登录后继续。</p></div>
     <div v-else-if="error" class="aq-empty glass-panel" role="alert"><p>{{ error }}</p><button class="button" @click="refresh">重新读取</button></div>
-    <template v-else>
+    <div v-show="identity && !error" class="aq-content">
       <header class="aq-heading"><h2>{{ area?.name ?? (loading ? '正在读取锚地…' : '锚地排队') }}</h2>
         <div class="aq-tabs" role="group" aria-label="选择锚地"><button v-for="a in facilities?.items" :key="a.anchorageId" :aria-pressed="a.anchorageId === areaId" :disabled="loading" @click="changeArea(a.anchorageId)">{{ a.name }} <span>{{ a.occupiedCount }}</span></button></div>
       </header>
@@ -85,15 +79,7 @@ defineExpose({ refresh, locateAppointment })
             <label class="aq-search"><PortIcon name="search" :size="17"/><input v-model="query" type="search" placeholder="船名 / 预约编号" aria-label="查找队列船舶" @compositionstart="composing = true" @compositionend="composing = false" @keydown.enter="search"/><span v-if="query">{{ matching.length }}</span></label>
             <button v-if="canRecord && area" class="button button-primary aq-enter" :disabled="area.statusCode !== 'AVAILABLE'" @click="operation?.open('enter',area)">登记入锚</button>
           </div>
-          <div ref="lane" class="aq-sea" tabindex="0" aria-label="完整候泊队列，可横向浏览">
-            <div v-if="queue?.items.length" class="aq-lane" :style="{ '--slots': Math.max(5, queue.items.length) }">
-              <div v-for="(ship,index) in queue.items" :key="ship.queueEntryId" class="aq-vessel" :class="{ selected: selectedId === ship.queueEntryId, dim: query && !matching.includes(ship) }" :data-stay="ship.queueEntryId" :style="{ '--slot': index }">
-                <span class="aq-rank">{{ ship.queuePosition }}</span>
-                <button class="aq-select" :aria-label="`${ship.shipName}，第${ship.queuePosition}位`" :aria-pressed="selectedId === ship.queueEntryId" @click="select(ship.queueEntryId)"><QueueShip/><strong>{{ ship.shipName }}</strong><span>等待 {{ waiting(ship.enteredAt, ship.leftAt) }}</span></button>
-              </div>
-            </div>
-            <div v-else class="aq-sea-empty"><PortIcon name="anchor" :size="32"/><p>{{ loading ? '正在读取队列…' : '当前没有候泊船舶' }}</p></div>
-          </div>
+          <AnchorageQueueLane ref="lane" :queue="queue" :selected-id="selectedId" :query="query" :active="active" :account-session="accountSession" @select="select" @saved="afterSaved" @refresh="reconcileSaved"/>
           <footer class="aq-occupancy"><span>实际在场 <strong>{{ queue?.occupiedCount ?? '—' }}</strong> / {{ queue?.capacity ?? '未登记容量' }}</span>
             <div class="aq-capacity" aria-hidden="true"><i :style="{ width: queue?.capacity ? `${Math.min(100,queue.occupiedCount / queue.capacity * 100)}%` : '0%' }"></i></div>
             <button v-if="queue?.cancelled.length" class="aq-link" :aria-expanded="occupancyOpen" @click="occupancyOpen = !occupancyOpen">待离锚 {{ queue.cancelled.length }} 艘 <PortIcon name="down" :size="15"/></button>
@@ -110,7 +96,7 @@ defineExpose({ refresh, locateAppointment })
               </dl>
               <details v-if="detail.legacyEstimatedBerthingAt" class="aq-legacy"><summary>历史预计</summary><p>{{ formatDate(detail.legacyEstimatedBerthingAt) }} · 来源待核</p></details>
               <div class="aq-actions"><button v-if="canRecord && isPresent && area" class="button button-primary" @click="operation?.open('leave',area,detail)">登记离锚</button><button class="button" :class="{'button-primary': !canRecord || !isPresent}" @click="openTimeline">查看本次到访</button></div>
-              <button class="aq-link aq-appointment" @click="emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button>
+              <div class="aq-detail-links"><button v-if="canArrange && queue && queue.items.length > 1 && queue.items.some(s => s.queueEntryId === detail?.queueEntryId)" class="aq-link" @click="lane?.openReorder(detail.queueEntryId)">移至第几位</button><button class="aq-link" @click="emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button></div>
             </div>
           </template>
           <div v-else class="aq-empty"><p :role="detailError ? 'alert' : undefined">{{ detailError || (detailLoading ? '正在读取到访…' : '选择船舶查看本次到访') }}</p><button v-if="detailError && selectedId" class="button" @click="model.select(selectedId)">重试详情</button></div>
@@ -119,7 +105,7 @@ defineExpose({ refresh, locateAppointment })
       <section v-if="detail" class="aq-journey glass-panel" aria-label="本次到访"><header><h3>本次到访</h3><button class="aq-link" @click="openTimeline">展开时间线 <PortIcon name="arrow" :size="16"/></button></header>
         <div class="aq-steps"><button v-for="step in steps" :key="step.title" :class="{ done: !!step.time }" @click="openTimeline"><span class="aq-node"><PortIcon :name="step.time ? 'check' : 'clock'" :size="13"/></span><strong>{{ step.title }}</strong><time>{{ step.time ? formatDate(step.time) : '尚未记录' }}</time></button></div>
       </section>
-    </template>
+    </div>
   </section>
   <dialog ref="timeline" class="aq-dialog" aria-labelledby="aq-visit-title" @cancel.prevent="closeTimeline">
     <header><h2 id="aq-visit-title">{{ detail?.shipName }} · 本次到访</h2><button class="icon-button" aria-label="关闭到访时间线" @click="closeTimeline"><PortIcon name="close"/></button></header>
