@@ -17,7 +17,7 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(pathToFileURL(path.join(__dirname, 'index.html')).href);
-    await page.waitForFunction(() => document.querySelectorAll('.vessel').length === 5);
+    await page.waitForFunction(() => document.querySelectorAll('.vessel').length === 12);
     for (const [name, width, height] of [['desktop',1440,900],['short',1366,768],['wide',1920,1080],['mobile',390,844]]) {
       await page.setViewportSize({width,height});
       await page.screenshot({path:path.join(evidence,`${name}.png`),fullPage:true});
@@ -25,6 +25,7 @@ async function main() {
       results.push(`${name}: complete render, no page overflow`);
     }
     await page.setViewportSize({width:1440,height:900});
+    await page.locator('#sea').evaluate(el => { el.scrollLeft = 0; });
     // 核验真正的指针拖动，不能用直接修改DOM顺序替代。
     const source = await page.locator('[data-drag="donglan"]').boundingBox();
     const target = await page.locator('[data-drag="hailan"]').boundingBox();
@@ -42,8 +43,8 @@ async function main() {
     await page.screenshot({path:path.join(evidence,'confirm.png'),fullPage:true});
     await page.getByRole('button',{name:'确认调整',exact:true}).click();
     assert.equal(await page.locator('[data-id="donglan"] .rank').innerText(),'2');
-    assert.equal(await page.locator('#presence').innerText(),'6 / 8 艘');
-    results.push('drag 5 → 2: three other vessels shift; presence remains 6');
+    assert.equal(await page.locator('#presence').innerText(),'13 / 20 艘');
+    results.push('drag 5 → 2 in full 12-ship queue: three other vessels shift; presence remains 13');
     await page.getByRole('button',{name:'调整顺位',exact:true}).click();
     await page.locator('#new-position').selectOption('4');
     await page.keyboard.press('Escape');
@@ -62,7 +63,7 @@ async function main() {
     await page.locator('#search').fill('海曙');
     await page.locator('#search').press('Enter');
     assert.equal(await page.locator('#selected-name').innerText(),'海曙');
-    assert.equal(await page.locator('.vessel').count(),5);
+    assert.equal(await page.locator('.vessel').count(),12);
     await page.locator('[data-step="2"]').click();
     assert(await page.locator('#visit-dialog').isVisible());
     await page.locator('[data-timeline="0"]').click();
@@ -70,13 +71,16 @@ async function main() {
     await page.keyboard.press('Escape');
     results.push('search selects a vessel without filtering the queue; timeline expands');
     await page.locator('[data-area="east"]').click();
-    assert.equal(await page.locator('.vessel').count(),2);
+    assert.equal(await page.locator('.vessel').count(),6);
     await page.locator('[data-area="north"]').click();
+    assert.equal(await page.locator('.vessel').count(),4);
+    // 空队列为独立边界用例，不再将日常北锚地场景固定为空。
+    await page.evaluate(() => { areas.north.order = []; selectedId = null; renderQueue(); });
     assert(await page.locator('#empty-state').isVisible());
     assert(await page.locator('#position-button').isDisabled());
     await page.locator('#reset').click();
     assert.equal(await page.locator('[data-id="donglan"] .rank').innerText(),'5');
-    results.push('area switching, empty state and reset return consistent counts');
+    results.push('12/6/4 area loads; empty boundary fixture and reset return consistent counts');
     await page.setViewportSize({width:390,height:844});
     await page.getByRole('button',{name:'调整顺位',exact:true}).click();
     await page.locator('#new-position').selectOption('1');

@@ -35,11 +35,15 @@ const ships = [
   { id: 'haichen', name: '海辰', call: 'YS-20261127-035', enter: '05:45', estimate: '', confirmed: '', status: '已撤销', hue: '#7c9aac' },
   { id: 'xingzhou', name: '星舟', call: 'YS-20261127-044', enter: '09:00', estimate: '14:00', confirmed: '', status: '待安排', hue: '#3e819d' },
   { id: 'haiyue', name: '海岳', call: 'YS-20261127-046', enter: '09:20', estimate: '15:00', confirmed: '', status: '待安排', hue: '#2a648e' },
+  ...['海宁','明航','嘉远','舟桥','润泽','海丰','启辰','海川','景航','顺达','辰海','承远','宁港','华星','东航'].map((name,index) => ({
+    id:`extra-${index}`,name,call:`YS-20261127-${50+index}`,enter:`0${7+Math.floor(index/8)}:${String(index%8*7).padStart(2,'0')}`,
+    estimate: index%3===0 ? '15:30' : '',confirmed:'',status:'待安排',hue:'#3b7da9',
+  })),
 ];
 const initialAreas = {
-  south: { name: '南锚地', capacity: 8, order: ['yuanfan','hailan','haishu','qihang','donglan'], cancelled: ['haichen'] },
-  east: { name: '东锚地', capacity: 6, order: ['xingzhou','haiyue'], cancelled: [] },
-  north: { name: '北锚地', capacity: 6, order: [], cancelled: [] },
+  south: { name: '南锚地', capacity: 20, order: ['yuanfan','hailan','haishu','qihang','donglan',...Array.from({length:7},(_,i)=>`extra-${i}`)], cancelled: ['haichen'] },
+  east: { name: '东锚地', capacity: 12, order: ['xingzhou','haiyue',...Array.from({length:4},(_,i)=>`extra-${i+7}`)], cancelled: [] },
+  north: { name: '北锚地', capacity: 8, order: Array.from({length:4},(_,i)=>`extra-${i+11}`), cancelled: [] },
 };
 let areas = structuredClone(initialAreas);
 let areaKey = 'south';
@@ -70,6 +74,7 @@ function reposition(order, id, destination) {
 }
 function renderQueue() {
   const members = area().order;
+  $('queue-vessels').style.setProperty('--slots', Math.max(5,members.length));
   $('queue-vessels').innerHTML = members.map((id, index) => {
     const ship = shipById(id);
     return `<div class="vessel${id === selectedId ? ' selected' : ''}" data-id="${id}" role="listitem" style="--slot:${index}"><span class="rank">${index+1}</span><button class="vessel-select" data-select="${id}" aria-label="选择${ship.name}，第${index+1}位"><span>${boatArt(ship)}</span><strong class="ship-name">${ship.name}</strong><span class="ship-wait">等待 ${waiting(ship)}</span></button><button class="drag-handle" data-drag="${id}" aria-label="调整${ship.name}顺位" title="拖动调整顺位，也可按回车选择位置">${icon('grip')}</button></div>`;
@@ -77,24 +82,23 @@ function renderQueue() {
   $('queue-count').textContent = `${members.length} 艘`;
   $('empty-state').hidden = members.length > 0;
   document.querySelector('.queue-path').hidden = !members.length;
-  document.querySelector('.sea-caption').hidden = !members.length;
   const presence = members.length + area().cancelled.length;
   $('presence').innerHTML = `${presence} <small>/ ${area().capacity} 艘</small>`;
   $('available').textContent = `余位 ${area().capacity-presence}`;
   $('capacity-bars').innerHTML = Array.from({length: area().capacity}, (_, index) => `<i class="${index < presence ? 'filled' : ''}"></i>`).join('');
   $('cancelled-row').hidden = !area().cancelled.length;
   $('anchorage-title').textContent = area().name;
-  document.querySelectorAll('[data-area]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.area === areaKey)));
+  document.querySelectorAll('[data-area]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.area === areaKey)); button.querySelector('span').textContent = areas[button.dataset.area].order.length + areas[button.dataset.area].cancelled.length; });
   updateSelection();
   updateSearch();
   keepSelectedVisible();
 }
 function keepSelectedVisible() {
-  if (innerWidth > 760) { $('sea').scrollLeft = 0; return; }
   const element = document.querySelector(`.vessel[data-id="${selectedId}"]`);
   if (!element) return;
   const center = element.offsetLeft + element.offsetWidth / 2;
-  $('sea').scrollLeft = Math.max(0, center - $('sea').clientWidth / 2 + 12);
+  if (element.offsetLeft < $('sea').scrollLeft || element.offsetLeft + element.offsetWidth > $('sea').scrollLeft + $('sea').clientWidth)
+    $('sea').scrollLeft = Math.max(0, center - $('sea').clientWidth / 2 + 12);
 }
 function stepsFor(ship) {
   const cancelled = ship.status === '已撤销';
@@ -175,8 +179,8 @@ function positionDraggedShip() {
   const dy = drag.clientY-drag.startY;
   drag.element.style.transform = `translate(${dx}px,${Math.max(-20,Math.min(22,dy))}px)`;
   const bounds = $('queue-vessels').getBoundingClientRect();
-  // 每条船仍占20%的画布，东锚地少船时保留舒适的间隔。
-  const target = Math.max(0, Math.min(area().order.length-1, Math.floor((drag.clientX-bounds.left)/(bounds.width*.2))));
+  // 船宽来自完整队列长度；五格只用于少船时留白，不限制成员数量。
+  const target = Math.max(0, Math.min(area().order.length-1, Math.floor((drag.clientX-bounds.left)/(bounds.width/Math.max(5,area().order.length)))));
   previewOrder = reposition(area().order, drag.id, target);
   renderPositions();
 }
@@ -300,7 +304,7 @@ document.querySelectorAll('[data-area]').forEach(button => button.addEventListen
   $('feedback').textContent = '';
   renderQueue();
 }));
-$('cancelled-detail').addEventListener('click',() => { selectedId = 'haichen'; updateSelection(); openVisit(3); });
+$('cancelled-row').addEventListener('click',() => { selectedId = 'haichen'; updateSelection(); openVisit(3); });
 $('visit-button').addEventListener('click',() => openVisit());
 $('journey-expand').addEventListener('click',() => openVisit());
 $('journey').addEventListener('click',event => { const step = event.target.closest('[data-step]'); if (step) openVisit(Number(step.dataset.step)); });
