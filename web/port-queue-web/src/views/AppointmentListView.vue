@@ -10,6 +10,7 @@ import PortProcess from '../components/PortProcess.vue'
 import AppointmentRegistration from '../components/AppointmentRegistration.vue'
 import SessionAccount from '../components/SessionAccount.vue'
 import RecentPortEvents from '../components/RecentPortEvents.vue'
+import AnchorageView from './AnchorageView.vue'
 import { useSession } from '../composables/useSession'
 import { useOverview } from '../composables/useOverview'
 import { useAppointments } from '../composables/useAppointments'
@@ -18,8 +19,8 @@ import type { AppointmentItem, AppointmentQuery, AppointmentStatus } from '../ty
 import { formatDate, statusClass, statusLabel } from '../utils/appointmentPresentation'
 import vesselImage from '../assets/vessel-reference.png'
 
-type View = 'overview' | 'appointments'
-const viewFromHash = (): View => location.hash === '#appointments' ? 'appointments' : 'overview'
+type View = 'overview' | 'appointments' | 'queue'
+const viewFromHash = (): View => location.hash === '#queue' ? 'queue' : location.hash === '#appointments' ? 'appointments' : 'overview'
 const activeView = ref<View>(viewFromHash())
 const mobileMenuOpen = ref(false)
 const keyword = ref('')
@@ -27,6 +28,7 @@ const selectedId = ref<string>()
 const accountSession = useSession()
 const saveFeedback = ref('')
 const registration = ref<InstanceType<typeof AppointmentRegistration>>()
+const anchorageView = ref<InstanceType<typeof AnchorageView>>()
 const unavailableDialog = ref<HTMLDialogElement>()
 const unavailableTitle = ref('')
 let unavailableTrigger: HTMLElement | null = null
@@ -38,10 +40,10 @@ const { query, rows, totalCount, totalPages, loading, error, load, search } = li
 const selected = computed(() => detail.loading.value || detail.error.value ? undefined
   : detail.item.value ?? (error.value ? undefined : rows.value.find(row => row.appointmentId === selectedId.value) ?? rows.value[0]))
 const { overview, overviewError, overviewLoading, refreshOverview } = useOverview(computed(() => activeView.value === 'overview'))
-const title = computed(() => activeView.value === 'overview' ? '总览' : '进港预约')
+const title = computed(() => ({ overview:'总览', appointments:'进港预约', queue:'锚地排队' }[activeView.value]))
 const dateLabel = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 const plannedNavigation = [
-  { label: '锚地排队', icon: 'anchor', view: 'queue' as const }, { label: '泊位计划', icon: 'berth', view: 'plans' as const },
+  { label: '泊位计划', icon: 'berth', view: 'plans' as const },
   { label: '进出港记录', icon: 'document', view: 'events' as const },
 ]
 // 清单首次加载和明确筛选后，精确读取首项；独立详情/审核结果不被列表刷新覆盖。
@@ -79,7 +81,7 @@ function switchView(view: View) {
 }
 // 保留主图入口；未开放模块不创建替代页面，也不请求后续业务 API。
 function openBusiness(view: 'appointments' | 'queue' | 'plans' | 'events') {
-  if (view === 'appointments') { switchView(view); return }
+  if (view === 'appointments' || view === 'queue') { switchView(view); return }
   unavailableTrigger = document.activeElement as HTMLElement
   unavailableTitle.value = plannedNavigation.find(nav => nav.view === view)!.label
   unavailableDialog.value?.showModal()
@@ -97,7 +99,8 @@ function chooseSuggestion(item: AppointmentItem) {
   detail.select(item)
   switchView('appointments')
 }
-function refresh() { detail.clear(); void refreshOverview(); if (listVisited) void load() }
+function refresh() { if (activeView.value === 'queue') { void anchorageView.value?.refresh(); return }; detail.clear(); void refreshOverview(); if (listVisited) void load() }
+async function openAnchorage(id: string) { switchView('queue'); await nextTick(); await anchorageView.value?.locateAppointment(id) }
 function reset() { detail.clear(); keyword.value = ''; void search('', '') }
 function clearKeyword() { detail.clear(); keyword.value = ''; void search('', (list.pendingQuery.value ?? query.value).status) }
 function filterStatus(status: AppointmentStatus | '') { detail.clear(); void search((list.pendingQuery.value ?? query.value).keyword, status) }
@@ -123,6 +126,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
       <nav aria-label="业务导航" class="side-nav">
         <button :aria-current="activeView === 'overview' ? 'page' : undefined" @click="switchView('overview')"><PortIcon name="home" /><span>总览</span></button>
         <button :aria-current="activeView === 'appointments' ? 'page' : undefined" @click="switchView('appointments')"><PortIcon name="ship" /><span>进港预约</span></button>
+        <button :aria-current="activeView === 'queue' ? 'page' : undefined" @click="switchView('queue')"><PortIcon name="anchor" /><span>锚地排队</span></button>
         <button v-for="nav in plannedNavigation" :key="nav.label" disabled><PortIcon :name="nav.icon" /><span>{{ nav.label }}</span><small>待接入</small></button>
         <button disabled><PortIcon name="chart" /><span>查询统计</span><small>待接入</small></button>
       </nav>
@@ -135,7 +139,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
       <header class="topbar">
         <button class="icon-button mobile-toggle" aria-label="展开业务导航" :aria-expanded="mobileMenuOpen" @click="mobileMenuOpen = !mobileMenuOpen"><PortIcon name="menu" /></button>
         <div class="page-title"><h1>{{ title }}</h1><span class="header-date">{{ dateLabel }}</span></div>
-        <AppointmentSearch v-model="keyword" @search="submit" @all="searchAll" @select="chooseSuggestion" />
+        <AppointmentSearch v-if="activeView !== 'queue'" v-model="keyword" @search="submit" @all="searchAll" @select="chooseSuggestion" />
         <button class="button button-primary refresh-button" :disabled="loading || overviewLoading" @click="refresh"><PortIcon name="refresh" :size="17" /><span>刷新</span></button>
       </header>
 
@@ -180,12 +184,16 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
           <div class="detail-host" :aria-busy="loading || detail.loading.value" :inert="loading || undefined">
             <p v-if="saveFeedback" class="save-feedback" role="status">{{ saveFeedback }}</p>
             <AppointmentRegistration ref="registration" :item="detail.item.value ?? undefined" :account-session="accountSession" @saved="registered" @reconcile="reconcileRegistration" />
-            <AppointmentDetail v-if="selected" :item="selected" :account-session="accountSession" @saved="reviewed" @reconcile="reconcileReview" />
+            <template v-if="selected">
+              <AppointmentDetail :item="selected" :account-session="accountSession" @saved="reviewed" @reconcile="reconcileReview" />
+              <button v-if="accountSession.session.value?.user" class="button" @click="openAnchorage(selected.appointmentId)">查看锚地停留 <PortIcon name="anchor" :size="16"/></button>
+            </template>
             <aside v-else class="glass-panel detail-panel detail-placeholder"><PortIcon name="document" :size="30" /><p v-if="detail.error.value" role="alert">{{ detail.error.value }}</p><p v-else>{{ loading || detail.loading.value ? '正在载入详情…' : '选择预约查看详情' }}</p><button v-if="detail.error.value" class="button" @click="detail.retry">重试详情</button></aside>
           </div>
         </div>
       </div>
 
+      <AnchorageView ref="anchorageView" :active="activeView === 'queue'" :account-session="accountSession" @appointment="openEvent" @changed="refreshOverview()" />
     </main>
   </div>
   <dialog ref="unavailableDialog" class="unavailable-dialog" aria-labelledby="unavailable-title" @cancel.prevent="closeUnavailable">
