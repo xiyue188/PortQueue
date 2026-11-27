@@ -69,7 +69,7 @@ pnpm.cmd --dir web/port-queue-web run dev
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
 
-分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。后续已选“业务任务型”：以同一次到访串联各页，详情使用时间线，泊位使用资源排期，队列与排期支持经确认的拖动；取舍见[设计说明](docs/design/post-midterm-direction.md)。当前下一批是4A锚地任务与交互设计，后续功能仍未计为完成。
+分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。后续已选“业务任务型”：以同一次到访串联各页，详情使用时间线，泊位使用资源排期，队列与排期支持经确认的拖动；取舍见[设计说明](docs/design/post-midterm-direction.md)。[4A锚地设计与草图](docs/stages/stage-4a-anchorage.md)已完成，下一批为4B锚地队列只读联调。
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
