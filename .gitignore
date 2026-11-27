@@ -45,3 +45,8 @@ logs/
 .idea/
 Thumbs.db
 Desktop.ini
+
+# 答辩稿、原图与材料制作记录保留在开发者本机。
+/docs/midterm/
+/docs/reviews/2026-11-10-midterm-material-review.md
+/docs/reviews/2026-11-11-midterm-raw-screenshot-review.md
