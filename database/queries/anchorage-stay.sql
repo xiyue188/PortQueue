@@ -9,7 +9,8 @@ SELECT (
         TODATETIMEOFFSET(q.entered_anchorage_at,'+00:00') AS EnteredAt,
         TODATETIMEOFFSET(q.left_anchorage_at,'+00:00') AS LeftAt,
         TODATETIMEOFFSET(q.estimated_berthing_at,'+00:00') AS LegacyEstimatedBerthingAt,
-        CAST(NULL AS datetimeoffset) AS ManualEstimatedBerthingAt,'0' AS EstimateVersion,
+        TODATETIMEOFFSET(raw.manual_estimated_berthing_at,'+00:00') AS ManualEstimatedBerthingAt,
+        CONVERT(varchar(20),raw.estimate_version) AS EstimateVersion,
         TODATETIMEOFFSET(plan_row.planned_berthing_at,'+00:00') AS ConfirmedBerthingAt,
         TODATETIMEOFFSET(plan_row.planned_unberthing_at,'+00:00') AS ConfirmedUnberthingAt,
         plan_row.berth_name AS BerthName,CONVERT(varchar(20),plan_row.revision_id) AS ConfirmedRevisionId,
@@ -24,6 +25,7 @@ SELECT (
             WHERE e.appointment_id=q.appointment_id ORDER BY e.event_time,e.event_id
             FOR JSON PATH,INCLUDE_NULL_VALUES),N'[]')) AS Events
     FROM dbo.v_anchorage_queue q JOIN dbo.anchorage a ON a.anchorage_id=q.anchorage_id
+    JOIN dbo.anchorage_queue_entry raw ON raw.queue_entry_id=q.queue_entry_id
     JOIN dbo.port p ON p.port_id=a.port_id JOIN dbo.port_call pc ON pc.port_call_id=q.port_call_id
     JOIN dbo.arrival_appointment aa ON aa.appointment_id=q.appointment_id
     LEFT JOIN dbo.user_account reviewer ON reviewer.user_id=aa.reviewed_by

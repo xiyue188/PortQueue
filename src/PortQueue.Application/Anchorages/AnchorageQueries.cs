@@ -5,6 +5,7 @@ public interface IAnchorageQueries
     Task<AnchorageOverview?> GetAsync(long? appointmentId, CancellationToken cancellationToken);
     Task<AnchorageQueueSnapshot?> GetQueueAsync(long anchorageId, CancellationToken cancellationToken);
     Task<AnchorageStayDetail?> GetStayAsync(long queueEntryId, CancellationToken cancellationToken);
+    Task<AnchorageCandidatePage> GetEntryCandidatesAsync(string keyword, int page, int pageSize, CancellationToken cancellationToken);
 }
 
 public sealed record AnchorageOverview(DateTimeOffset ObservedAt, string PortId, string PortCode,

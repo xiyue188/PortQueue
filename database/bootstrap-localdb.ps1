@@ -104,6 +104,7 @@ if ($databaseState -eq 'MISSING') {
             '01_schema.sql',
             '02_views.sql',
             '03_triggers.sql',
+            '16_anchorage_operations.sql',
             '04_procedures.sql',
             '14_appointment_registration.sql',
             '05_seed_reference.sql',
@@ -135,8 +136,8 @@ DECLARE @view_count int = (SELECT COUNT(*) FROM sys.views WHERE schema_id = SCHE
 DECLARE @procedure_count int = (SELECT COUNT(*) FROM sys.procedures WHERE schema_id = SCHEMA_ID(N'dbo') AND is_ms_shipped = 0);
 DECLARE @trigger_count int = (SELECT COUNT(*) FROM sys.triggers WHERE parent_class = 1 AND is_ms_shipped = 0);
 DECLARE @index_count int = (SELECT COUNT(*) FROM sys.indexes i JOIN sys.tables t ON t.object_id=i.object_id WHERE t.schema_id=SCHEMA_ID(N'dbo') AND t.is_ms_shipped=0 AND i.index_id>0);
-IF @table_count <> 21 OR @view_count <> 3 OR @procedure_count <> 8 OR @trigger_count <> 8
-    THROW 53001, 'PortQueue is not at stage 1. Apply 03, 04 and 09 explicitly; see database/README.md.', 1;
+IF @table_count <> 21 OR @view_count <> 3 OR @procedure_count NOT IN (8,9) OR @trigger_count <> 8
+    THROW 53001, 'PortQueue objects are incomplete. See database/README.md for explicit upgrades.', 1;
 SELECT DB_NAME() AS current_database, @table_count AS table_count, @view_count AS view_count, @procedure_count AS procedure_count, @trigger_count AS trigger_count, @index_count AS index_count;
 SELECT 'role' AS reference_table, COUNT(*) AS row_count FROM dbo.role
 UNION ALL SELECT 'dictionary_item', COUNT(*) FROM dbo.dictionary_item

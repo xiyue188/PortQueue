@@ -202,9 +202,9 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
         await using var connection = new SqlConnection(fixture.ConnectionString);
         await connection.ExecuteAsync("""
             DECLARE @operator bigint=(SELECT MIN(user_id) FROM dbo.user_account WHERE status_code='ENABLED');
-            EXEC dbo.usp_record_anchorage_event @appointment,@anchorage,'ANCHORAGE_LEAVE','2026-11-20T03:00:00',@operator;
+            EXEC dbo.usp_record_anchorage_event @appointment,@anchorage,'ANCHORAGE_LEAVE','2026-11-20T03:00:00',@operator,@queue_entry_id=@stay;
             UPDATE dbo.anchorage SET capacity_vessel_count=0,status_code='DISABLED' WHERE anchorage_id=@empty;
-            """, new { appointment = scenario.Appointment, anchorage = scenario.Anchorage, empty = scenario.Empty });
+            """, new { appointment = scenario.Appointment, anchorage = scenario.Anchorage, empty = scenario.Empty, stay = scenario.Current });
         using var scope = fixture.Factory.Services.CreateScope();
         var queries = scope.ServiceProvider.GetRequiredService<IAnchorageQueries>();
         var list = (await queries.GetAsync(scenario.Appointment, CancellationToken.None))!;
@@ -220,7 +220,20 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
         Assert.Equal(0, emptyQueue.Capacity);
         Assert.Equal("DISABLED", emptyQueue.StatusCode);
         var current = (await queries.GetStayAsync(scenario.Current, CancellationToken.None))!;
-        var other = (await queries.GetStayAsync(long.Parse(queue.Items[0].QueueEntryId, System.Globalization.CultureInfo.InvariantCulture), CancellationToken.None))!;
+        // 同一物理船的下一次到访必须发生在前次离锚后，不能靠重叠的非法夹具证明区分。
+        await connection.ExecuteAsync("""
+            DECLARE @operator bigint=(SELECT user_id FROM dbo.user_account WHERE username='demo.dispatcher');
+            INSERT dbo.port_call(call_no,ship_id,planned_arrival_at,planned_departure_at,call_status_code)
+            VALUES(@callNo+'-next',@ship,'2026-11-20','2026-11-21','PLANNED');
+            DECLARE @call bigint=SCOPE_IDENTITY();
+            INSERT dbo.arrival_appointment(appointment_no,port_call_id,requested_arrival_at,requested_departure_at,estimated_operation_hours,
+                declared_draft_m,priority_level,appointment_status_code,submitted_at,reviewed_by,reviewed_at)
+            VALUES(@callNo+'-next',@call,'2026-11-20','2026-11-21',3,8,1,'APPROVED','2026-11-18',@operator,'2026-11-19');
+            DECLARE @appointment bigint=SCOPE_IDENTITY();
+            EXEC dbo.usp_record_anchorage_event @appointment,@anchorage,'ANCHORAGE_ENTER','2026-11-20T04:00:00',@operator;
+            """, new { callNo = current.CallNo, ship = current.ShipId, anchorage = scenario.Anchorage });
+        var otherId = await connection.ExecuteScalarAsync<long>("SELECT queue_entry_id FROM dbo.v_anchorage_queue WHERE ship_id=@ship AND left_anchorage_at IS NULL", new { ship = current.ShipId });
+        var other = (await queries.GetStayAsync(otherId, CancellationToken.None))!;
         Assert.Equal(current.ShipId, other.ShipId);
         Assert.NotEqual(current.PortCallId, other.PortCallId);
         Assert.Equal(4, current.Events.Count);
@@ -248,11 +261,15 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
             SET @foreign=SCOPE_IDENTITY();
             INSERT dbo.anchorage(port_id,anchorage_code,anchorage_name,anchorage_type_code,capacity_vessel_count,status_code)
             VALUES(@foreign,@prefix+'F',N'非主港锚地','GENERAL',0,'DISABLED');
-            DECLARE @i int=1,@call bigint,@appointment bigint,@first bigint,@at datetime2(0);
+            DECLARE @i int=1,@call bigint,@appointment bigint,@first bigint,@at datetime2(0),@ship bigint,@first_stay bigint;
             WHILE @i<=8
             BEGIN
+                INSERT dbo.ship(imo_no,mmsi,ship_name,ship_type_item_id,length_m,breadth_m,max_draft_m,shipping_company_id,status_code)
+                SELECT TOP(1) CONCAT(RIGHT(@prefix,6),@i),CONCAT(RIGHT(@prefix,8),@i),CONCAT(N'排队测试船',@prefix,@i),
+                    ship_type_item_id,180,25,10,shipping_company_id,'ACTIVE' FROM dbo.ship ORDER BY ship_id;
+                SET @ship=SCOPE_IDENTITY();
                 INSERT dbo.port_call(call_no,ship_id,planned_arrival_at,planned_departure_at,call_status_code)
-                SELECT CONCAT(@prefix,'-',@i),MIN(ship_id),'2026-11-20','2026-11-21','IN_PROGRESS' FROM dbo.ship;
+                VALUES(CONCAT(@prefix,'-',@i),@ship,'2026-11-20','2026-11-21','IN_PROGRESS');
                 SET @call=SCOPE_IDENTITY();
                 INSERT dbo.arrival_appointment(appointment_no,port_call_id,requested_arrival_at,requested_departure_at,
                     estimated_operation_hours,declared_draft_m,priority_level,appointment_status_code,submitted_at,reviewed_by,reviewed_at)
@@ -268,7 +285,8 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
                 END;
                 SET @i+=1;
             END;
-            EXEC dbo.usp_record_anchorage_event @first,@anchorage,'ANCHORAGE_LEAVE','2026-11-20T01:00:00',@operator;
+            SELECT @first_stay=queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@first AND left_anchorage_at IS NULL;
+            EXEC dbo.usp_record_anchorage_event @first,@anchorage,'ANCHORAGE_LEAVE','2026-11-20T01:00:00',@operator,@queue_entry_id=@first_stay;
             EXEC dbo.usp_record_anchorage_event @first,@anchorage,'ANCHORAGE_ENTER','2026-11-20T02:00:00',@operator;
             UPDATE dbo.anchorage_queue_entry SET estimated_berthing_at='2026-11-20T12:00:00' WHERE appointment_id=@first AND queue_status_code='WAITING';
             DECLARE @berth bigint=(SELECT MIN(berth_id) FROM dbo.berth),@plan bigint;

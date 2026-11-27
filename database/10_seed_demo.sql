@@ -92,7 +92,8 @@ BEGIN TRY
                 IF @n=1
                 BEGIN
                     EXEC dbo.usp_record_anchorage_event @ap,@a,'ANCHORAGE_ENTER','2026-11-01T00:00:00',@u;
-                    EXEC dbo.usp_record_anchorage_event @ap,@a,'ANCHORAGE_LEAVE','2026-11-01T01:30:00',@u;
+                    DECLARE @stay bigint=(SELECT queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@ap AND left_anchorage_at IS NULL);
+                    EXEC dbo.usp_record_anchorage_event @ap,@a,'ANCHORAGE_LEAVE','2026-11-01T01:30:00',@u,@queue_entry_id=@stay;
                 END;
                 SET @actual=DATEADD(minute,-20,@start);
                 EXEC dbo.usp_record_port_entry @ap,@actual,@u;

@@ -30,6 +30,7 @@
     <EmbeddedResource Include="../../database/queries/anchorages.sql" LogicalName="PortQueue.Queries.Anchorages.sql" />
     <EmbeddedResource Include="../../database/queries/anchorage-queue.sql" LogicalName="PortQueue.Queries.AnchorageQueue.sql" />
     <EmbeddedResource Include="../../database/queries/anchorage-stay.sql" LogicalName="PortQueue.Queries.AnchorageStay.sql" />
+    <EmbeddedResource Include="../../database/queries/anchorage-entry-candidates.sql" LogicalName="PortQueue.Queries.AnchorageEntryCandidates.sql" />
   </ItemGroup>
 
 </Project>

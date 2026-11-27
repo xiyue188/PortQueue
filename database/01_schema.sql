@@ -219,6 +219,9 @@ CREATE TABLE dbo.anchorage_queue_entry
     priority_level tinyint NOT NULL CONSTRAINT CK_queue_priority CHECK (priority_level BETWEEN 1 AND 5),
     queue_status_code varchar(30) NOT NULL CONSTRAINT CK_queue_status CHECK (queue_status_code IN ('WAITING', 'ASSIGNED', 'LEFT', 'CANCELLED')),
     estimated_berthing_at datetime2(0) NULL,
+    manual_estimated_berthing_at datetime2(0) NULL,
+    estimate_version bigint NOT NULL CONSTRAINT DF_queue_estimate_version DEFAULT (0)
+        CONSTRAINT CK_queue_estimate_version CHECK (estimate_version >= 0),
     position_updated_at datetime2(0) NULL,
     created_at datetime2(0) NOT NULL CONSTRAINT DF_queue_created_at DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT CK_queue_position_by_status CHECK ((queue_status_code IN ('WAITING', 'ASSIGNED') AND queue_position IS NOT NULL) OR (queue_status_code IN ('LEFT', 'CANCELLED') AND queue_position IS NULL)),

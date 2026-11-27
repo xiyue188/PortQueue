@@ -53,6 +53,9 @@ GRANT SELECT ON dbo.terminal(terminal_id,port_id) TO portqueue_app;
 GRANT SELECT ON dbo.anchorage(anchorage_id,port_id) TO portqueue_app;
 -- 阶段4B：专用锚地只读工作区；实际进出时间仍只读取事件还原视图。
 GRANT SELECT ON dbo.anchorage(anchorage_code,anchorage_name,status_code,capacity_vessel_count) TO portqueue_app;
+-- 4C：人工预计来源独立；客户端仍无基础表写权限，过程再次验证业务角色。
+GRANT SELECT ON dbo.anchorage_queue_entry(queue_entry_id,manual_estimated_berthing_at,estimate_version) TO portqueue_app;
+GRANT EXECUTE ON dbo.usp_set_anchorage_estimate TO portqueue_app;
 GRANT SELECT ON dbo.berth(berth_id,terminal_id) TO portqueue_app;
 COMMIT TRANSACTION;
 GO

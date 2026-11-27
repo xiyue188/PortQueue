@@ -13,8 +13,8 @@ IF (SELECT COUNT(*) FROM sys.tables WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_s
     THROW 53020,'Expected 21 business tables.',1;
 IF (SELECT COUNT(*) FROM sys.views WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>3
     THROW 53021,'Expected 3 business views.',1;
-IF (SELECT COUNT(*) FROM sys.procedures WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>8
-    THROW 53022,'Expected 7 business procedures.',1;
+IF (SELECT COUNT(*) FROM sys.procedures WHERE schema_id=SCHEMA_ID('dbo') AND is_ms_shipped=0)<>9
+    THROW 53022,'Expected 9 business procedures after stage 4C.',1;
 IF (SELECT COUNT(*) FROM sys.triggers WHERE parent_class=1 AND is_ms_shipped=0)<>8
     THROW 53023,'Expected 8 table triggers.',1;
 IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE is_disabled=1 OR is_not_trusted=1)

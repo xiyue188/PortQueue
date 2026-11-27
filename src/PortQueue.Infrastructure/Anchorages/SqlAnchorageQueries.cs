@@ -15,6 +15,7 @@ public sealed class SqlAnchorageQueries(ISqlConnectionFactory connections, IConf
     private static readonly string ListSql = Load("Anchorages");
     private static readonly string QueueSql = Load("AnchorageQueue");
     private static readonly string StaySql = Load("AnchorageStay");
+    private static readonly string CandidatesSql = Load("AnchorageEntryCandidates");
     private string HomePortCode => configuration["Port:Code"] ?? "SH-YS";
 
     public Task<AnchorageOverview?> GetAsync(long? appointmentId, CancellationToken cancellationToken)
@@ -45,6 +46,16 @@ public sealed class SqlAnchorageQueries(ISqlConnectionFactory connections, IConf
         return ReadAsync<AnchorageStayDetail>(StaySql, new { HomePortCode, QueueEntryId = queueEntryId }, cancellationToken);
     }
 
+    public async Task<AnchorageCandidatePage> GetEntryCandidatesAsync(string keyword, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        if (page is < 1 or > 1_000_000 || pageSize is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(page));
+        await using var connection = connections.Create();
+        await connection.OpenAsync(cancellationToken);
+        var result = await connection.QuerySingleAsync<CandidateResult>(new CommandDefinition(CandidatesSql,
+            new { Keyword = keyword.Trim(), Offset = ((long)page - 1) * pageSize, PageSize = pageSize }, commandTimeout: 8, cancellationToken: cancellationToken));
+        return new AnchorageCandidatePage(JsonSerializer.Deserialize<AnchorageEntryCandidate[]>(result.ItemsJson)!, page, pageSize, result.TotalCount);
+    }
+
     private async Task<T?> ReadAsync<T>(string sql, object parameters, CancellationToken cancellationToken) where T : class
     {
         await using var connection = connections.Create();
@@ -65,4 +76,5 @@ public sealed class SqlAnchorageQueries(ISqlConnectionFactory connections, IConf
 
     private sealed record QueueResult(string AnchorageId, DateTimeOffset ObservedAt, int OccupiedCount,
         int? Capacity, string StatusCode, AnchorageQueueItem[] Items);
+    private sealed record CandidateResult(long TotalCount, string ItemsJson);
 }

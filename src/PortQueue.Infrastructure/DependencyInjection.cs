@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentRegistration, SqlAppointmentRegistration>();
         services.AddScoped<IRegistrationOptions, SqlRegistrationOptions>();
         services.AddScoped<PortQueue.Application.Anchorages.IAnchorageQueries, PortQueue.Infrastructure.Anchorages.SqlAnchorageQueries>();
+        services.AddScoped<PortQueue.Application.Anchorages.IAnchorageOperations, PortQueue.Infrastructure.Anchorages.SqlAnchorageOperations>();
         return services;
     }
 }

@@ -6,21 +6,22 @@
 2. `01_schema.sql`：创建 21 个基本关系、约束和索引。
 3. `02_views.sql`：创建 3 个业务查询视图。
 4. `03_triggers.sql`：创建字典船型引用、事件分类、字典标识和审计追加保护触发器。
-5. `04_procedures.sql`：创建预约审核、队列调序、计划版本、计划确认、锚地事件、实际进港和靠离泊过程。
-6. `14_appointment_registration.sql`：创建登记、草稿编辑与提交事务入口（增量文件，须先于权限脚本）。
-7. `05_seed_reference.sql`：写入可重复执行的角色、字典和参考设施；不重新启用已停用字典项。
-8. `15_yangshan_reference.sql`：新库确认主港资料；已有旧场景库使用文末单独升级顺序。
-9. `09_permissions.sql`：创建应用最小权限角色和无登录验证用户。
-10. `10_seed_demo.sql`：按需加载原五条流程样例，同时识别整理后的业务编号，重跑不会复制旧样例；不由启动脚本自动装载。
-11. `11_statistics.sql`：按明确口径执行统计查询，不新增持久化指标关系。
-12. `12_refresh_sample_labels.sql`：整理原五条样例的编号、船名、IMO 和旧审核文案，保留关联及业务事实，追加修改快照。
-13. `13_seed_port_scenarios.sql`：按需增加 48 条合成场景，覆盖六种预约状态、锚地等待、确认计划和已完成作业；重跑跳过已存在编号。
+5. `16_anchorage_operations.sql`：确认人工预计增量列并创建人工预计事务过程；空库已有列时安全跳过加列。
+6. `04_procedures.sql`：创建预约审核、队列调序、计划版本、计划确认、锚地事件、实际进港和靠离泊过程。
+7. `14_appointment_registration.sql`：创建登记、草稿编辑与提交事务入口（增量文件，须先于权限脚本）。
+8. `05_seed_reference.sql`：写入可重复执行的角色、字典和参考设施；不重新启用已停用字典项。
+9. `15_yangshan_reference.sql`：新库确认主港资料；已有旧场景库使用文末单独升级顺序。
+10. `09_permissions.sql`：创建应用最小权限角色和无登录验证用户。
+11. `10_seed_demo.sql`：按需加载原五条流程样例，同时识别整理后的业务编号，重跑不会复制旧样例；不由启动脚本自动装载。
+12. `11_statistics.sql`：按明确口径执行统计查询，不新增持久化指标关系。
+13. `12_refresh_sample_labels.sql`：整理原五条样例的编号、船名、IMO 和旧审核文案，保留关联及业务事实，追加修改快照。
+14. `13_seed_port_scenarios.sql`：按需增加 48 条合成场景，覆盖六种预约状态、锚地等待、确认计划和已完成作业；重跑跳过已存在编号。
 
 建议在 SSMS、VS Code SQL Server 扩展或 `sqlcmd` 中按顺序执行。脚本中的 `GO` 是 SQL Server 客户端批处理分隔符，不是 T-SQL 语句。
 
 `01_schema.sql` 是空数据库的一次性建表脚本。对已经存在业务表的 `PortQueue` 再次执行时，脚本会在第一张表之前给出一条明确提示并停止，不会重复建表。已有数据库的对象更新请只执行“阶段 1 已有数据库升级”中的增量脚本；查看当前结构请执行 `06_smoke_tests.sql`，不要把 `01_schema.sql` 当作日常启动或升级命令。
 
-如果不确定本机 LocalDB 实例是否存在，优先执行仓库内的 `bootstrap-localdb.ps1`。它会检查并启动 `PortQueueDev`，只在 `PortQueue` 不存在时恢复 `00` 至 `05`、`14`、`15` 和 `09` 脚本；已有数据库不重复建表；会先执行 15 迁移已知参考设施，再补齐 05；不自动加载业务场景或改写既有过程。
+如果不确定本机 LocalDB 实例是否存在，优先执行仓库内的 `bootstrap-localdb.ps1`。它会检查并启动 `PortQueueDev`，只在 `PortQueue` 不存在时恢复 `00` 至 `05`、`14`、`16` 和 `09` 脚本；已有数据库不重复建表；会先执行 15 迁移已知参考设施，再补齐 05；不自动加载业务场景或改写既有过程。已有4B库仍须显式执行文末4C增量升级。
 
 ## 本地连接示例
 
@@ -56,7 +57,7 @@ SQL 文件按 UTF-8 保存。通过 Windows ODBC 版 `sqlcmd` 执行含中文脚
 
 ```powershell
 $sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
-foreach ($file in @('03_triggers.sql','04_procedures.sql','14_appointment_registration.sql','15_yangshan_reference.sql','05_seed_reference.sql','09_permissions.sql')) {
+foreach ($file in @('03_triggers.sql','16_anchorage_operations.sql','04_procedures.sql','14_appointment_registration.sql','15_yangshan_reference.sql','05_seed_reference.sql','09_permissions.sql')) {
     & $sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i (Join-Path 'database' $file)
     if ($LASTEXITCODE -ne 0) { throw "Database deployment failed: $file" }
 }
@@ -136,3 +137,23 @@ foreach ($file in @('15_yangshan_reference.sql','05_seed_reference.sql')) {
 本机已执行 15。脚本只迁移匹配已知代码及名称的合成码头和锚地，保留设施主键、泊位引用、用户预约与历史事件；旧青岛港保留为前后港可用的外部资料。旧锚地坐标清空，不冒充洋山坐标。每次实际变化追加审计，重跑不重复写入。目标代码冲突时整笔回滚，不覆盖人工资料。21 表、3 视图、8 过程、8 表级触发器及 45 个业务索引保持不变。
 
 3 座码头、4 处锚地、3 个泊位是系统内课程场景登记量，不代表现实洋山港完整设施规模。所有预约总量和状态来自数据库，用户登记审核后应随之改变。数据库基线已具有后续业务规则；专用业务页面/API 仍待接入，两者分别验收。
+
+## 阶段4C：锚地实际登记与人工预计
+
+已有4B数据库只执行下列增量，随后构建并重启API；不要重建业务表、清空业务事实或把历史预计回填成人工预计。三个业务视图的现有列保持兼容。当前基线为21表、3视图、9业务过程、8表级触发器。
+
+```powershell
+$sqlcmd = 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\SQLCMD.EXE'
+foreach ($file in @('16_anchorage_operations.sql','04_procedures.sql','09_permissions.sql')) {
+    & $sqlcmd -S '(localdb)\PortQueueDev' -E -C -b -f 65001 -i (Join-Path 'database' $file)
+    if ($LASTEXITCODE -ne 0) { throw "Anchorage deployment failed: $file" }
+}
+```
+
+16可重复执行：增加可空的`manual_estimated_berthing_at`和默认0的`estimate_version`，保留`estimated_berthing_at`原值、队列顺位、事件和审计。增量先加列，再绑定检查约束，兼容尚未具有新列的旧表。04的确认计划过程不再复制任何预计时间；人工预计由`usp_set_anchorage_estimate`维护，要求当前在场有效停留、ADMIN/DISPATCHER、原版本、未来秒精度时间（或NULL清除）及必填原因。成功增加版本，审计同笔提交并保存`operation_reason`。
+
+`usp_record_anchorage_event`保留原前六个参数与默认两列返回。新增末尾参数`@queue_entry_id`、`@home_port_code`和`@return_details`。**离锚必须显式传入选定的停留ID**；过程在调度锁内验证其仍未关闭，不能用预约号自动关闭另一段新停留。入离锚仅ADMIN/DISPATCHER/RECORDER可操作；入锚校验本港、设施启用/容量、批准时刻、船舶当前在场、既有进港与历史时间交叠；停用设施仍可登记已有停留离锚。API通过真实会话传操作者，并校验CSRF，客户端不能传角色或操作者。
+
+写成功返回事件/停留或预计新版本，不追加一次可能失败的详情查询来决定保存结果。HTTP成功后读取失败按“已保存、刷新失败”处理；响应不明时按原停留和事件时间核对，不自动重写。查询SQL在构建时嵌入，新增候选提供关键词、分页和总量；没有新增通用业务列表。
+
+验证使用随机独立库：`dotnet test PortQueue.sln -c Release`，以及`python tests/database/run_stage1.py`。4C测试包括真实旧结构迁移两次、四角色、未来/倒置时刻、满容量、撤销仍在场、同物理船重复、旧停留晚到请求、并发预计、事件分类与审计回滚、应用最小权限和计划不覆盖预计。旧历史SQL夹具显式设定历史批准时刻并传停留ID，生产规则不为测试放宽。

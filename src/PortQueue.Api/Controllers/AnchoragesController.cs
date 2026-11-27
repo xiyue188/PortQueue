@@ -11,6 +11,13 @@ namespace PortQueue.Api.Controllers;
 [Route("api/anchorages")]
 public sealed class AnchoragesController(IAnchorageQueries queries) : ControllerBase
 {
+    [HttpGet("entry-candidates")]
+    public Task<AnchorageCandidatePage> GetEntryCandidates(
+        [FromQuery, StringLength(100)] string? keyword = null,
+        [FromQuery, Range(1, 1_000_000)] int page = 1,
+        [FromQuery, Range(1, 100)] int pageSize = 20,
+        CancellationToken cancellationToken = default) => queries.GetEntryCandidatesAsync(keyword ?? "", page, pageSize, cancellationToken);
+
     [HttpGet]
     public async Task<ActionResult<AnchorageOverview>> Get(
         [FromQuery, Range(typeof(long), "1", "9223372036854775807")] long? appointmentId,

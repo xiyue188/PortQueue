@@ -304,7 +304,8 @@ BEGIN
         IF @queue_id IS NOT NULL
         BEGIN
             SET @before=(SELECT * FROM dbo.anchorage_queue_entry WHERE queue_entry_id=@queue_id FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER);
-            UPDATE dbo.anchorage_queue_entry SET queue_status_code='ASSIGNED',estimated_berthing_at=@start WHERE queue_entry_id=@queue_id;
+            -- 计划确认仅改变安排状态；历史预计与独立人工预计都保留原来源。
+            UPDATE dbo.anchorage_queue_entry SET queue_status_code='ASSIGNED' WHERE queue_entry_id=@queue_id;
             INSERT dbo.audit_log(table_name,record_id,operation_type,old_data_json,new_data_json,operator_id)
         VALUES ('anchorage_queue_entry',CONVERT(varchar(100),@queue_id),'UPDATE',@before,(SELECT * FROM dbo.anchorage_queue_entry WHERE queue_entry_id=@queue_id FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER),@operator_id);
         END;
@@ -325,9 +326,12 @@ CREATE OR ALTER PROCEDURE dbo.usp_record_anchorage_event
     @appointment_id bigint,
     @anchorage_id bigint,
     @event_type_code varchar(30),
-    @event_time datetime2(0),
+    @event_time datetime2(7),
     @operator_id bigint,
-    @remark nvarchar(500)=NULL
+    @remark nvarchar(max)=NULL,
+    @queue_entry_id bigint=NULL,
+    @home_port_code varchar(10)='SH-YS',
+    @return_details bit=0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -339,17 +343,35 @@ BEGIN
         EXEC @lock_result = sys.sp_getapplock @Resource=N'PortQueue.Schedule',
             @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
         IF @lock_result < 0 THROW 52090, 'Schedule is busy. Retry the whole operation.', 1;
-        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u JOIN dbo.role r ON r.role_code=u.role_code
-            WHERE u.user_id=@operator_id AND u.status_code='ENABLED' AND r.status_code='ENABLED')
-            THROW 52091, 'An enabled operator and role are required.', 1;
+        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u WITH(UPDLOCK,HOLDLOCK) JOIN dbo.role r WITH(HOLDLOCK) ON r.role_code=u.role_code
+            WHERE u.user_id=@operator_id AND u.status_code='ENABLED' AND r.status_code='ENABLED'
+                AND u.role_code IN ('ADMIN','DISPATCHER','RECORDER'))
+            THROW 52201, 'Anchorage events require an enabled administrator, dispatcher or recorder.', 1;
         DECLARE @now datetime2(0)=SYSUTCDATETIME(), @before nvarchar(max);
 
         IF @event_type_code IS NULL OR @event_type_code NOT IN ('ANCHORAGE_ENTER','ANCHORAGE_LEAVE')
             THROW 52020, 'Anchorage operation must be enter or leave.', 1;
         IF @event_time IS NULL OR @event_time>@now THROW 52092, 'Event time cannot be null or in the future.', 1;
+        IF DATEPART(nanosecond,@event_time)<>0 OR YEAR(@event_time) NOT BETWEEN 1900 AND 9998 OR DATALENGTH(@remark)>1000
+            THROW 52200,'Time must use whole seconds and remark must be at most 500 characters.',1;
         DECLARE @queue_id bigint,@stay_anchorage bigint,@old_position int,@entered datetime2(0),@priority int;
-        SELECT @queue_id=queue_entry_id,@stay_anchorage=anchorage_id,@entered=entered_anchorage_at
-        FROM dbo.v_anchorage_queue WHERE appointment_id=@appointment_id AND left_anchorage_at IS NULL;
+        IF @event_type_code='ANCHORAGE_LEAVE'
+        BEGIN
+            -- 离锚必须绑定用户最初选中的停留；不能用预约自动寻找下一段停留。
+            DECLARE @stay_appointment bigint,@left datetime2(0);
+            SELECT @queue_id=queue_entry_id,@stay_anchorage=anchorage_id,@stay_appointment=appointment_id,
+                @entered=entered_anchorage_at,@left=left_anchorage_at
+            FROM dbo.v_anchorage_queue WHERE queue_entry_id=@queue_entry_id;
+            IF @queue_id IS NULL OR @entered IS NULL OR @left IS NOT NULL THROW 52207,'Selected stay is no longer open.',1;
+            IF (@appointment_id IS NOT NULL AND @appointment_id<>@stay_appointment)
+                OR (@anchorage_id IS NOT NULL AND @anchorage_id<>@stay_anchorage) THROW 52027,'Selected stay does not match appointment or anchorage.',1;
+            SET @appointment_id=@stay_appointment;
+            SET @anchorage_id=@stay_anchorage;
+        END
+        ELSE
+            SELECT @queue_id=queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@appointment_id AND left_anchorage_at IS NULL;
+        IF NOT EXISTS(SELECT 1 FROM dbo.anchorage a JOIN dbo.port p ON p.port_id=a.port_id
+            WHERE a.anchorage_id=@anchorage_id AND p.port_code=@home_port_code) THROW 52203,'Anchorage does not exist in the home port.',1;
         DECLARE @queue_before TABLE(queue_entry_id bigint PRIMARY KEY, data nvarchar(max));
         INSERT @queue_before SELECT q.queue_entry_id,
             (SELECT q.* FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER)
@@ -359,19 +381,30 @@ BEGIN
         IF @event_type_code='ANCHORAGE_ENTER'
         BEGIN
             IF @queue_id IS NOT NULL THROW 52022, 'Appointment already has an unclosed stay.', 1;
-            SELECT @priority=priority_level FROM dbo.arrival_appointment
-            WHERE appointment_id=@appointment_id AND appointment_status_code='APPROVED';
+            DECLARE @ship_id bigint,@reviewed datetime2(0),@ship_status varchar(30);
+            SELECT @priority=aa.priority_level,@ship_id=pc.ship_id,@reviewed=aa.reviewed_at,@ship_status=s.status_code
+            FROM dbo.arrival_appointment aa JOIN dbo.port_call pc ON pc.port_call_id=aa.port_call_id JOIN dbo.ship s ON s.ship_id=pc.ship_id
+            WHERE aa.appointment_id=@appointment_id AND aa.appointment_status_code='APPROVED' AND pc.call_status_code IN ('PLANNED','IN_PROGRESS');
             IF @priority IS NULL THROW 52021, 'Only an approved appointment can enter anchorage.', 1;
+            IF @ship_status<>'ACTIVE' THROW 52202,'Ship is disabled.',1;
+            IF @reviewed IS NULL OR @event_time<@reviewed THROW 52208,'Anchorage entry cannot precede approval.',1;
+            IF EXISTS(SELECT 1 FROM dbo.v_anchorage_queue WHERE ship_id=@ship_id AND left_anchorage_at IS NULL)
+                THROW 52206,'The same ship already has an open stay.',1;
             IF EXISTS(SELECT 1 FROM dbo.port_entry_event_link WHERE appointment_id=@appointment_id)
                 THROW 52028, 'A ship already in port cannot enter anchorage again.', 1;
-            IF EXISTS(SELECT 1 FROM dbo.v_anchorage_queue WHERE appointment_id=@appointment_id AND left_anchorage_at>@event_time)
+            IF EXISTS(SELECT 1 FROM dbo.v_anchorage_queue WHERE ship_id=@ship_id AND left_anchorage_at>@event_time)
                 THROW 52024, 'Anchorage stay times overlap.', 1;
+            IF EXISTS(SELECT 1 FROM dbo.v_port_event e JOIN dbo.arrival_appointment aa ON aa.appointment_id=e.appointment_id
+                JOIN dbo.port_call pc ON pc.port_call_id=aa.port_call_id WHERE pc.ship_id=@ship_id AND
+                ((e.event_type_code='PORT_ENTER' AND NOT EXISTS(SELECT 1 FROM dbo.v_port_event finish WHERE finish.appointment_id=e.appointment_id AND finish.event_type_code='UNBERTHING'))
+                OR (e.event_type_code='UNBERTHING' AND e.event_time>@event_time)))
+                THROW 52206,'The same ship is still in port or its previous visit overlaps this entry.',1;
             IF NOT EXISTS(SELECT 1 FROM dbo.anchorage a JOIN dbo.port p ON p.port_id=a.port_id
                 WHERE a.anchorage_id=@anchorage_id AND a.status_code='AVAILABLE' AND p.status_code='ENABLED')
                 THROW 52025, 'Anchorage is not available.', 1;
             IF EXISTS(SELECT 1 FROM dbo.anchorage a WHERE a.anchorage_id=@anchorage_id
                 AND a.capacity_vessel_count IS NOT NULL AND a.capacity_vessel_count<=
-                (SELECT COUNT(*) FROM dbo.v_anchorage_queue WHERE anchorage_id=@anchorage_id AND left_anchorage_at IS NULL))
+                (SELECT COUNT(*) FROM dbo.v_anchorage_queue WHERE anchorage_id=@anchorage_id AND entered_anchorage_at IS NOT NULL AND left_anchorage_at IS NULL))
                 THROW 52026, 'Anchorage capacity is exhausted.', 1;
             DECLARE @tail int=(SELECT COALESCE(MAX(COALESCE(queue_position,0)),0)+1 FROM dbo.anchorage_queue_entry WHERE anchorage_id=@anchorage_id);
             -- 对新记录求插入点，保留已有人工调序的相对顺序。
@@ -422,9 +455,12 @@ BEGIN
         CROSS APPLY(SELECT (SELECT q.* FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) data) j
         WHERE q.anchorage_id=@anchorage_id AND (b.data IS NULL OR b.data<>j.data);
 
-        SELECT @event_id event_id,@queue_id queue_entry_id;
-
         COMMIT TRANSACTION;
+        IF @return_details=1
+            SELECT CONVERT(varchar(20),@queue_id) AS QueueEntryId,CONVERT(varchar(20),@anchorage_id) AS AnchorageId,
+                CONVERT(varchar(20),@appointment_id) AS AppointmentId,CONVERT(varchar(20),@event_id) AS EventId,
+                @event_type_code AS EventTypeCode,TODATETIMEOFFSET(CONVERT(datetime2(0),@event_time),'+00:00') AS EventTime;
+        ELSE SELECT @event_id event_id,@queue_id queue_entry_id;
     END TRY
     BEGIN CATCH
         -- 不吞掉异常，也不让调用者继续提交半完成业务。外层事务一并回滚。

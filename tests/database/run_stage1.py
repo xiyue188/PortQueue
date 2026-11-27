@@ -112,6 +112,9 @@ EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';
 EXEC dbo.usp_review_appointment @ap2,@reviewer,'APPROVED';
 EXEC dbo.usp_review_appointment @ap3,@reviewer,'APPROVED';
 EXEC dbo.usp_review_appointment @ap4,@reviewer,'APPROVED';
+-- 回滚/随机库夹具明确模拟历史审核，不放宽生产时间规则。
+UPDATE dbo.arrival_appointment SET submitted_at='2025-12-29',reviewed_at='2025-12-30'
+WHERE appointment_id IN (@ap1,@ap2,@ap3,@ap4);
 """
 PLAN = """
 EXEC dbo.usp_create_berth_plan_revision @ap1,@b,'2026-01-01T03:00:00','2026-01-01T05:00:00',N'Initial',@u;
@@ -150,13 +153,14 @@ def business_cases():
     case('queue_empty_reason', "EXEC dbo.usp_adjust_queue @q,1,N' ',@u;", APPROVE+QUEUE,52050)
     case('queue_no_change', "EXEC dbo.usp_adjust_queue @q,3,N'Same',@u;", APPROVE+QUEUE,52053)
     case('leave_compacts_queue', """
-        EXEC dbo.usp_record_anchorage_event @ap2,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;
+        DECLARE @q2 bigint=(SELECT queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@ap2 AND left_anchorage_at IS NULL);
+        EXEC dbo.usp_record_anchorage_event @ap2,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q2;
         IF (SELECT MAX(queue_position) FROM dbo.anchorage_queue_entry WHERE anchorage_id=@a)<>2 THROW 53999,'Queue gap.',1;
     """, APPROVE+QUEUE)
-    case('wrong_anchorage', "DECLARE @wrong bigint=@a+100; EXEC dbo.usp_record_anchorage_event @ap1,@wrong,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;", APPROVE+QUEUE,52027)
+    case('wrong_anchorage', "DECLARE @wrong bigint=@a+100; EXEC dbo.usp_record_anchorage_event @ap1,@wrong,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;", APPROVE+QUEUE,52027)
     case('repeat_enter', "EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_ENTER','2026-01-01T01:00:00',@u;",APPROVE+QUEUE,52022)
     case('capacity_includes_cancelled', "EXEC dbo.usp_record_anchorage_event @ap4,@a,'ANCHORAGE_ENTER','2026-01-01T01:00:00',@u;", APPROVE+QUEUE+"UPDATE dbo.anchorage SET capacity_vessel_count=3 WHERE anchorage_id=@a; UPDATE dbo.anchorage_queue_entry SET queue_status_code='CANCELLED',queue_position=NULL WHERE queue_entry_id=@q;",52026)
-    case('cancelled_can_leave',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;", APPROVE+QUEUE+"UPDATE dbo.anchorage_queue_entry SET queue_status_code='CANCELLED',queue_position=NULL WHERE queue_entry_id=@q;")
+    case('cancelled_can_leave',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;", APPROVE+QUEUE+"UPDATE dbo.anchorage_queue_entry SET queue_status_code='CANCELLED',queue_position=NULL WHERE queue_entry_id=@q;")
     case('draft_current_versions', """
         EXEC dbo.usp_create_berth_plan_revision @ap1,@b,'2026-01-01T03:00:00','2026-01-01T06:00:00',N'New draft',@u;
         IF (SELECT COUNT(*) FROM dbo.berth_plan_revision WHERE berth_plan_id=@p AND is_current=1)<>1 THROW 53999,'Current count.',1;
@@ -204,9 +208,9 @@ def business_cases():
     case('app_role_can_read_auth_hash',"EXECUTE AS USER='portqueue_probe'; IF NOT EXISTS(SELECT 1 FROM dbo.user_account WHERE DATALENGTH(password_hash)>0) THROW 53999,'Auth hash unavailable',1; REVERT;")
     case('app_role_cannot_insert_orphan',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.port_event(event_type_code,event_time,event_source_code,recorded_by) VALUES('PORT_ENTER','2026-01-01','MANUAL',@u); REVERT;",error=229)
     case('app_role_cannot_forge_audit',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.audit_log(table_name,record_id,operation_type,operator_id) VALUES('ship','1','UPDATE',@u); REVERT;",error=229)
-    case('left_queue_cannot_move',"EXEC dbo.usp_adjust_queue @q,1,N'Invalid',@u;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;",52051)
-    case('leave_time_reversal',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2025-12-31',@u;",APPROVE+QUEUE,52024)
-    case('repeat_leave',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u;",52023)
+    case('left_queue_cannot_move',"EXEC dbo.usp_adjust_queue @q,1,N'Invalid',@u;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",52051)
+    case('leave_time_reversal',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2025-12-31',@u,@queue_entry_id=@q;",APPROVE+QUEUE,52024)
+    case('repeat_leave',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",52207)
     case('repeat_port_entry',port_entry,APPROVE+port_entry,52041)
     case('repeat_berthing',"EXEC dbo.usp_record_berth_event @ap1,'BERTHING','2026-01-01T03:30:00',@r,@u;",berthed,52032)
     case('wrong_unberthing_baseline',"DECLARE @wrong bigint=@r+99; EXEC dbo.usp_record_berth_event @ap1,'UNBERTHING','2026-01-01T06:00:00',@wrong,@u;",berthed,52034)
@@ -284,12 +288,12 @@ def structural_and_demo_cases():
     for name in ['06_smoke_tests.sql','07_business_smoke_test.sql','08_constraint_smoke_tests.sql']:
         deploy(DB,name)
     RESULTS.append({'case':'existing_06_07_08_regression','status':'passed'})
-    for name in ['02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
+    for name in ['02_views.sql','03_triggers.sql','16_anchorage_operations.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
         deploy(DB,name)
     run("""
         IF (SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0)<>21 THROW 53999,'Table count.',1;
         IF (SELECT COUNT(*) FROM sys.views WHERE is_ms_shipped=0)<>3 THROW 53999,'View count.',1;
-        IF (SELECT COUNT(*) FROM sys.procedures WHERE is_ms_shipped=0)<>8 THROW 53999,'Procedure count.',1;
+        IF (SELECT COUNT(*) FROM sys.procedures WHERE is_ms_shipped=0)<>9 THROW 53999,'Procedure count.',1;
         IF (SELECT COUNT(*) FROM sys.triggers WHERE is_ms_shipped=0)<>8 THROW 53999,'Trigger count.',1;
         IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE is_disabled=1 OR is_not_trusted=1)
             OR EXISTS(SELECT 1 FROM sys.check_constraints WHERE is_disabled=1 OR is_not_trusted=1) THROW 53999,'Untrusted constraint.',1;
@@ -323,6 +327,18 @@ def structural_and_demo_cases():
     if run(count_sql,DB)!=advanced: raise AssertionError('Demo reload changed progressed row counts')
     run("IF NOT EXISTS(SELECT 1 FROM dbo.arrival_appointment WHERE appointment_no='PQ-DEMO-005' AND appointment_status_code='APPROVED') THROW 53999,'Demo state reset.',1;",DB)
     RESULTS.append({'case':'demo_preserves_progressed_business_state','status':'passed'})
+    # 使用带旧业务事实、没有新列的真实旧结构，且部署不带-I，覆盖普通sqlcmd路径。
+    run("""
+        ALTER TABLE dbo.anchorage_queue_entry DROP CONSTRAINT DF_queue_estimate_version,CK_queue_estimate_version;
+        ALTER TABLE dbo.anchorage_queue_entry DROP COLUMN manual_estimated_berthing_at,estimate_version;
+        UPDATE dbo.anchorage_queue_entry SET estimated_berthing_at='2034-06-01';
+    """,DB)
+    legacy_before=run(count_sql,DB)
+    for _ in range(2):
+        deploy(DB,'16_anchorage_operations.sql')
+    if run(count_sql,DB)!=legacy_before: raise AssertionError('4C migration changed fact or audit counts')
+    run("IF EXISTS(SELECT 1 FROM dbo.anchorage_queue_entry WHERE manual_estimated_berthing_at IS NOT NULL OR estimate_version<>0 OR estimated_berthing_at<>'2034-06-01') THROW 53999,'4C migration reinterpreted legacy estimate.',1;",DB)
+    RESULTS.append({'case':'stage4c_old_schema_sqlcmd_migration_twice_preserves_facts','status':'passed'})
     # 重跑种子不得重新启用资料；只在当前独立测试库中修改。
     run("UPDATE dbo.dictionary_item SET is_enabled=0 WHERE dictionary_type='SHIP_TYPE' AND item_code='TANKER';",DB)
     deploy(DB,'05_seed_reference.sql')
@@ -338,7 +354,7 @@ def main():
     run(f'CREATE DATABASE [{DB}];', 'master')
     try:
         deploy(DB,'00_create_database.sql')
-        for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
+        for name in ['01_schema.sql','02_views.sql','03_triggers.sql','16_anchorage_operations.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
             deploy(DB,name)
             print('DEPLOY',name,flush=True)
         business_cases()
@@ -348,7 +364,7 @@ def main():
         DB='PortQueueStage1Test_'+uuid.uuid4().hex[:12]
         run(f'CREATE DATABASE [{DB}];','master')
         try:
-            for name in ['01_schema.sql','02_views.sql','03_triggers.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
+            for name in ['01_schema.sql','02_views.sql','03_triggers.sql','16_anchorage_operations.sql','04_procedures.sql', '14_appointment_registration.sql','05_seed_reference.sql','09_permissions.sql']:
                 deploy(DB,name)
             structural_and_demo_cases()
         finally:

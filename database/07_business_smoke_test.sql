@@ -66,8 +66,11 @@ VALUES
 DECLARE @appointment_id bigint = SCOPE_IDENTITY();
 
 EXEC dbo.usp_review_appointment @appointment_id, @reviewer_id, 'APPROVED', N'Smoke test approved';
+-- 仅此回滚夹具还原历史审核时刻；生产事务继续拒绝早于批准的实际入锚。
+UPDATE dbo.arrival_appointment SET reviewed_at='2026-10-26T13:00:00' WHERE appointment_id=@appointment_id;
 EXEC dbo.usp_record_anchorage_event @appointment_id, @anchorage_id, 'ANCHORAGE_ENTER', '2026-10-27T01:00:00', @user_id, NULL;
-EXEC dbo.usp_record_anchorage_event @appointment_id, @anchorage_id, 'ANCHORAGE_LEAVE', '2026-10-27T02:00:00', @user_id, NULL;
+DECLARE @stay_id bigint=(SELECT queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@appointment_id AND left_anchorage_at IS NULL);
+EXEC dbo.usp_record_anchorage_event @appointment_id, @anchorage_id, 'ANCHORAGE_LEAVE', '2026-10-27T02:00:00', @user_id, NULL,@queue_entry_id=@stay_id;
 
 INSERT dbo.berth_plan(appointment_id, plan_status_code)
 VALUES (@appointment_id, 'DRAFT');
