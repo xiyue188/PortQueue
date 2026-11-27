@@ -69,13 +69,13 @@ pnpm.cmd --dir web/port-queue-web run dev
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
 
-分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。
+分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。后续已选“业务任务型”：以同一次到访串联各页，详情使用时间线，泊位使用资源排期，队列与排期支持经确认的拖动；取舍见[设计说明](docs/design/post-midterm-direction.md)。当前下一批是4A锚地任务与交互设计，后续功能仍未计为完成。
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
 业务主线、申请/计划/实际时间、六类预约状态、总览指标口径与四类角色设计见 [`docs/business-flow.md`](docs/business-flow.md)。早期查询交互设计见 [`docs/stages/stage-2-interaction-polish.md`](docs/stages/stage-2-interaction-polish.md)：真实候选搜索、页面往返保留筛选与选择、局部加载及统一桌面布局。
 
-第三阶段已推进到 **3C 预约登记与提交**。当前可在登录窗口选择管理员、调度员、审核员或记录员，初始密码统一为 `123456`，选择时自动填入；四个专用账号已在本机开发库建立，仍通过真实身份认证。仅在 Development 且显式启用时开放。操作步骤、权限和本轮输入输出见 [3B 交付说明](docs/stages/stage-3b-delivery-guide.md)，设计见 [3B 计划](docs/stages/stage-3b-review-and-usability.md)，结果见 [3B review](docs/reviews/2026-11-09-stage3b-review.md)。本轮登记、提交和审核已形成真实闭环，操作与验收见 [3C 交付说明](docs/stages/stage-3c-delivery-guide.md)。中期范围已收口，最新边界和演示顺序以 [中期交付说明](docs/stages/midterm-delivery-guide.md) 为准；之后先演练，答辩后再单独设计锚地业务。
+第三阶段已推进到 **3C 预约登记与提交**。当前可在登录窗口选择管理员、调度员、审核员或记录员，初始密码统一为 `123456`，选择时自动填入；四个专用账号已在本机开发库建立，仍通过真实身份认证。仅在 Development 且显式启用时开放。操作步骤和权限见 [3B 交付说明](docs/stages/stage-3b-delivery-guide.md)，设计见 [3B 计划](docs/stages/stage-3b-review-and-usability.md)，结果见 [3B review](docs/reviews/2026-11-09-stage3b-review.md)。登记、提交和审核已形成真实闭环，操作与验收见 [3C 交付说明](docs/stages/stage-3c-delivery-guide.md)。中期范围及演示顺序保存在 [中期交付说明](docs/stages/midterm-delivery-guide.md)；后续推进以当前阶段计划为准。
 
 ## 交付要求
 
