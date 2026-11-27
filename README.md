@@ -47,9 +47,9 @@ powershell -ExecutionPolicy Bypass -File .\database\bootstrap-localdb.ps1
 
 ## 当前运行方式
 
-当前为 **2026-11-10 中期冻结版**，服务上海洋山深水港（项目内部代码 SH-YS）。正式开放“总览”和“进港预约”：真实账号登录、查询、登记、草稿编辑、提交与批准/驳回已形成 SQL Server → API → Vue 的完整链路。调度员依据船方资料代为登记，审核员审批。
+当前已完成 **第四阶段锚地业务（2026-11-27）**，服务上海洋山深水港（项目内部代码 SH-YS）。正式开放总览、进港预约和锚地排队：真实账号、登记提交与审核，以及完整队列、入离锚、人工预计、拖动/精确调序和到访回查均连接 SQL Server。调度员依据船方资料代为登记，审核员审批；实际入离锚也允许记录员办理。
 
-锚地排队、泊位计划、进出港记录和查询统计均为**待接入**。总览保留四个主图入口，未开放模块只提示尚未接入，不用通用列表代替专用业务设计。已有数据库对象、种子事实及总览概要可展示，但不等于这些模块已经开发完成。开发库保留原场景及用户后续登记，数量以查询为准。
+泊位计划、进出港记录独立页面和查询统计仍为**待接入**。总览保留四个主图入口，未开放模块只提示尚未接入，不用通用列表代替专用业务设计。已有数据库对象、种子事实及总览概要可展示，但不等于这些模块已经开发完成。开发库保留原场景及用户后续登记，数量以查询为准。
 
 数据库脚本通过 SQL Server 扩展或 `sqlcmd` 执行一次即可，不需要长期占用一个终端。使用 LocalDB 时，先确认 `(localdb)\PortQueueDev` 实例处于 Running；运行时建议保留两个长期终端，若正在恢复数据库则临时使用第三个终端：
 
@@ -63,13 +63,13 @@ dotnet run --project src/PortQueue.Api --configuration Release --launch-profile 
 pnpm.cmd --dir web/port-queue-web run dev
 ```
 
-启动后访问 `http://127.0.0.1:5173` 查看总览，点击“进港预约”查看列表和详情；访问 `http://localhost:5180/api/health` 查看后端健康接口。所有业务结果从本机 SQL Server 读取；数据库不可用时显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复数据库并按需装载场景。
+启动后访问 `http://127.0.0.1:5173` 查看总览，点击“进港预约”办理申请，登录后点击“锚地排队”办理候泊；访问 `http://localhost:5180/api/health` 查看后端健康接口。所有业务结果从本机 SQL Server 读取；数据库不可用时显示可恢复的错误状态，不会回退到 Mock 数据。首次运行后端前，应先按 `database/README.md` 恢复数据库并按需装载场景。
 
 只复制命令，不复制终端的 `PS ...>` 或 `>>` 提示符。也可以在 VS Code 中执行 `Tasks: Run Task` → `frontend: dev`。如提示 5173 已占用，先访问已有页面或停止原前端终端，不要重复启动。
 
 完整的文件职责、端口约定和常用验证命令见 [`docs/file-guide.md`](docs/file-guide.md) 与 [`docs/runbook.md`](docs/runbook.md)。
 
-分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。后续已选“业务任务型”：以同一次到访串联各页，详情使用时间线，泊位使用资源排期，队列与排期支持经确认的拖动；取舍见[设计说明](docs/design/post-midterm-direction.md)。[4A锚地设计](docs/stages/stage-4a-anchorage.md)已重做为[可操作原型](docs/design/anchorage-prototype/index.html)，可直接用浏览器打开，体验船舶拖动顺移、确认/取消及到访时间线。原型使用固定合成样例、仅修改页面内存，已完成四种视口和交互验证，视觉待用户审阅；正式前后端与SQL未接入，下一批仍为4B锚地队列只读联调。
+分阶段的开发范围、验收标准和阶段门见 [`docs/stage-plans.md`](docs/stage-plans.md)。后续已选“业务任务型”：以同一次到访串联各页，详情使用时间线，泊位使用资源排期，队列与排期支持经确认的拖动；取舍见[设计说明](docs/design/post-midterm-direction.md)。[4A锚地设计](docs/stages/stage-4a-anchorage.md)已重做为[可操作原型](docs/design/anchorage-prototype/index.html)，可直接用浏览器打开，体验船舶拖动顺移、确认/取消及到访时间线。原型方向已经用户认可，完整队列与短屏问题已修复；4B—4D正式前后端和SQL已接通。[实施记录](docs/stages/stage-4-implementation.md)与[验收review](docs/reviews/2026-11-27-stage4-anchorage.md)区分原型、真实办理和未验收边界。下一批为5A泊位资源排期HTML原型。
 
 阶段 2 的前后端改动、输入输出、联调过程以及教师要求的数据库展示对应关系见 [`docs/stages/stage-2-delivery-guide.md`](docs/stages/stage-2-delivery-guide.md)。
 
