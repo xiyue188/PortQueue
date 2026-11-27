@@ -105,6 +105,38 @@ test('总览指标可按需展开口径，默认不占用额外版面', async ({
   }
 })
 
+test('桌面 100% 缩放时总览工作区完整落在视口内', async ({ page }) => {
+  for (const [width, height] of [[1440, 900], [1280, 720]]) {
+    await page.setViewportSize({ width, height })
+    await page.goto('/')
+    const layout = await page.locator('.port-workspace').evaluate((workspace) => {
+      const rect = workspace.getBoundingClientRect()
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+        documentHeight: document.documentElement.scrollHeight,
+      }
+    })
+    expect(layout.top).toBeGreaterThanOrEqual(0)
+    expect(layout.bottom).toBeLessThanOrEqual(layout.viewportHeight)
+    expect(layout.documentHeight).toBeLessThanOrEqual(layout.viewportHeight)
+    const content = await page.locator('.overview-pane').evaluate(el => ({
+      clipped: getComputedStyle(el).overflowY === 'hidden',
+      fits: el.scrollHeight <= el.clientHeight + 1,
+    }))
+    expect(content.clipped).toBeFalsy()
+    if (height === 900) expect(content.fits).toBeTruthy()
+    // 短窗口允许内容区滚动，但底部面板、流程文字和预约入口必须能完整到达。
+    await page.locator('.overview-pane').evaluate(el => { el.scrollTop = el.scrollHeight })
+    const bottom = await page.locator('.overview-bottom').boundingBox()
+    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(height)
+    const footer = page.locator('.distribution-footer')
+    await footer.scrollIntoViewIfNeeded()
+    await expect(footer).toBeInViewport()
+  }
+})
+
 test('小船确实沿轨道运动，可暂停且尊重隐藏和减少动画', async ({ page }) => {
   await page.goto('/')
   await page.locator('.port-process').scrollIntoViewIfNeeded()

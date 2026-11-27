@@ -38,7 +38,7 @@ h1, h2, h3, p { margin: 0; }
 /* 外框保持参考图的透明冰蓝边缘与独立侧栏。背景海报文字不属于应用。 */
 .port-workspace {
   display: grid; grid-template-columns: 15.2% minmax(0, 1fr);
-  width: min(1600px, calc(100% - 64px)); height: calc(100dvh - 48px); min-height: 760px; margin: 24px auto;
+  width: min(1600px, calc(100% - 64px)); height: calc(100dvh - 48px); min-height: 0; margin: 24px auto;
   border: 1px solid #afc9da; border-radius: 16px; padding: 0;
   background: linear-gradient(125deg, #b9d1df, #a4c2d5 56%, #a0bfd3);
   box-shadow: 0 14px 40px rgba(28, 55, 77, .1);
@@ -414,7 +414,6 @@ button, .appointment-table tbody tr { transition: background-color 140ms ease-ou
 .workspace-account strong, .account-action, .event-ship { font-size: 14px; }.workspace-account small { font-size: 12px; }
 .port-business-flow span { font-size: 14px; }
 .recent-events li, .recent-events time, .overview-bottom .recent-events time { font-size: 13px; }
-.port-workspace { min-height: 900px; }
 .overview-pane { grid-template-rows: 96px minmax(320px, .95fr) minmax(330px, 1fr); }
 .account-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
 .account-options button { display: flex; align-items: center; gap: 12px; border: 1px solid #bbd1df; border-radius: 8px; background: #f4faff; padding: 12px; text-align: left; }

@@ -87,3 +87,23 @@
   .mobile-bypass-label { display: block; position: absolute; top: 78px; left: 0; writing-mode: vertical-rl; padding: 4px 0; background: #dfedf5; font-size: 10px; color: #285f88; }
 }
 @media (prefers-reduced-motion: reduce) { .route-boat { display: none; } }
+
+/* 桌面总览按实际内容排版：指标说明展开时增加行高，短窗口在内容区滚动。
+   不能用 overflow:hidden 裁掉底部，也不能压缩字号来勉强塞进一屏。 */
+@media (min-width: 1001px) and (max-height: 980px) {
+  .overview-pane { grid-template-rows: max-content max-content minmax(240px, 1fr); }
+  .status-summary { min-height: 0; padding: 14px 18px; gap: 8px; }
+  .status-summary .distribution-body { gap: 8px; }
+  .state-distribution button { min-height: 34px; padding: 4px 0; }
+  .state-distribution .status-text { font-size: 12px; }
+  .state-distribution strong { font-size: 16px; }
+  .distribution-footer { padding-top: 4px; }
+  .distribution-footer .text-action { min-height: 28px; padding: 4px 0; }
+  .port-process { min-height: 0; padding: 16px; }
+  .process-body { padding: 4px 0 6px; }
+  .process-track { height: 74px; }
+  .process-steps h3 { font-size: 14px; margin-top: 6px; }
+  .process-steps p, .process-steps small { margin-top: 3px; }
+  .recent-events { padding: 12px; }
+  .recent-events li { padding: 6px 0; }
+}
