@@ -31,6 +31,12 @@ public sealed class AnchorageOperationsController(IAnchorageOperations operation
             await operations.SetEstimateAsync(queueEntryId, request.ManualEstimatedBerthingAt is null ? null : AnchorageTime.Parse(request.ManualEstimatedBerthingAt),
                 long.Parse(request.ExpectedVersion, CultureInfo.InvariantCulture), request.Reason.Trim(), actor, cancellationToken));
 
+    [HttpPost("api/anchorage-stays/{queueEntryId}/reorder"), Authorize(Roles = "ADMIN,DISPATCHER")]
+    public Task<IActionResult> Reorder([Range(typeof(long), "1", "9223372036854775807")] long queueEntryId,
+        AnchorageReorderRequest request, CancellationToken cancellationToken) => Execute(async actor =>
+            await operations.ReorderAsync(queueEntryId, request.NewPosition, request.Reason.Trim(),
+                request.ExpectedSnapshot.ToUpperInvariant(), actor, cancellationToken));
+
     private async Task<IActionResult> Execute(Func<long, Task<object>> action)
     {
         try { await antiforgery.ValidateRequestAsync(HttpContext); }
@@ -66,6 +72,17 @@ public sealed record AnchorageEstimateRequest(string? ManualEstimatedBerthingAt,
         if (ManualEstimatedBerthingAt is not null)
             foreach (var result in AnchorageTime.Validate(ManualEstimatedBerthingAt, nameof(ManualEstimatedBerthingAt))) yield return result;
         if (string.IsNullOrWhiteSpace(Reason)) yield return new ValidationResult("请填写修改原因。", [nameof(Reason)]);
+    }
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AnchorageReorderRequest([Range(1, int.MaxValue)] int NewPosition,
+    [Required, StringLength(500)] string Reason,
+    [Required, RegularExpression("^[0-9A-Fa-f]{64}$")] string ExpectedSnapshot) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (string.IsNullOrWhiteSpace(Reason)) yield return new ValidationResult("请填写调序原因。", [nameof(Reason)]);
     }
 }
 

@@ -61,12 +61,14 @@ BEGIN
 END;
 GO
 
-/* usp_adjust_queue: 输入/前置条件见 docs/stages/stage-1-database.md；结果在提交前返回主键与状态。 */
+/* 4D：完整队列快照在调度锁内核验；调序结果只在事务成功后返回。 */
 CREATE OR ALTER PROCEDURE dbo.usp_adjust_queue
     @queue_entry_id bigint,
     @new_position int,
-    @adjustment_reason nvarchar(500),
-    @operator_id bigint
+    @adjustment_reason nvarchar(max),
+    @operator_id bigint,
+    @expected_snapshot varchar(max),
+    @home_port_code varchar(10)='SH-YS'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -78,23 +80,49 @@ BEGIN
         EXEC @lock_result = sys.sp_getapplock @Resource=N'PortQueue.Schedule',
             @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
         IF @lock_result < 0 THROW 52090, 'Schedule is busy. Retry the whole operation.', 1;
-        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u JOIN dbo.role r ON r.role_code=u.role_code
-            WHERE u.user_id=@operator_id AND u.status_code='ENABLED' AND r.status_code='ENABLED')
-            THROW 52091, 'An enabled operator and role are required.', 1;
+        IF NOT EXISTS (SELECT 1 FROM dbo.user_account u WITH(UPDLOCK,HOLDLOCK) JOIN dbo.role r WITH(HOLDLOCK) ON r.role_code=u.role_code
+            WHERE u.user_id=@operator_id AND u.status_code='ENABLED' AND r.status_code='ENABLED' AND u.role_code IN ('ADMIN','DISPATCHER'))
+            THROW 52302, 'Queue adjustment requires an enabled administrator or dispatcher.', 1;
         DECLARE @now datetime2(0)=SYSUTCDATETIME(), @before nvarchar(max);
 
-        IF NULLIF(LTRIM(RTRIM(@adjustment_reason)),N'') IS NULL
-            THROW 52050, 'Queue adjustment requires a reason.', 1;
-        DECLARE @anchorage_id bigint,@old_position int,@count int;
-        SELECT @anchorage_id=anchorage_id,@old_position=queue_position
-        FROM dbo.anchorage_queue_entry WITH(UPDLOCK,HOLDLOCK)
-        WHERE queue_entry_id=@queue_entry_id AND queue_status_code IN ('WAITING','ASSIGNED');
+        IF @expected_snapshot IS NULL OR DATALENGTH(@expected_snapshot)<>64
+            OR @expected_snapshot COLLATE Latin1_General_100_BIN2 LIKE '%[^0-9A-Fa-f]%'
+            THROW 52300,'A complete SHA256 queue snapshot is required.',1;
+        SET @adjustment_reason=TRIM(N' '+NCHAR(9)+NCHAR(10)+NCHAR(13)+NCHAR(160)+NCHAR(12288) FROM @adjustment_reason);
+        IF NULLIF(@adjustment_reason,N'') IS NULL OR DATALENGTH(@adjustment_reason)>1000
+            THROW 52050, 'Queue adjustment requires a reason of at most 500 characters.', 1;
+        DECLARE @anchorage_id bigint,@old_position int,@count int,@first int,@last int,@current_snapshot varchar(64);
+        IF NOT EXISTS(SELECT 1 FROM dbo.anchorage_queue_entry q JOIN dbo.anchorage a ON a.anchorage_id=q.anchorage_id
+            JOIN dbo.port p ON p.port_id=a.port_id WHERE q.queue_entry_id=@queue_entry_id AND p.port_code=@home_port_code)
+            THROW 52203,'Anchorage stay does not exist in the home port.',1;
+        SELECT @anchorage_id=q.anchorage_id,@old_position=q.queue_position
+        FROM dbo.anchorage_queue_entry q WITH(UPDLOCK,HOLDLOCK)
+        JOIN dbo.v_anchorage_queue facts ON facts.queue_entry_id=q.queue_entry_id
+        WHERE q.queue_entry_id=@queue_entry_id AND q.queue_status_code IN ('WAITING','ASSIGNED')
+            AND facts.entered_anchorage_at IS NOT NULL AND facts.left_anchorage_at IS NULL;
         IF @anchorage_id IS NULL THROW 52051, 'Queue entry is not active.', 1;
-        SELECT @count=COUNT(*) FROM dbo.anchorage_queue_entry
+        -- 与4B响应同编码：nvarchar(MAX)为UTF-16LE，成员为id:position:status，以|分隔。
+        SELECT @count=COUNT(*),@first=MIN(queue_position),@last=MAX(queue_position),
+            @current_snapshot=CONVERT(varchar(64),HASHBYTES('SHA2_256',COALESCE(STRING_AGG(
+                CONVERT(nvarchar(max),queue_entry_id)+N':'+CONVERT(nvarchar(20),queue_position)+N':'+queue_status_code,N'|')
+                WITHIN GROUP(ORDER BY queue_position,queue_entry_id),N'')),2)
+        FROM dbo.anchorage_queue_entry WITH(UPDLOCK,HOLDLOCK)
         WHERE anchorage_id=@anchorage_id AND queue_status_code IN ('WAITING','ASSIGNED');
+        -- 先校验快照再处理原位请求；看似相同的目标不能绕过已发生的队列变更。
+        IF @current_snapshot<>UPPER(@expected_snapshot) COLLATE Latin1_General_100_BIN2
+            THROW 52301,'Queue snapshot has changed. Read the complete queue again.',1;
+        IF @first<>1 OR @last<>@count OR EXISTS(SELECT 1 FROM dbo.v_anchorage_queue WHERE anchorage_id=@anchorage_id
+            AND queue_status_code IN ('WAITING','ASSIGNED') AND (entered_anchorage_at IS NULL OR left_anchorage_at IS NOT NULL))
+            THROW 52304,'Queue positions or event facts require review.',1;
         IF @new_position IS NULL OR @new_position NOT BETWEEN 1 AND @count
             THROW 52052, 'Queue position is outside the active queue.', 1;
-        IF @new_position=@old_position THROW 52053, 'Queue position has not changed.', 1;
+        IF @new_position=@old_position
+        BEGIN
+            COMMIT TRANSACTION;
+            SELECT CONVERT(varchar(20),@queue_entry_id) AS QueueEntryId,@old_position AS OldPosition,
+                @new_position AS NewPosition,0 AS AffectedCount,@current_snapshot AS Snapshot;
+            RETURN;
+        END;
         DECLARE @queue_before TABLE(queue_entry_id bigint PRIMARY KEY, data nvarchar(max));
         INSERT @queue_before SELECT q.queue_entry_id,
             (SELECT q.* FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER)
@@ -136,9 +164,14 @@ BEGIN
         CROSS APPLY(SELECT (SELECT q.* FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) data) j
         WHERE q.anchorage_id=@anchorage_id AND (b.data IS NULL OR b.data<>j.data);
 
-        SELECT @queue_entry_id queue_entry_id,@new_position queue_position;
-
+        DECLARE @affected_count int=(SELECT COUNT(*) FROM @positions WHERE old_position<>new_position);
+        SELECT @current_snapshot=CONVERT(varchar(64),HASHBYTES('SHA2_256',COALESCE(STRING_AGG(
+            CONVERT(nvarchar(max),queue_entry_id)+N':'+CONVERT(nvarchar(20),queue_position)+N':'+queue_status_code,N'|')
+            WITHIN GROUP(ORDER BY queue_position,queue_entry_id),N'')),2)
+        FROM dbo.anchorage_queue_entry WHERE anchorage_id=@anchorage_id AND queue_status_code IN ('WAITING','ASSIGNED');
         COMMIT TRANSACTION;
+        SELECT CONVERT(varchar(20),@queue_entry_id) AS QueueEntryId,@old_position AS OldPosition,
+            @new_position AS NewPosition,@affected_count AS AffectedCount,@current_snapshot AS Snapshot;
     END TRY
     BEGIN CATCH
         -- 不吞掉异常，也不让调用者继续提交半完成业务。外层事务一并回滚。

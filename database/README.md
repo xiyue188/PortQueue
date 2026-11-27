@@ -157,3 +157,11 @@ foreach ($file in @('16_anchorage_operations.sql','04_procedures.sql','09_permis
 写成功返回事件/停留或预计新版本，不追加一次可能失败的详情查询来决定保存结果。HTTP成功后读取失败按“已保存、刷新失败”处理；响应不明时按原停留和事件时间核对，不自动重写。查询SQL在构建时嵌入，新增候选提供关键词、分页和总量；没有新增通用业务列表。
 
 验证使用随机独立库：`dotnet test PortQueue.sln -c Release`，以及`python tests/database/run_stage1.py`。4C测试包括真实旧结构迁移两次、四角色、未来/倒置时刻、满容量、撤销仍在场、同物理船重复、旧停留晚到请求、并发预计、事件分类与审计回滚、应用最小权限和计划不覆盖预计。旧历史SQL夹具显式设定历史批准时刻并传停留ID，生产规则不为测试放宽。
+
+## 阶段4D：完整队列快照调序
+
+已有4C库只需显式重跑`04_procedures.sql`并更新API程序集，无加表/加列/新增授权。`usp_adjust_queue`原前四参数后新增**必需**的`@expected_snapshot`及可选`@home_port_code`。原调用者必须先读取完整队列快照并显式提交；不接受NULL、缺失、截短或超长快照。SQL入参保留足够长度后检查恰好64位十六进制，避免SQL参数绑定时静默截断。快照来自按顺位、停留ID排序的完整WAITING/ASSIGNED成员，`id:position:status`以`|`拼接，按UTF-16LE、无BOM计算SHA-256，与4B查询响应相同。
+
+调度锁内先重验ADMIN/DISPATCHER、本港范围、当前有效停留及完整快照，再处理目标顺位。匹配快照的原位操作成功返回影响0条，不写调整或审计；旧快照即使目标看似已相同仍返回冲突。移动时先暂移至不冲突的正数区间，保留唯一索引，再一次保存全部受影响成员；每个实际移动成员均有调整明细和前后审计，实际事件和在场人数不变。提交后返回`queueEntryId`、原/新顺位、影响数及保存后的快照。
+
+HTTP为`POST /api/anchorage-stays/{queueEntryId}/reorder`，输入`newPosition`、必填且最多500字的`reason`、`expectedSnapshot`。真实会话与CSRF沿用4C；冲突使用`QUEUE_SNAPSHOT_CHANGED`，读取最新队列并保留原因，不能自动重试写入。前端拖动和精确顺位表单共用此接口。`run_stage1.py`直接过程调用已全部改为显式快照，双连接回归使用同一份读取结果验证冲突；没有空快照兼容路径。

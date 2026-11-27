@@ -126,12 +126,19 @@ EXEC dbo.usp_confirm_berth_plan @p,@r,@u;
 -- 夹具恢复历史确认时间；生产过程仍严格验证确认时间不晚于实际靠泊。
 UPDATE dbo.berth_plan_revision SET revised_at='2025-12-30',confirmed_at='2025-12-31' WHERE revision_id=@r;
 """
+QUEUE_SNAPSHOT = """
+SELECT @snapshot=CONVERT(varchar(64),HASHBYTES('SHA2_256',COALESCE(STRING_AGG(
+    CONVERT(nvarchar(max),queue_entry_id)+N':'+CONVERT(nvarchar(20),queue_position)+N':'+queue_status_code,N'|')
+    WITHIN GROUP(ORDER BY queue_position,queue_entry_id),N'')),2)
+FROM dbo.anchorage_queue_entry WHERE anchorage_id=@a AND queue_status_code IN ('WAITING','ASSIGNED');
+"""
 QUEUE = """
 EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_ENTER','2026-01-01T00:00:00',@u;
 EXEC dbo.usp_record_anchorage_event @ap2,@a,'ANCHORAGE_ENTER','2026-01-01T00:10:00',@u;
 EXEC dbo.usp_record_anchorage_event @ap3,@a,'ANCHORAGE_ENTER','2026-01-01T00:20:00',@u;
 SELECT @q=queue_entry_id FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap1;
-"""
+DECLARE @snapshot varchar(64);
+""" + QUEUE_SNAPSHOT
 
 
 def business_cases():
@@ -143,15 +150,16 @@ def business_cases():
     case('repeated_review', "EXEC dbo.usp_review_appointment @ap1,@reviewer,'APPROVED';", APPROVE,52003)
     case('priority_and_manual_queue', """
         IF (SELECT queue_position FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap3)<>1 THROW 53999,'Priority not applied.',1;
-        EXEC dbo.usp_adjust_queue @q,1,N'Priority inspection',@u;
+        EXEC dbo.usp_adjust_queue @q,1,N'Priority inspection',@u,@snapshot;
         IF (SELECT COUNT(*) FROM dbo.queue_adjustment_record WHERE adjusted_by=@u)<>3 THROW 53999,'Affected rows not recorded.',1;
         IF (SELECT queue_position FROM dbo.anchorage_queue_entry WHERE queue_entry_id=@q)<>1 THROW 53999,'Move failed.',1;
-        EXEC dbo.usp_adjust_queue @q,3,N'Restore order',@u;
+    """ + QUEUE_SNAPSHOT + """
+        EXEC dbo.usp_adjust_queue @q,3,N'Restore order',@u,@snapshot;
         IF (SELECT COUNT(*) FROM dbo.queue_adjustment_record WHERE adjusted_by=@u)<>6 THROW 53999,'Reverse move not recorded.',1;
     """, APPROVE+QUEUE)
-    case('queue_bounds', "EXEC dbo.usp_adjust_queue @q,4,N'Bad',@u;", APPROVE+QUEUE,52052)
-    case('queue_empty_reason', "EXEC dbo.usp_adjust_queue @q,1,N' ',@u;", APPROVE+QUEUE,52050)
-    case('queue_no_change', "EXEC dbo.usp_adjust_queue @q,3,N'Same',@u;", APPROVE+QUEUE,52053)
+    case('queue_bounds', "EXEC dbo.usp_adjust_queue @q,4,N'Bad',@u,@snapshot;", APPROVE+QUEUE,52052)
+    case('queue_empty_reason', "EXEC dbo.usp_adjust_queue @q,1,N' ',@u,@snapshot;", APPROVE+QUEUE,52050)
+    case('queue_no_change', "DECLARE @audit_count int=(SELECT COUNT(*) FROM dbo.audit_log); EXEC dbo.usp_adjust_queue @q,3,N'Same',@u,@snapshot; IF EXISTS(SELECT 1 FROM dbo.queue_adjustment_record WHERE queue_entry_id=@q) OR (SELECT COUNT(*) FROM dbo.audit_log)<>@audit_count THROW 53999,'No-op wrote facts.',1;", APPROVE+QUEUE)
     case('leave_compacts_queue', """
         DECLARE @q2 bigint=(SELECT queue_entry_id FROM dbo.v_anchorage_queue WHERE appointment_id=@ap2 AND left_anchorage_at IS NULL);
         EXEC dbo.usp_record_anchorage_event @ap2,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q2;
@@ -208,7 +216,7 @@ def business_cases():
     case('app_role_can_read_auth_hash',"EXECUTE AS USER='portqueue_probe'; IF NOT EXISTS(SELECT 1 FROM dbo.user_account WHERE DATALENGTH(password_hash)>0) THROW 53999,'Auth hash unavailable',1; REVERT;")
     case('app_role_cannot_insert_orphan',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.port_event(event_type_code,event_time,event_source_code,recorded_by) VALUES('PORT_ENTER','2026-01-01','MANUAL',@u); REVERT;",error=229)
     case('app_role_cannot_forge_audit',"EXECUTE AS USER='portqueue_probe'; INSERT dbo.audit_log(table_name,record_id,operation_type,operator_id) VALUES('ship','1','UPDATE',@u); REVERT;",error=229)
-    case('left_queue_cannot_move',"EXEC dbo.usp_adjust_queue @q,1,N'Invalid',@u;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",52051)
+    case('left_queue_cannot_move',"EXEC dbo.usp_adjust_queue @q,1,N'Invalid',@u,@snapshot;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",52051)
     case('leave_time_reversal',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2025-12-31',@u,@queue_entry_id=@q;",APPROVE+QUEUE,52024)
     case('repeat_leave',"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",APPROVE+QUEUE+"EXEC dbo.usp_record_anchorage_event @ap1,@a,'ANCHORAGE_LEAVE','2026-01-01T01:00:00',@u,@queue_entry_id=@q;",52207)
     case('repeat_port_entry',port_entry,APPROVE+port_entry,52041)
@@ -267,8 +275,12 @@ def concurrency_cases():
                     common+"EXEC dbo.usp_record_anchorage_event @ap2,@a,'ANCHORAGE_ENTER','2026-01-01',@u;")
     run(common+"IF (SELECT COUNT(*) FROM dbo.anchorage_queue_entry WHERE anchorage_id=@a)<>2 OR (SELECT MAX(queue_position) FROM dbo.anchorage_queue_entry WHERE anchorage_id=@a)<>2 THROW 53999,'Concurrent entry failed.',1;",DB)
     RESULTS.append({'case':'two_connections_enter_same_anchorage','status':'passed'})
-    adjust="DECLARE @q bigint=(SELECT queue_entry_id FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap1); EXEC dbo.usp_adjust_queue @q,1,N'Concurrent move',@u;"
-    concurrent_pair(common+adjust,common+"BEGIN TRY "+adjust+" THROW 53999,'Expected repeated move failure.',1; END TRY BEGIN CATCH IF ERROR_NUMBER()<>52053 THROW; END CATCH;")
+    snapshot_text=run(common+"DECLARE @snapshot varchar(64);"+QUEUE_SNAPSHOT+"SELECT @snapshot;",DB)
+    snapshot_match=re.search(r'\b[0-9A-F]{64}\b',snapshot_text)
+    if not snapshot_match: raise AssertionError('Queue snapshot was not returned')
+    # 两个连接提交同一份已读快照；第二个请求不可因目标位置已相同而绕过冲突。
+    adjust=f"DECLARE @snapshot varchar(64)='{snapshot_match.group(0)}'; DECLARE @q bigint=(SELECT queue_entry_id FROM dbo.anchorage_queue_entry WHERE appointment_id=@ap1); EXEC dbo.usp_adjust_queue @q,1,N'Concurrent move',@u,@snapshot;"
+    concurrent_pair(common+adjust,common+"BEGIN TRY "+adjust+" THROW 53999,'Expected stale snapshot failure.',1; END TRY BEGIN CATCH IF ERROR_NUMBER()<>52301 THROW; END CATCH;")
     run("IF (SELECT COUNT(*) FROM dbo.queue_adjustment_record)<>2 THROW 53999,'Repeated concurrent move left records.',1;",DB)
     RESULTS.append({'case':'two_connections_adjust_same_queue','status':'passed'})
     run(common+"EXEC dbo.usp_create_berth_plan_revision @ap1,@b,'2026-01-01T03:00:00','2026-01-01T05:00:00',N'Plan 1',@u; EXEC dbo.usp_create_berth_plan_revision @ap2,@b,'2026-01-01T04:00:00','2026-01-01T06:00:00',N'Plan 2',@u;",DB)

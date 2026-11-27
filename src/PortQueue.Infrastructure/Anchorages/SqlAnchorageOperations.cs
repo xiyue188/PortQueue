@@ -27,6 +27,15 @@ public sealed class SqlAnchorageOperations(ISqlConnectionFactory connections, IC
             home_port_code = configuration["Port:Code"] ?? "SH-YS"
         }, cancellationToken);
 
+    public Task<AnchorageReorderResult> ReorderAsync(long queueEntryId, int newPosition, string reason,
+        string expectedSnapshot, long actor, CancellationToken cancellationToken) =>
+        ExecuteAsync<AnchorageReorderResult>("dbo.usp_adjust_queue", new
+        {
+            queue_entry_id = queueEntryId, new_position = newPosition, adjustment_reason = reason,
+            expected_snapshot = expectedSnapshot, operator_id = actor,
+            home_port_code = configuration["Port:Code"] ?? "SH-YS"
+        }, cancellationToken);
+
     private async Task<T> ExecuteAsync<T>(string procedure, object parameters, CancellationToken cancellationToken)
     {
         await using var connection = connections.Create();
@@ -36,10 +45,17 @@ public sealed class SqlAnchorageOperations(ISqlConnectionFactory connections, IC
             return await connection.QuerySingleAsync<T>(new CommandDefinition(procedure, parameters,
                 commandType: CommandType.StoredProcedure, commandTimeout: 20, cancellationToken: cancellationToken));
         }
-        catch (SqlException ex) when (ex.Number is >= 52200 and <= 52213 or >= 52020 and <= 52028 or 52059 or 52090 or 52092)
+        catch (SqlException ex) when (ex.Number is >= 52200 and <= 52213 or >= 52300 and <= 52304 or >= 52020 and <= 52028 or >= 52050 and <= 52052 or 52059 or 52090 or 52092)
         {
             var (code, message, status) = ex.Number switch
             {
+                52300 => ("INVALID_QUEUE_SNAPSHOT", "队列快照无效，请重新读取完整队列。", 400),
+                52301 => ("QUEUE_SNAPSHOT_CHANGED", "队列已发生变化，本次未保存；请读取最新顺位后重新选择。", 409),
+                52302 => ("REORDER_FORBIDDEN", "当前账号没有调序权限或已停用。", 403),
+                52304 => ("QUEUE_NEEDS_REVIEW", "队列顺位或实际事件需要核对，暂不能调序。", 409),
+                52050 => ("REORDER_REASON_REQUIRED", "请填写调序原因，最多500字。", 400),
+                52051 => ("QUEUE_ENTRY_NOT_ACTIVE", "该停留已离锚或撤销，请读取最新队列。", 409),
+                52052 => ("QUEUE_POSITION_OUT_OF_RANGE", "目标顺位超出当前有效队列，请重新选择。", 400),
                 52201 => ("ANCHORAGE_FORBIDDEN", "当前账号没有此操作权限或已停用。", 403),
                 52202 => ("SHIP_UNAVAILABLE", "船舶资料已停用，请先核对资料。", 409),
                 52203 => ("ANCHORAGE_NOT_FOUND", "本港锚地或停留记录不存在。", 404),
