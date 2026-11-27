@@ -27,6 +27,9 @@
     <EmbeddedResource Include="../../database/queries/appointment-detail.sql" LogicalName="PortQueue.Queries.AppointmentDetail.sql" />
     <EmbeddedResource Include="../../database/queries/registration-options.sql" LogicalName="PortQueue.Queries.RegistrationOptions.sql" />
     <EmbeddedResource Include="../../database/queries/overview.sql" LogicalName="PortQueue.Queries.Overview.sql" />
+    <EmbeddedResource Include="../../database/queries/anchorages.sql" LogicalName="PortQueue.Queries.Anchorages.sql" />
+    <EmbeddedResource Include="../../database/queries/anchorage-queue.sql" LogicalName="PortQueue.Queries.AnchorageQueue.sql" />
+    <EmbeddedResource Include="../../database/queries/anchorage-stay.sql" LogicalName="PortQueue.Queries.AnchorageStay.sql" />
   </ItemGroup>
 
 </Project>

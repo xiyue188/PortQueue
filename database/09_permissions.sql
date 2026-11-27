@@ -51,6 +51,8 @@ GRANT SELECT ON dbo.dictionary_item(dictionary_type,is_enabled) TO portqueue_app
 GRANT SELECT ON dbo.port(port_code,country_code,timezone,status_code) TO portqueue_app;
 GRANT SELECT ON dbo.terminal(terminal_id,port_id) TO portqueue_app;
 GRANT SELECT ON dbo.anchorage(anchorage_id,port_id) TO portqueue_app;
+-- 阶段4B：专用锚地只读工作区；实际进出时间仍只读取事件还原视图。
+GRANT SELECT ON dbo.anchorage(anchorage_code,anchorage_name,status_code,capacity_vessel_count) TO portqueue_app;
 GRANT SELECT ON dbo.berth(berth_id,terminal_id) TO portqueue_app;
 COMMIT TRANSACTION;
 GO
