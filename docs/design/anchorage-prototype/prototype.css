@@ -1,0 +1,1547 @@
+/* 4A设计原型。继承工作台冰蓝材质，队列顺位决定船舶位置。 */
+:root {
+  font-family:"Segoe UI","Microsoft YaHei",sans-serif;
+  color:#102d48;
+  background:#e5edf3;
+  font-synthesis:none;
+  --blue:#0872dc;
+  --ink:#102d48;
+  --muted:#496c85;
+  --line:rgba(83,129,159,.2);
+  --glass:rgba(236,247,254,.76)
+}
+
+* {
+  box-sizing:border-box
+}
+
+body {
+  margin:0;
+  min-width:320px
+}
+
+button,input,select,textarea {
+  font:inherit;
+  color:inherit
+}
+
+button {
+  cursor:pointer
+}
+
+button:disabled {
+  cursor:default;
+  opacity:.55
+}
+
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible {
+  outline:3px solid #0872dc;
+  outline-offset:3px
+}
+
+button {
+  touch-action:manipulation
+}
+
+h1,h2,h3,p {
+  margin:0
+}
+
+button {
+  border:0
+}
+
+svg {
+  width:21px;
+  height:21px;
+  flex-shrink:0;
+  vertical-align:middle
+}
+
+button span[data-icon],.location span[data-icon] {
+  display:inline-flex
+}
+
+input,textarea {
+  caret-color:#0872dc
+}
+
+::selection {
+  background:#a6d6f9
+}
+
+* {
+  scrollbar-width:thin;
+  scrollbar-color:#8cacbf transparent
+}
+
+[hidden] {
+  display:none!important
+}
+
+.skip-link {
+  position:fixed;
+  top:-100px;
+  z-index:20
+}
+
+.skip-link:focus {
+  top:8px;
+  left:8px;
+  background:white;
+  padding:12px
+}
+
+.app-shell {
+  width:min(1580px,calc(100% - 48px));
+  height:calc(100dvh - 48px);
+  min-height:0;
+  margin:24px auto;
+  display:grid;
+  grid-template-columns:184px minmax(0,1fr);
+  border:1px solid #abc6d8;
+  border-radius:18px;
+  background:linear-gradient(130deg,#c0d8e7,#accbdc 65%,#9fbfd3);
+  box-shadow:0 20px 50px #244a6b16;
+  overflow:hidden
+}
+
+.sidebar {
+  background:rgba(236,247,254,.5);
+  border-right:1px solid #f2faff77;
+  display:flex;
+  flex-direction:column;
+  padding:27px 14px 20px;
+  min-width:0
+}
+
+.brand {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#132d49;
+  text-decoration:none;
+  letter-spacing:.6px;
+  font-size:14px;
+  padding:0 5px
+}
+
+.brand svg {
+  color:#0872dc;
+  width:28px;
+  height:30px
+}
+
+.sidebar nav {
+  display:grid;
+  gap:9px;
+  margin-top:45px
+}
+
+.sidebar nav button {
+  display:flex;
+  align-items:center;
+  gap:13px;
+  background:transparent;
+  text-align:left;
+  border-radius:8px;
+  padding:14px 13px;
+  font-size:14px;
+  white-space:nowrap
+}
+
+.sidebar nav button:hover {
+  background:#d7ecf9
+}
+
+.sidebar nav button[aria-current] {
+  background:#badff8;
+  color:#075daa;
+  font-weight:650
+}
+
+.sidebar nav svg {
+  width:22px;
+  height:22px
+}
+
+.port-signature {
+  margin:auto 8px 26px;
+  padding-top:60px;
+  display:grid;
+  gap:10px;
+  font-size:12px;
+  color:#496c85
+}
+
+.port-signature svg {
+  width:28px;
+  height:28px;
+  color:#276384
+}
+
+.port-signature strong {
+  font-size:13px;
+  color:#22465e
+}
+
+.reset-button {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:none;
+  border-top:1px solid #eef8fe99;
+  padding:18px 12px 0;
+  font-size:13px;
+  color:#486c85
+}
+
+main {
+  padding:0 24px 20px;
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column
+}
+
+.page-content {
+  overflow-y:auto;
+  min-height:0;
+  padding-bottom:8px
+}
+
+.topbar {
+  height:72px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:18px
+}
+
+.topbar h1 {
+  font-size:18px
+}
+
+.date {
+  border-left:1px solid #86a9bf55;
+  padding-left:17px;
+  font-size:13px;
+  color:#3e607a
+}
+
+.search {
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:#eff8fe90;
+  border:1px solid #f2faff99;
+  border-radius:9px;
+  padding:0 12px;
+  height:40px;
+  width:300px
+}
+
+.search svg {
+  width:18px
+}
+
+.search input {
+  background:none;
+  border:0;
+  outline:none;
+  width:100%;
+  min-width:0;
+  font-size:13px
+}
+
+.search input::placeholder {
+  color:#42627b
+}
+
+.search:focus-within {
+  outline:2px solid #0872dc
+}
+
+.search #search-count {
+  font-size:12px;
+  white-space:nowrap
+}
+
+.icon-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#e7f4fb90;
+  border-radius:7px;
+  width:35px;
+  height:35px;
+  flex:0 0 35px
+}
+
+.icon-button:hover {
+  background:#f3faff
+}
+
+.anchorage-heading {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  padding:6px 1px 16px;
+  gap:16px
+}
+
+.location {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#375d77;
+  font-size:13px;
+  margin-bottom:9px
+}
+
+.location svg {
+  height:16px;
+  width:16px
+}
+
+.anchorage-heading h2 {
+  font-size:29px;
+  letter-spacing:1px;
+  font-weight:650
+}
+
+.anchorage-tabs {
+  display:flex;
+  align-items:center;
+  padding:4px;
+  background:#e6f4fc77;
+  border:1px solid #f2f9ff66;
+  border-radius:9px;
+  gap:4px
+}
+
+.anchorage-tabs button {
+  background:none;
+  border-radius:6px;
+  padding:10px 12px;
+  font-size:14px;
+  white-space:nowrap
+}
+
+.anchorage-tabs span {
+  font-size:12px;
+  margin-left:9px;
+  opacity:.8
+}
+
+.anchorage-tabs button[aria-pressed=true] {
+  background:#f3faff;
+  color:#075faa;
+  box-shadow:0 2px 5px #284b6610;
+  font-weight:650
+}
+
+.workspace-grid {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 284px;
+  gap:16px;
+  align-items:start
+}
+
+.glass {
+  border:1px solid #f3faffaa;
+  border-radius:12px;
+  background:var(--glass);
+  overflow:hidden
+}
+
+.panel-toolbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:17px 20px
+}
+
+.panel-toolbar h3 {
+  font-size:17px;
+  font-weight:650;
+  white-space:nowrap
+}
+
+.panel-toolbar h3>span {
+  margin-left:8px;
+  font-size:14px;
+  color:#507089;
+  font-weight:500
+}
+
+.toolbar-actions {
+  display:flex;
+  gap:10px;
+  align-items:center
+}
+
+.text-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  background:transparent;
+  font-size:13px;
+  color:#245c85;
+  padding:8px 0
+}
+
+.text-button:hover {
+  color:#006cd0
+}
+
+.text-button svg {
+  width:16px;
+  height:16px
+}
+
+.primary-button,.secondary-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:12px 18px;
+  border-radius:7px;
+  font-size:14px;
+  font-weight:600;
+  min-height:44px
+}
+
+.primary-button {
+  background:#153e5b;
+  color:white
+}
+
+.primary-button:hover {
+  background:#125885
+}
+
+.secondary-button {
+  background:#e6f1f8;
+  border:1px solid #c3d9e7
+}
+
+.full {
+  width:100%
+}
+
+.primary-button svg {
+  width:18px;
+  height:18px
+}
+
+/* 开放水面承载排序。位置只有顺位含义，水纹不编码地理坐标。 */
+.sea {
+  position:relative;
+  background:linear-gradient(180deg,#cee8f3 0%,#b7dbe9 70%,#cce6f0);
+  height:300px;
+  overflow:hidden;
+  border-top:1px solid #fbfeff9c;
+  border-bottom:1px solid #a8cbdf77
+}
+
+.sea-contour {
+  position:absolute;
+  height:62px;
+  width:110%;
+  border-top:1px solid #ffffff55;
+  border-radius:50%;
+  left:-5%;
+  pointer-events:none
+}
+
+.contour-one {
+  top:107px;
+  transform:rotate(-3deg)
+}
+
+.contour-two {
+  top:174px;
+  transform:rotate(4deg)
+}
+
+.contour-three {
+  top:250px;
+  transform:rotate(-2deg)
+}
+
+.queue-path {
+  position:absolute;
+  top:31px;
+  left:8%;
+  right:8%;
+  height:1px;
+  background:#8cb5cc70
+}
+
+.queue-vessels {
+  position:absolute;
+  inset:0 18px
+}
+
+.vessel {
+  position:absolute;
+  top:18px;
+  width:20%;
+  height:auto;
+  left:calc(var(--slot) * 20%);
+  display:flex;
+  align-items:center;
+  flex-direction:column;
+  transition:left 240ms cubic-bezier(.2,.8,.2,1),opacity 160ms;
+  z-index:1
+}
+
+.vessel .rank {
+  width:26px;
+  height:26px;
+  flex-shrink:0;
+  background:#e9f7fd;
+  display:grid;
+  place-items:center;
+  border:1px solid #9cbfd3;
+  border-radius:50%;
+  font-size:13px;
+  color:#345e79;
+  margin:0 0 8px;
+  font-variant-numeric:tabular-nums;
+  z-index:2
+}
+
+.vessel.selected .rank {
+  background:#1268a3;
+  color:white;
+  border-color:#1268a3
+}
+
+.vessel-select {
+  position:relative;
+  background:transparent;
+  padding:0;
+  display:grid;
+  justify-items:center;
+  width:100%;
+  isolation:isolate
+}
+
+.vessel-select>span {
+  line-height:0;
+  display:block
+}
+
+.vessel-select::before {
+  content:"";
+  position:absolute;
+  width:79px;
+  height:148px;
+  top:8px;
+  z-index:-1;
+  border:1px solid transparent;
+  border-radius:50%;
+  transition:background 180ms,border-color 180ms
+}
+
+.vessel.selected .vessel-select::before {
+  background:#e8f9ff70;
+  border-color:#74b5d6
+}
+
+.boat-art {
+  width:65px;
+  height:145px;
+  filter:drop-shadow(3px 7px 3px #1b527938);
+  transition:transform 180ms
+}
+
+.vessel-select:hover .boat-art {
+  transform:translateY(-4px)
+}
+
+.ship-name {
+  margin-top:7px;
+  font-size:16px;
+  font-weight:650;
+  white-space:nowrap
+}
+
+.ship-wait {
+  font-size:12px;
+  margin-top:5px;
+  color:#365c75;
+  font-variant-numeric:tabular-nums
+}
+
+.vessel.selected .ship-name {
+  color:#075e9d
+}
+
+.drag-handle {
+  background:transparent;
+  color:#3c718e;
+  padding:5px 12px;
+  min-height:44px;
+  min-width:44px;
+  cursor:grab;
+  touch-action:none;
+  border-radius:5px;
+  margin-top:1px;
+  line-height:1
+}
+
+.drag-handle svg {
+  width:22px;
+  height:16px
+}
+
+.drag-handle:hover {
+  background:#edf9ff99
+}
+
+.vessel.is-dragging {
+  z-index:6;
+  transition:none!important;
+  pointer-events:none;
+  filter:drop-shadow(5px 10px 6px #204c7b33)
+}
+
+.vessel.is-dragging .boat-art {
+  transform:rotate(5deg) scale(1.05)
+}
+
+.vessel.is-dragging .rank {
+  background:#075e9d;
+  color:white
+}
+
+.vessel.search-dim {
+  opacity:.26
+}
+
+.sea-caption {
+  position:absolute;
+  bottom:21px;
+  left:30px;
+  right:30px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-size:12px;
+  color:#3e6681
+}
+
+.line-arrow {
+  flex:1;
+  height:1px;
+  background:#82aac2;
+  position:relative
+}
+
+.line-arrow:after {
+  content:"";
+  position:absolute;
+  right:0;
+  top:-3px;
+  width:6px;
+  height:6px;
+  transform:rotate(45deg);
+  border-top:1px solid #82aac2;
+  border-right:1px solid #82aac2
+}
+
+.empty-state {
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:17px
+}
+
+.empty-state>span svg {
+  width:43px;
+  height:43px;
+  color:#357796
+}
+
+.empty-state h3 {
+  font-size:19px
+}
+
+.empty-state p {
+  font-size:14px;
+  color:#416883
+}
+
+.occupancy {
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:17px 20px;
+  border-bottom:1px solid var(--line)
+}
+
+.occupancy>div:first-child {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  white-space:nowrap
+}
+
+.occupancy span {
+  font-size:13px;
+  color:#42667e
+}
+
+.occupancy strong {
+  font-size:24px;
+  font-weight:650
+}
+
+.occupancy strong small {
+  font-size:13px;
+  font-weight:400;
+  color:#42667e
+}
+
+.capacity-bars {
+  display:flex;
+  flex:1;
+  gap:5px
+}
+
+.capacity-bars i {
+  display:block;
+  height:18px;
+  flex:1;
+  background:#b8d3e4;
+  border-radius:3px
+}
+
+.capacity-bars i.filled {
+  background:#4a93bd
+}
+
+.occupancy>span {
+  white-space:nowrap
+}
+
+.cancelled-row {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:11px 20px;
+  min-height:56px
+}
+
+.cancelled-row strong {
+  font-size:14px
+}
+
+.cancelled-row>span {
+  font-size:12px;
+  color:#55738a
+}
+
+.cancelled-row .text-button {
+  margin-left:auto
+}
+
+.cancelled-row .muted-ship {
+  color:#68899e
+}
+
+.scene-image {
+  height:123px;
+  background:url('../../../web/port-queue-web/src/assets/port-scene.png') center 47%/cover;
+  position:relative
+}
+
+.scene-image:after {
+  content:"";
+  position:absolute;
+  inset:65% 0 0;
+  background:linear-gradient(transparent,#e9f4fb)
+}
+
+.visit-content {
+  padding:5px 20px 12px
+}
+
+.ship-heading {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  justify-content:space-between
+}
+
+.ship-heading h2 {
+  font-size:26px;
+  font-weight:650
+}
+
+.status {
+  color:#1b5d8b;
+  background:#cce6f5;
+  border-radius:5px;
+  padding:4px 7px;
+  font-size:12px;
+  white-space:nowrap
+}
+
+.status.assigned {
+  color:#12644f;
+  background:#c1e6dc
+}
+
+.visit-number {
+  font-size:12px;
+  color:#4c6c83;
+  margin-top:7px;
+  font-variant-numeric:tabular-nums
+}
+
+.visit-facts {
+  margin:19px 0 21px;
+  display:grid;
+  gap:15px
+}
+
+.visit-facts>div {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px
+}
+
+.visit-facts dt {
+  font-size:13px;
+  color:#496b82
+}
+
+.visit-facts dd {
+  margin:0;
+  font-size:15px;
+  font-weight:600
+}
+
+.visit-content>.text-button {
+  margin-top:7px
+}
+
+.journey-panel {
+  grid-column:1/-1
+}
+
+.journey {
+  padding:3px 22px 18px;
+  display:grid;
+  grid-template-columns:repeat(5,1fr)
+}
+
+.journey-node {
+  position:relative;
+  background:none;
+  text-align:left;
+  padding:0 8px
+}
+
+.journey-node:after {
+  content:"";
+  position:absolute;
+  top:12px;
+  left:32px;
+  right:0;
+  border-top:1px solid #bed3e2
+}
+
+.journey-node:last-child:after {
+  display:none
+}
+
+.journey-node .node-dot {
+  display:grid;
+  place-items:center;
+  background:#d8e9f3;
+  color:#668ba3;
+  width:25px;
+  height:25px;
+  border-radius:50%;
+  margin-bottom:11px;
+  border:1px solid #bbd1df
+}
+
+.journey-node.done .node-dot {
+  background:#cae7f6;
+  color:#176ea5;
+  border-color:#97c6e1
+}
+
+.journey-node.active .node-dot {
+  background:#157ab6;
+  color:white;
+  border-color:#157ab6
+}
+
+.node-dot svg {
+  width:13px;
+  height:13px
+}
+
+.journey-node strong {
+  font-size:14px;
+  font-weight:600;
+  display:block
+}
+
+.journey-node time {
+  display:block;
+  margin-top:5px;
+  font-size:12px;
+  color:#4c6f87
+}
+
+.inline-feedback {
+  min-height:20px;
+  margin:12px 0 0;
+  font-size:13px;
+  color:#165783
+}
+
+/* 拖放后的确认与到访时间线使用原生dialog，保证焦点和窄屏滚动。 */
+dialog {
+  border:1px solid #f7fbff;
+  border-radius:14px;
+  padding:24px;
+  background:#edf6fb;
+  color:var(--ink);
+  width:min(450px,calc(100% - 28px));
+  max-height:calc(100dvh - 32px);
+  overflow:auto;
+  box-shadow:0 24px 70px #14344e44
+}
+
+dialog::backdrop {
+  background:#16384d50;
+  backdrop-filter:blur(5px)
+}
+
+.dialog-heading {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-bottom:18px
+}
+
+.dialog-heading h2 {
+  font-size:21px
+}
+
+.dialog-object {
+  font-size:15px;
+  margin-bottom:20px
+}
+
+.position-change {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:#dcecf7;
+  padding:17px 22px;
+  border-radius:8px
+}
+
+.position-change>div,.position-change>label {
+  display:grid;
+  gap:9px
+}
+
+.position-change span {
+  font-size:13px;
+  color:#466b85
+}
+
+.position-change strong {
+  font-size:25px
+}
+
+.position-change select {
+  font-size:22px;
+  background:transparent;
+  border:0;
+  min-width:100px;
+  cursor:pointer;
+  font-weight:600
+}
+
+.affected-ships {
+  list-style:none;
+  margin:16px 0 21px;
+  padding:0
+}
+
+.affected-ships li {
+  display:flex;
+  justify-content:space-between;
+  padding:8px 0;
+  font-size:14px;
+  border-bottom:1px solid var(--line)
+}
+
+.field-label {
+  font-size:14px;
+  display:block;
+  margin-bottom:9px
+}
+
+textarea {
+  resize:vertical;
+  width:100%;
+  min-height:76px;
+  border:1px solid #b8d0e0;
+  border-radius:7px;
+  background:#f8fcff;
+  padding:11px;
+  font-size:14px
+}
+
+.form-error {
+  color:#9a3430;
+  font-size:13px;
+  margin-top:8px;
+  min-height:18px
+}
+
+.dialog-footer {
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:19px
+}
+
+.visit-dialog {
+  width:min(560px,calc(100% - 28px))
+}
+
+.visit-title-name {
+  font-size:25px;
+  margin-bottom:8px
+}
+
+.timeline-list {
+  list-style:none;
+  padding:0;
+  margin:25px 0
+}
+
+.timeline-list li {
+  padding:0 0 20px 26px;
+  border-left:1px solid #b4cfdf;
+  position:relative
+}
+
+.timeline-list li:before {
+  content:"";
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:#2889bf;
+  position:absolute;
+  left:-5px;
+  top:7px
+}
+
+.timeline-list button {
+  background:transparent;
+  text-align:left;
+  width:100%;
+  padding:0
+}
+
+.timeline-list strong {
+  font-size:16px
+}
+
+.timeline-list time {
+  font-size:13px;
+  margin-left:15px;
+  color:#4c6f87
+}
+
+.timeline-detail {
+  font-size:14px;
+  color:#3f6580;
+  line-height:1.7;
+  margin-top:9px
+}
+
+.handoff-copy {
+  font-size:15px;
+  line-height:1.9
+}
+
+.handoff-copy p+p {
+  margin-top:13px
+}
+
+.no-motion * {
+  scroll-behavior:auto
+}
+
+.no-motion .vessel,.no-motion .boat-art {
+  transition:none
+}
+
+@media(min-width:1600px) {
+  .sea {
+    height:350px
+  }
+
+  .vessel {
+    top:40px
+  }
+
+  .queue-path {
+    top:53px
+  }
+
+  .scene-image {
+    height:165px
+  }
+
+  .topbar {
+    height:90px
+  }
+
+}
+
+@media(max-width:1200px) {
+  .app-shell {
+    grid-template-columns:155px minmax(0,1fr);
+    width:calc(100% - 32px);
+    margin:16px auto;
+    height:calc(100dvh - 32px);
+    min-height:0
+  }
+
+  .sidebar {
+    padding-left:9px;
+    padding-right:9px
+  }
+
+  .brand {
+    font-size:12px;
+    gap:5px
+  }
+
+  .brand svg {
+    width:25px
+  }
+
+  .sidebar nav button {
+    gap:9px;
+    padding-left:10px
+  }
+
+  .workspace-grid {
+    grid-template-columns:minmax(0,1fr) 252px;
+    gap:12px
+  }
+
+  main {
+    padding-left:18px;
+    padding-right:18px
+  }
+
+  .date {
+    display:none
+  }
+
+  .search {
+    width:255px
+  }
+
+  .visit-content {
+    padding-left:16px;
+    padding-right:16px
+  }
+
+  .vessel .ship-name {
+    font-size:14px
+  }
+
+  .boat-art {
+    width:61px;
+    height:153px
+  }
+
+  .vessel-select::before {
+    width:69px;
+    height:155px
+  }
+
+  .queue-vessels {
+    inset:0 9px
+  }
+
+  .occupancy {
+    gap:10px;
+    padding:16px
+  }
+
+  .occupancy>div:first-child {
+    gap:8px
+  }
+
+  .capacity-bars {
+    gap:3px
+  }
+
+  .panel-toolbar {
+    padding:16px
+  }
+
+  .cancelled-row {
+    padding:11px 16px;
+    gap:7px
+  }
+
+}
+
+@media(max-width:1000px) {
+  .app-shell {
+    grid-template-columns:68px minmax(0,1fr)
+  }
+
+  .sidebar .brand b,.sidebar nav button>span:last-child,.port-signature,.reset-button {
+    display:none
+  }
+
+  .sidebar {
+    padding-left:10px;
+    padding-right:10px
+  }
+
+  .brand {
+    justify-content:center;
+    padding:0
+  }
+
+  .sidebar nav button {
+    justify-content:center;
+    padding:14px 0
+  }
+
+  .sidebar nav {
+    margin-top:36px
+  }
+
+  .brand svg {
+    width:30px
+  }
+
+  .workspace-grid {
+    grid-template-columns:minmax(0,1fr) 250px
+  }
+
+  .occupancy .capacity-bars {
+    display:none
+  }
+
+  .occupancy>span {
+    margin-left:auto
+  }
+
+}
+
+@media(max-width:760px) {
+  .app-shell {
+    display:block;
+    width:100%;
+    margin:0;
+    height:auto;
+    min-height:100dvh;
+    border-radius:0;
+    border:0
+  }
+
+  .sidebar {
+    flex-direction:row;
+    padding:14px 18px;
+    align-items:center;
+    border-bottom:1px solid #effaff99;
+    border-right:0
+  }
+
+  .sidebar .brand b {
+    display:block
+  }
+
+  .sidebar nav {
+    margin:0 0 0 auto;
+    display:flex;
+    gap:6px
+  }
+
+  .sidebar nav button {
+    display:none;
+    padding:8px
+  }
+
+  .sidebar nav button[aria-current] {
+    display:flex
+  }
+
+  .sidebar nav button[aria-current]>span:last-child {
+    display:block
+  }
+
+  .brand {
+    font-size:13px
+  }
+
+  .page-content {
+    overflow:visible
+  }
+
+  .topbar {
+    height:auto;
+    min-height:70px;
+    gap:12px
+  }
+
+  .topbar h1 {
+    display:none
+  }
+
+  .search {
+    width:auto;
+    flex:1;
+    margin:0
+  }
+
+  .topbar .icon-button {
+    width:35px
+  }
+
+  main {
+    padding:0 16px 20px
+  }
+
+  .anchorage-heading {
+    display:block;
+    padding:5px 0 18px
+  }
+
+  .anchorage-heading>div:first-child {
+    display:flex;
+    flex-direction:row-reverse;
+    justify-content:space-between;
+    align-items:center
+  }
+
+  .location {
+    margin:0;
+    font-size:12px
+  }
+
+  .anchorage-heading h2 {
+    font-size:25px
+  }
+
+  .anchorage-tabs {
+    margin-top:18px;
+    justify-content:space-between
+  }
+
+  .anchorage-tabs button {
+    flex:1;
+    padding:9px
+  }
+
+  .workspace-grid {
+    grid-template-columns:1fr;
+    gap:13px
+  }
+
+  .queue-panel {
+    min-width:0
+  }
+
+  .sea {
+    height:280px;
+    overflow-x:auto
+  }
+
+  .queue-vessels {
+    left:12px;
+    right:auto;
+    width:max(580px,calc(100% - 24px));
+    height:280px
+  }
+
+  .vessel {
+    top:18px;
+    width:20%;
+    height:246px
+  }
+
+  .boat-art {
+    width:60px;
+    height:144px
+  }
+
+  .queue-path {
+    top:31px;
+    left:25px;
+    width:530px;
+    right:auto
+  }
+
+  .vessel-select::before {
+    width:72px;
+    height:149px
+  }
+
+  .sea-caption {
+    display:none;
+    bottom:11px;
+    left:18px;
+    right:18px;
+    gap:8px;
+    font-size:11px
+  }
+
+  .occupancy {
+    padding:15px
+  }
+
+  .occupancy .capacity-bars {
+    display:flex
+  }
+
+  .cancelled-row {
+    font-size:12px
+  }
+
+  .cancelled-row .text-button {
+    font-size:12px
+  }
+
+  .panel-toolbar h3 {
+    font-size:16px
+  }
+
+  .toolbar-actions {
+    gap:5px
+  }
+
+  .toolbar-actions .text-button {
+    font-size:12px
+  }
+
+  .toolbar-actions .icon-button {
+    width:26px;
+    height:26px;
+    flex-shrink:0;
+    flex-basis:29px
+  }
+
+  .visit-panel {
+    display:grid;
+    grid-template-columns:90px 1fr
+  }
+
+  .scene-image {
+    height:auto;
+    min-height:245px;
+    background-position:51% center
+  }
+
+  .scene-image:after {
+    inset:0;
+    background:linear-gradient(90deg,transparent,#e9f4fb)
+  }
+
+  .visit-content {
+    padding:18px 15px 9px
+  }
+
+  .ship-heading h2 {
+    font-size:23px
+  }
+
+  .visit-facts {
+    gap:12px;
+    margin:18px 0
+  }
+
+  .visit-facts dt {
+    font-size:12px
+  }
+
+  .visit-facts dd {
+    font-size:14px
+  }
+
+  .journey {
+    overflow-x:auto;
+    grid-template-columns:repeat(5,100px);
+    padding:6px 16px 20px
+  }
+
+  .journey-panel .panel-toolbar {
+    padding:15px
+  }
+
+  .journey-panel .text-button {
+    font-size:12px
+  }
+
+  .journey-node strong {
+    font-size:13px
+  }
+
+  .journey-node time {
+    font-size:11px
+  }
+
+  .inline-feedback {
+    line-height:1.7
+  }
+
+  dialog {
+    padding:21px
+  }
+
+  .capacity-bars i {
+    height:14px
+  }
+
+  .position-change {
+    padding:16px
+  }
+
+  .port-signature {
+    display:none
+  }
+
+}
+
+@media(prefers-reduced-motion:reduce) {
+  *,*:before,*:after {
+    animation:none!important;
+    transition:none!important;
+    scroll-behavior:auto!important
+  }
+
+}

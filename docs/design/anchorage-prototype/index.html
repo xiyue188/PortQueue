@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PortQueue · 4A 锚地交互设计</title>
+  <meta name="description" content="4A独立交互设计，采用固定样例验证队列拖动和到访衔接，数据只保存在当前页面。">
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <!--
+  THESIS: 直接操作船舶顺位，让锚地工作区承担调度任务，避免通用查询列表。
+  OWN-WORLD: 延续现有冰蓝磨砂、深蓝文字、窄间距外框与场景图片。
+  STORY: 选择锚地和到访，抓取船舶，预览让位，填写原因，确认或取消，查看本次到访。
+  FIRST VIEWPORT: 左侧导航；主区开放水面及顺位；右侧到访资料；下方可展开时间线。
+  FORM: 已确认A业务任务型延伸，借用B到访时间线；代码驱动交互原型，非正式业务页面。
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+  -->
+  <a class="skip-link" href="#workspace">跳至锚地工作区</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./index.html"><span data-icon="brand"></span><b>PORTQUEUE</b></a>
+      <nav aria-label="业务导航">
+        <button data-route="overview"><span data-icon="home"></span><span>总览</span></button>
+        <button data-route="appointments"><span data-icon="document"></span><span>进港预约</span></button>
+        <button aria-current="page" data-route="queue"><span data-icon="anchor"></span><span>锚地排队</span></button>
+        <button data-route="plans"><span data-icon="berth"></span><span>泊位计划</span></button>
+        <button data-route="events"><span data-icon="clock"></span><span>进出港记录</span></button>
+        <button data-route="statistics"><span data-icon="chart"></span><span>查询统计</span></button>
+      </nav>
+      <div class="port-signature"><span data-icon="anchor"></span><strong>上海洋山深水港</strong><span>SH–YS</span></div>
+      <button class="reset-button" id="reset"><span data-icon="refresh"></span>重置操作</button>
+    </aside>
+
+    <main id="workspace">
+      <header class="topbar">
+        <h1>锚地排队</h1><span class="date">2026年11月27日</span>
+        <label class="search"><span data-icon="search"></span><input id="search" type="search" placeholder="查找船舶或到访编号" autocomplete="off" aria-label="查找船舶或到访编号"><span id="search-count" aria-live="polite"></span></label>
+        <button class="icon-button" id="help" aria-label="查看交互设计说明"><span data-icon="info"></span></button>
+      </header>
+
+      <div class="page-content">
+        <div class="anchorage-heading">
+          <div><div class="location"><span data-icon="anchor"></span><span>上海洋山深水港</span></div><h2 id="anchorage-title">南锚地</h2></div>
+          <div class="anchorage-tabs" role="group" aria-label="选择锚地"><button data-area="south" aria-pressed="true">南锚地 <span>6</span></button><button data-area="east" aria-pressed="false">东锚地 <span>2</span></button><button data-area="north" aria-pressed="false">北锚地 <span>0</span></button></div>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="queue-panel glass" aria-labelledby="queue-title">
+            <div class="panel-toolbar"><h3 id="queue-title">候泊队列 <span id="queue-count">5</span></h3><div class="toolbar-actions"><button class="text-button" id="position-button"><span data-icon="sort"></span>调整顺位</button><button class="icon-button" id="motion" aria-label="暂停动态反馈" aria-pressed="false"><span data-icon="pause"></span></button></div></div>
+            <div class="sea" id="sea">
+              <div class="sea-contour contour-one"></div><div class="sea-contour contour-two"></div><div class="sea-contour contour-three"></div>
+              <div class="queue-path" aria-hidden="true"></div>
+              <div class="queue-vessels" id="queue-vessels" role="list" aria-label="按顺位排列的船舶"></div>
+              <div class="empty-state" id="empty-state" hidden><span data-icon="anchor"></span><h3>当前没有候泊船舶</h3><p>选择其他锚地查看在场情况</p></div>
+              <div class="sea-caption"><span>调度顺序</span><span class="line-arrow" aria-hidden="true"></span><span>下一步 · 泊位安排</span></div>
+            </div>
+            <div class="occupancy"><div><span>实际在场</span><strong id="presence">6 <small>/ 8 艘</small></strong></div><div class="capacity-bars" id="capacity-bars" aria-hidden="true"></div><span id="available">余位 2</span></div>
+            <div class="cancelled-row" id="cancelled-row"><span class="muted-ship" data-icon="ship"></span><strong>海辰</strong><span>已撤销 · 待离锚</span><button class="text-button" id="cancelled-detail">查看到访 <span data-icon="arrow"></span></button></div>
+          </section>
+
+          <aside class="visit-panel glass" aria-labelledby="selected-name">
+            <div class="scene-image" aria-hidden="true"></div>
+            <div class="visit-content">
+              <div class="ship-heading"><h2 id="selected-name">东澜</h2><span class="status" id="selected-status">待安排</span></div>
+              <p class="visit-number" id="visit-number">YS-20261127-042</p>
+              <dl class="visit-facts"><div><dt>实际入锚</dt><dd id="entered-time">08:10</dd></div><div><dt>已等待</dt><dd id="waiting-time">1小时50分</dd></div><div><dt>人工预计靠泊</dt><dd id="estimated-time">12:30</dd></div><div><dt>已确认靠泊</dt><dd id="confirmed-time">—</dd></div></dl>
+              <button class="primary-button full" id="plan-button">安排泊位 <span data-icon="arrow"></span></button>
+              <button class="text-button full" id="visit-button">查看本次到访 <span data-icon="clock"></span></button>
+            </div>
+          </aside>
+
+          <section class="journey-panel glass" aria-labelledby="journey-title">
+            <div class="panel-toolbar"><h3 id="journey-title">本次到访</h3><button class="text-button" id="journey-expand">展开时间线 <span data-icon="arrow"></span></button></div>
+            <div class="journey" id="journey"></div>
+          </section>
+        </div>
+        <p class="inline-feedback" id="feedback" role="status" aria-live="polite"></p>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="reorder-dialog" aria-labelledby="reorder-title">
+    <form id="reorder-form">
+      <div class="dialog-heading"><h2 id="reorder-title">调整顺位</h2><button type="button" class="icon-button close-dialog" aria-label="关闭"><span data-icon="close"></span></button></div>
+      <p id="reorder-vessel" class="dialog-object"></p>
+      <div class="position-change"><div><span>原顺位</span><strong id="old-position"></strong></div><span data-icon="arrow"></span><label><span>目标顺位</span><select id="new-position" aria-label="目标顺位"></select></label></div>
+      <ul id="affected-ships" class="affected-ships"></ul>
+      <label class="field-label" for="reason">调整原因</label><textarea id="reason" rows="2" maxlength="500" placeholder="填写此次调整的原因" required></textarea>
+      <p id="reorder-error" class="form-error" role="alert"></p>
+      <div class="dialog-footer"><button type="button" class="secondary-button close-dialog">取消</button><button class="primary-button" type="submit">确认调整</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="visit-dialog" class="visit-dialog" aria-labelledby="visit-title"><div class="dialog-heading"><h2 id="visit-title">本次到访</h2><button class="icon-button close-dialog" aria-label="关闭"><span data-icon="close"></span></button></div><div id="visit-body"></div></dialog>
+  <dialog id="handoff-dialog" aria-labelledby="handoff-title"><div class="dialog-heading"><h2 id="handoff-title">安排泊位</h2><button class="icon-button close-dialog" aria-label="关闭"><span data-icon="close"></span></button></div><div id="handoff-body"></div><div class="dialog-footer"><button class="primary-button close-dialog">返回队列</button></div></dialog>
+</body>
+</html>
