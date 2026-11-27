@@ -5,6 +5,8 @@ import type { SessionClient } from '../composables/useSession'
 import { useAnchorages } from '../composables/useAnchorages'
 import PortIcon from '../components/PortIcon.vue'
 import QueueShip from '../components/QueueShip.vue'
+import AnchorageOperation from '../components/AnchorageOperation.vue'
+import { appointmentStatuses } from '../types/appointment'
 import { formatDate } from '../utils/appointmentPresentation'
 import scene from '../assets/port-scene.png'
 const props = defineProps<{ active: boolean; accountSession: SessionClient }>()
@@ -13,9 +15,14 @@ const model = useAnchorages()
 const { facilities, queue, detail, areaId, selectedId, loading, detailLoading, error, detailError } = model
 const query = ref(''), composing = ref(false), occupancyOpen = ref(false)
 const timeline = ref<HTMLDialogElement>(), lane = ref<HTMLElement>()
+const operation = ref<InstanceType<typeof AnchorageOperation>>(), feedback = ref('')
 let timelineTrigger: HTMLElement | null = null
 const identity = computed(() => { const user = props.accountSession.session.value?.user; return user ? `${user.userId}:${user.roleCode}` : '' })
 const area = computed(() => facilities.value?.items.find(a => a.anchorageId === areaId.value))
+const role = computed(() => props.accountSession.session.value?.user?.roleCode ?? '')
+const canRecord = computed(() => ['ADMIN','DISPATCHER','RECORDER'].includes(role.value))
+const canArrange = computed(() => ['ADMIN','DISPATCHER'].includes(role.value))
+const isPresent = computed(() => !!detail.value?.enteredAt && !detail.value.leftAt)
 const matching = computed(() => queue.value?.items.filter(s => `${s.shipName} ${s.callNo} ${s.appointmentNo}`.toLowerCase().includes(query.value.trim().toLowerCase())) ?? [])
 const statusName = (status: string) => ({ WAITING: '待安排', ASSIGNED: '已安排', CANCELLED: '已撤销', LEFT: '已离锚' }[status] ?? status)
 const eventName = (type: string) => ({ ANCHORAGE_ENTER: '实际入锚', ANCHORAGE_LEAVE: '实际离锚', PORT_ENTER: '实际进港', BERTHING: '实际靠泊', UNBERTHING: '实际离泊' }[type] ?? type)
@@ -43,8 +50,18 @@ function search() { if (!composing.value && matching.value[0]) void select(match
 function openTimeline() { timelineTrigger = document.activeElement as HTMLElement; timeline.value?.showModal() }
 function closeTimeline() { timeline.value?.close(); timelineTrigger?.focus({preventScroll:true}) }
 async function refresh() { if (identity.value) await model.load(); await nextTick(); locateSelected() }
+function reconcileSaved() { emit('changed'); void refresh() }
+async function afterSaved(id: string, message: string) {
+  const savedIdentity = identity.value, savedArea = areaId.value
+  feedback.value = message; emit('changed'); await model.load()
+  if (savedIdentity !== identity.value || savedArea !== areaId.value || !props.active) return
+  if (!error.value) await model.select(id)
+  if (savedIdentity !== identity.value) return
+  if (error.value || detailError.value) feedback.value = `${message}最新页面暂未读取成功，请重新读取；无需重复保存。`
+  await nextTick(); locateSelected()
+}
 async function locateAppointment(id: string) { if (identity.value) { await model.load('', id); await nextTick(); locateSelected() } }
-watch(identity, () => { model.clear(); closeTimeline(); query.value = ''; occupancyOpen.value = false; if (identity.value && props.active) void model.load() })
+watch(identity, () => { model.clear(); closeTimeline(); query.value = ''; feedback.value = ''; occupancyOpen.value = false; if (identity.value && props.active) void model.load() })
 watch(() => props.active, active => {
   if (!active) { model.suspend(); closeTimeline(); return }
   if (identity.value && model.stale()) void model.load()
@@ -55,6 +72,7 @@ defineExpose({ refresh, locateAppointment })
 
 <template>
   <section class="anchorage-workspace" :hidden="!active" aria-label="锚地工作区" :aria-busy="loading">
+    <p v-if="feedback" class="aq-feedback" role="status">{{ feedback }}<button class="icon-button" aria-label="关闭操作结果" @click="feedback = ''"><PortIcon name="close" :size="15"/></button></p>
     <div v-if="!identity" class="aq-empty glass-panel"><PortIcon name="anchor" :size="32"/><h2>锚地排队</h2><p>请在账号区登录后继续。</p></div>
     <div v-else-if="error" class="aq-empty glass-panel" role="alert"><p>{{ error }}</p><button class="button" @click="refresh">重新读取</button></div>
     <template v-else>
@@ -65,6 +83,7 @@ defineExpose({ refresh, locateAppointment })
         <section class="aq-board glass-panel" aria-labelledby="aq-title">
           <div class="aq-toolbar"><h3 id="aq-title">候泊队列 <span>{{ queue?.items.length ?? '—' }} 艘</span></h3>
             <label class="aq-search"><PortIcon name="search" :size="17"/><input v-model="query" type="search" placeholder="船名 / 预约编号" aria-label="查找队列船舶" @compositionstart="composing = true" @compositionend="composing = false" @keydown.enter="search"/><span v-if="query">{{ matching.length }}</span></label>
+            <button v-if="canRecord && area" class="button button-primary aq-enter" :disabled="area.statusCode !== 'AVAILABLE'" @click="operation?.open('enter',area)">登记入锚</button>
           </div>
           <div ref="lane" class="aq-sea" tabindex="0" aria-label="完整候泊队列，可横向浏览">
             <div v-if="queue?.items.length" class="aq-lane" :style="{ '--slots': Math.max(5, queue.items.length) }">
@@ -87,10 +106,10 @@ defineExpose({ refresh, locateAppointment })
             <div class="aq-scene" :style="{ backgroundImage: `url(${scene})` }"></div>
             <div class="aq-detail-body"><div class="aq-identity"><h2>{{ detail.shipName }}</h2><span class="aq-state" :class="{assigned:detail.statusCode === 'ASSIGNED'}">{{ statusName(detail.statusCode) }}</span></div><span class="aq-call">{{ detail.callNo }}</span>
               <dl class="aq-facts"><div><dt>实际入锚</dt><dd>{{ formatDate(detail.enteredAt) }}</dd></div><div><dt>{{ detail.leftAt ? '本段停留' : '已等待' }}</dt><dd>{{ waiting(detail.enteredAt,detail.leftAt) }}</dd></div>
-                <div><dt>人工预计靠泊</dt><dd>{{ formatDate(detail.manualEstimatedBerthingAt) }}</dd></div><div><dt>已确认靠泊</dt><dd>{{ formatDate(detail.confirmedBerthingAt) }}</dd></div>
+                <div><dt><button v-if="canArrange && isPresent && detail.statusCode !== 'CANCELLED' && area" class="aq-field-action" @click="operation?.open('estimate',area,detail)">人工预计靠泊 <PortIcon name="edit" :size="13"/></button><span v-else>人工预计靠泊</span></dt><dd>{{ formatDate(detail.manualEstimatedBerthingAt) }}</dd></div><div><dt>已确认靠泊</dt><dd>{{ formatDate(detail.confirmedBerthingAt) }}</dd></div>
               </dl>
               <details v-if="detail.legacyEstimatedBerthingAt" class="aq-legacy"><summary>历史预计</summary><p>{{ formatDate(detail.legacyEstimatedBerthingAt) }} · 来源待核</p></details>
-              <button class="button button-primary aq-primary" @click="openTimeline">查看本次到访 <PortIcon name="arrow" :size="17"/></button>
+              <div class="aq-actions"><button v-if="canRecord && isPresent && area" class="button button-primary" @click="operation?.open('leave',area,detail)">登记离锚</button><button class="button" :class="{'button-primary': !canRecord || !isPresent}" @click="openTimeline">查看本次到访</button></div>
               <button class="aq-link aq-appointment" @click="emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button>
             </div>
           </template>
@@ -106,11 +125,12 @@ defineExpose({ refresh, locateAppointment })
     <header><h2 id="aq-visit-title">{{ detail?.shipName }} · 本次到访</h2><button class="icon-button" aria-label="关闭到访时间线" @click="closeTimeline"><PortIcon name="close"/></button></header>
     <p class="aq-call">{{ detail?.callNo }}</p>
     <div class="aq-history"><details open><summary>进港预约 <time>{{ formatDate(detail?.submittedAt ?? null) }}</time></summary><p>{{ detail?.appointmentNo }}</p><button class="aq-link" @click="closeTimeline(); detail && emit('appointment', detail.appointmentId)">打开预约 <PortIcon name="arrow" :size="16"/></button></details>
-      <details><summary>审核记录 <time>{{ formatDate(detail?.reviewedAt ?? null) }}</time></summary><p>{{ detail?.reviewerName ?? '尚无审核人' }} · {{ detail?.appointmentStatusCode }}</p></details>
+      <details><summary>审核记录 <time>{{ formatDate(detail?.reviewedAt ?? null) }}</time></summary><p>{{ detail?.reviewerName ?? '尚无审核人' }} · {{ appointmentStatuses.find(s => s.code === detail?.appointmentStatusCode)?.label }}</p></details>
       <details v-for="event in detail?.events" :key="event.eventId"><summary>{{ eventName(event.eventTypeCode) }} <time>{{ formatDate(event.eventTime) }}</time></summary><p>记录人：{{ event.recordedByName }}<span v-if="event.queueEntryId === detail?.queueEntryId"> · 本次停留</span></p></details>
       <details v-if="detail?.confirmedBerthingAt"><summary>已确认泊位 <time>{{ formatDate(detail.confirmedBerthingAt) }}</time></summary><p>{{ detail.berthName }} · {{ formatDate(detail.confirmedUnberthingAt) }} 结束</p></details>
     </div>
   </dialog>
+  <AnchorageOperation ref="operation" :account-session="accountSession" :active="active" @saved="afterSaved" @refresh="reconcileSaved"/>
 </template>
 
 <style src="../styles/anchorage.css"></style>

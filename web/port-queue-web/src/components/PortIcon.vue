@@ -22,6 +22,8 @@ const paths: Record<string, string> = {
   user: 'M4 22v-3a8 8 0 0 1 16 0v3M17 7A5 5 0 1 0 7 7a5 5 0 0 0 10 0',
   info: 'M12 11v6m0-10v.1M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',
   reset: 'M7 7 17 17M17 7 7 17',
+  close: 'M6 6 18 18M18 6 6 18',
+  edit: 'm14 4 6 6M4 20l5-1L21 7l-4-4L5 15z',
   menu: 'M4 6h16M4 12h16M4 18h16',
 }
 </script>

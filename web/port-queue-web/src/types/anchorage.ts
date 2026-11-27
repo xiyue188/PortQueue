@@ -24,5 +24,18 @@ export interface AnchorageQueue {
 export interface AnchorageDetail extends AnchorageStay {
   anchorageName: string; requestedArrivalAt: string; submittedAt: string | null
   reviewedAt: string | null; reviewerName: string | null; appointmentStatusCode: string
-  events: { eventId: string; eventTypeCode: string; eventTime: string; queueEntryId: string | null; recordedByName: string }[]
+  events: { eventId: string; eventTypeCode: string; eventTime: string; queueEntryId: string | null; recordedByName: string | null }[]
+}
+
+export interface AnchorageCandidate {
+  appointmentId: string; appointmentNo: string; portCallId: string; callNo: string
+  shipId: string; shipName: string; requestedArrivalAt: string; priorityLevel: number
+}
+export interface AnchorageCandidates {
+  items: AnchorageCandidate[]; page: number; pageSize: number; totalCount: number
+}
+export interface AnchorageWriteResult {
+  queueEntryId: string; anchorageId?: string; appointmentId?: string
+  eventId?: string; eventTypeCode?: string; eventTime?: string
+  manualEstimatedBerthingAt?: string | null; estimateVersion?: string
 }
