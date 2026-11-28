@@ -46,7 +46,7 @@
 
 ## 后端
 
-后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约查询、独立总览、真实会话、预约登记/草稿编辑/提交及审核；锚地、泊位和事件专用页面/API 待中期后设计接入；总览仅保留已有数据概要。
+后端按 API、应用契约、基础设施三层组织。当前完成健康接口、预约、独立总览、真实会话、锚地办理与泊位5A只读查询；泊位写入和独立实际记录仍按阶段接入。
 
 | 路径 | 职责 |
 |---|---|
@@ -77,7 +77,7 @@
 |---|---|
 | `web/port-queue-web/src/main.ts` | Vue 应用入口，挂载根组件和全局样式。 |
 | `web/port-queue-web/src/App.vue` | 工作区入口，挂载共用真实查询的预约工作台。 |
-| `web/port-queue-web/src/views/AppointmentListView.vue` | 组织总览、预约两个页面及未接入提示的稳定工作区；协调浏览器前进/后退、查询/选择保留及写入后的局部刷新。 |
+| `web/port-queue-web/src/views/AppointmentListView.vue` | 共用总览、预约、锚地和泊位的稳定外框；协调浏览器往返、同次到访定位及相关写入后的缓存失效。 |
 | `web/port-queue-web/src/api/appointments.ts` | 预约 API 客户端和响应结构校验；不提供 Mock 兜底。 |
 | `web/port-queue-web/src/composables/useAppointments.ts` | 区分正在请求与已经显示的条件，管理取消、超时、分页和迟到响应；加载保留旧表格，失败清除。 |
 | `web/port-queue-web/src/composables/useAppointmentSelection.ts` | 独立保存所选详情，候选/表格直接选择，事件按主键读取；不修改清单查询，处理取消、失败与重试。 |
@@ -199,3 +199,18 @@
 已删除三个通用查询页和其专用 SQL/API，不保留无用途的组件或查询层。历史阶段报告说明的是当时实现，当前开放范围以中期交付说明为准。
 
 `web/port-queue-web/tests/dashboard-final.spec.ts` 验证全状态入口、指标说明、轮询生命周期、动画控制与居中截图；同目录 `session.spec.ts` 用独立测试库验证页面新增后另一看板自动更新。计划及验收条件见 `docs/stages/midterm-dashboard-final.md`，交付口径见 `docs/stages/midterm-dashboard-delivery.md`，最终测试与复核见 `docs/reviews/2026-11-10-dashboard-final-review.md`。
+
+## 第五阶段5A文件入口
+
+| 路径 | 职责 |
+|---|---|
+| `database/queries/berth-*.sql` | 排期、分页到访与单次到访的三个参数化读取，直接使用原计划/版本和事件事实。 |
+| `src/PortQueue.Application/Berths/BerthQueries.cs` | 三项查询及返回模型；字符串ID、带时区时间。 |
+| `src/PortQueue.Infrastructure/Berths/SqlBerthQueries.cs` | 按主港绑定参数，读取嵌入SQL快照。 |
+| `src/PortQueue.Api/Controllers/BerthsController.cs` | 登录角色、时间范围、分页、关键词及ID校验。 |
+| `web/port-queue-web/src/views/BerthView.vue` | 日期与到访查询、所选详情、版本时间线和跨页出口。 |
+| `web/port-queue-web/src/components/BerthTimeline.vue` | 等比资源时间轴、相交版本分轨、实际占用及等价明细。 |
+| `web/port-queue-web/src/composables/useBerths.ts` | 三份独立查询状态、成功条件缓存、取消旧响应及关联变更失效。 |
+| `web/port-queue-web/src/api/berths.ts`、`types/berth.ts`、`utils/berthPresentation.ts` | API结构校验、前端类型、计划/候选文字与北京时间表达。 |
+| `web/port-queue-web/src/styles/berth.css` | 模块专用冰蓝版式、短屏密度和窄屏布局。 |
+| `tests/PortQueue.Api.Tests/Berths/BerthQueryTests.cs`、`web/port-queue-web/tests/berth-read.spec.ts` | 独立数据库/HTTP与真实浏览器任务验收。 |
