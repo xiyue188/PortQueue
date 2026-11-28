@@ -9,7 +9,7 @@ import AnchorageOperation from '../components/AnchorageOperation.vue'
 import { formatDate } from '../utils/appointmentPresentation'
 import scene from '../assets/port-scene.png'
 const props = defineProps<{ active: boolean; accountSession: SessionClient }>()
-const emit = defineEmits<{ appointment: [id: string]; changed: [] }>()
+const emit = defineEmits<{ appointment: [id: string]; berth: [id:string]; changed: [] }>()
 const model = useAnchorages()
 const { facilities, queue, detail, areaId, selectedId, loading, detailLoading, error, detailError } = model
 const query = ref(''), composing = ref(false), occupancyOpen = ref(false)
@@ -73,7 +73,7 @@ async function afterSaved(id: string, message: string) {
   if (error.value || detailError.value) feedback.value = `${message}最新页面暂未读取成功，请重新读取；无需重复保存。`
   await nextTick(); locateSelected()
 }
-async function locateAppointment(id: string) { if (identity.value) { await model.load('', id); await nextTick(); locateSelected() } }
+async function locateAppointment(id: string) { if (identity.value && detail.value?.appointmentId !== id) { await model.load('', id); await nextTick(); locateSelected() } }
 watch(identity, () => { model.clear(); closeTimeline(); query.value = ''; feedback.value = ''; occupancyOpen.value = false; if (identity.value && props.active) void model.load() })
 watch(() => props.active, active => {
   if (!active) { model.suspend(); closeTimeline(); return }
@@ -128,6 +128,7 @@ defineExpose({ refresh, locateAppointment })
         <header><h3>本次到访</h3>
           <nav aria-label="到访记录">
             <button class="aq-link" :disabled="!detail" @click="detail && emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button>
+            <button class="aq-link" :disabled="!detail" @click="detail && emit('berth',detail.appointmentId)">查看泊位安排 <PortIcon name="berth" :size="16"/></button>
             <button class="aq-link" :disabled="!detail" @click="openTimeline()">展开时间线 <PortIcon name="arrow" :size="16"/></button>
           </nav>
         </header>

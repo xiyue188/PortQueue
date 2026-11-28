@@ -93,7 +93,7 @@ onScopeDispose(() => {
         <ol class="process-steps">
           <li v-for="(step, index) in steps" :key="step.name" :class="{ 'process-entry': index === 0 }">
             <span class="process-symbol"><PortIcon :name="step.icon" :size="25" /></span>
-            <h3>{{ step.name }}</h3><p>{{ step.detail }}</p><small v-if="index > 1">待接入</small>
+            <h3>{{ step.name }}</h3><p>{{ step.detail }}</p><small v-if="index > 2">待接入</small>
           </li>
         </ol>
       </div>

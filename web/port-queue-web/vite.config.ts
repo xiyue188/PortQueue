@@ -3,6 +3,9 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+// 隔离验收可指定独立后端；普通 VS Code 启动仍使用 5180，不抢占已有服务。
+const apiTarget = process.env.PORTQUEUE_API_TARGET ?? 'http://localhost:5180'
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -14,12 +17,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/api': { target: 'http://localhost:5180' } },
+    proxy: { '/api': { target: apiTarget } },
   },
   preview: {
     host: '127.0.0.1',
     port: 4173,
     strictPort: true,
-    proxy: { '/api': { target: 'http://localhost:5180' } },
+    proxy: { '/api': { target: apiTarget } },
   },
 })

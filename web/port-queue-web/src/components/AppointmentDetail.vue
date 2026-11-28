@@ -8,7 +8,7 @@ import type { AppointmentItem, AppointmentDetail } from '../types/appointment'
 import type { SessionClient } from '../composables/useSession'
 import { formatDate } from '../utils/appointmentPresentation'
 const props = defineProps<{ item: AppointmentItem; accountSession: SessionClient }>()
-const emit = defineEmits<{ saved: [id: string, decision: 'APPROVED' | 'REJECTED']; reconcile: [id: string]; anchorage: [id: string] }>()
+const emit = defineEmits<{ saved: [id: string, decision: 'APPROVED' | 'REJECTED']; reconcile: [id: string]; anchorage: [id: string]; berth: [id:string] }>()
 const detail = computed(() => 'estimatedOperationHours' in props.item ? props.item as AppointmentDetail : null)
 const quantity = (value: number | null, unit: string) => value === null ? '未申报' : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
 </script>
@@ -39,8 +39,9 @@ const quantity = (value: number | null, unit: string) => value === null ? '未�
       <div v-if="item.reviewedAt" class="review-line"><span class="review-icon"><PortIcon name="document" :size="18" /></span><span><strong>{{ item.reviewerName }}</strong><small>{{ formatDate(item.reviewedAt) }}</small></span></div>
       <p class="review-comment">{{ item.reviewedAt ? item.reviewComment ?? '未填写审核意见' : '尚未审核' }}</p>
     </div>
-    <footer v-if="detail?.hasAnchorageStay && accountSession.session.value?.user" class="detail-related">
-      <button class="button" @click="emit('anchorage',item.appointmentId)">查看锚地停留 <PortIcon name="arrow" :size="16"/></button>
+    <footer v-if="detail && accountSession.session.value?.user && (detail.hasAnchorageStay || ['APPROVED','COMPLETED'].includes(item.appointmentStatusCode))" class="detail-related">
+      <button v-if="detail.hasAnchorageStay" class="button" @click="emit('anchorage',item.appointmentId)">查看锚地停留 <PortIcon name="arrow" :size="16"/></button>
+      <button v-if="['APPROVED','COMPLETED'].includes(item.appointmentStatusCode)" class="button" @click="emit('berth',item.appointmentId)">查看泊位安排 <PortIcon name="berth" :size="16"/></button>
     </footer>
   </aside>
 </template>

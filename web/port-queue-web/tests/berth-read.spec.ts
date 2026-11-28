@@ -1,0 +1,133 @@
+// 真正读取本机 SQL Server 的 5A 浏览器验收；无路由样例和业务写入。
+import { test, expect, type Page, type BrowserContext } from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
+const evidence = '../../artifacts/stage5a'
+let cookies:Awaited<ReturnType<BrowserContext['cookies']>>|undefined
+async function login(page:Page) {
+  if(cookies) await page.context().addCookies(cookies)
+  const session = await (await page.request.get('/api/session')).json()
+  // 同批复用已验证的真实会话，不以每项布局检查重复登录触发凭据限流。
+  if(session.user?.username!=='pq.dispatcher') {
+    const result = await page.request.post('/api/session/login',{data:{username:'pq.dispatcher',password:'123456'},headers:{'X-CSRF-TOKEN':session.csrfToken}})
+    expect(result.ok()).toBeTruthy()
+    cookies=await page.context().cookies()
+  }
+  await page.goto('/#plans')
+  await expect(page.locator('.bp-resource-row').first()).toBeVisible()
+  await expect(page.locator('.bp-detail .bp-identity')).toBeVisible()
+}
+test('真实资源、完整清单与同一到访往返',async ({page}) => {
+  const errors:string[]=[];page.on('pageerror',error => errors.push(error.message))
+  await login(page)
+  const waiting = await (await page.request.get('/api/berths/visits?pageSize=8')).json()
+  await expect(page.locator('.bp-count')).toHaveText(`${waiting.totalCount} 艘次`)
+  expect(waiting.totalCount).toBeGreaterThan(3)
+  expect(await page.locator('.bp-visits>button').count()).toBe(waiting.items.length)
+  if (waiting.totalCount > 8) {
+    await page.getByRole('button',{name:'下一页到访',exact:true}).click()
+    await expect(page.locator('.bp-pagination span')).toContainText('2 /')
+    const second = await (await page.request.get('/api/berths/visits?page=2&pageSize=8')).json()
+    await expect(page.locator('.bp-visits>button').first()).toContainText(second.items[0].shipName)
+  }
+  const visit = waiting.items[0]
+  await page.getByRole('searchbox',{name:'查找泊位到访'}).fill(visit.callNo)
+  await page.locator('.bp-search').getByRole('button',{name:'查询',exact:true}).click()
+  await expect(page.locator('.bp-query')).toContainText(visit.callNo)
+  await expect(page.locator('.bp-visits>button')).toHaveCount(1)
+  await page.locator('.bp-visits>button').click()
+  await expect(page.locator('.bp-detail .bp-call')).toHaveText(visit.callNo)
+  const rowCount = await page.locator('.bp-resource-row').count()
+  await page.getByRole('button',{name:'查看进港预约',exact:true}).filter({visible:true}).click()
+  await expect(page.locator('#appointment-detail')).toBeVisible()
+  await expect(page.locator('#appointment-detail .call-details')).toContainText(visit.callNo)
+  await page.getByRole('button',{name:'查看泊位安排',exact:true}).filter({visible:true}).click()
+  await expect(page.locator('.bp-detail .bp-call')).toHaveText(visit.callNo)
+  await expect(page.locator('.bp-query')).toContainText(visit.callNo)
+  await expect(page.locator('.bp-resource-row')).toHaveCount(rowCount)
+  await page.locator('.bp-query').getByRole('button',{name:'清除'}).click()
+  await expect(page.locator('.bp-visits>button')).toHaveCount(waiting.items.length)
+  await page.getByRole('button',{name:/本次到访与版本记录/}).click()
+  await expect(page.locator('.bp-dialog[open]')).toBeVisible()
+  await page.getByRole('button',{name:'关闭到访记录'}).click()
+  await mkdir(evidence,{recursive:true})
+  await page.screenshot({path:`${evidence}/desktop.png`,fullPage:true})
+  expect(errors).toEqual([])
+})
+test('短屏与窄屏不裁切业务出口，读取失败清除排期',async ({page}) => {
+  await page.setViewportSize({width:1440,height:800});await login(page)
+  const box=await page.locator('.bp-waiting').boundingBox();expect(box!.y+box!.height).toBeLessThanOrEqual(800)
+  const action=await page.locator('.bp-detail-actions').boundingBox();expect(action!.y+action!.height).toBeLessThanOrEqual(800)
+  await mkdir(evidence,{recursive:true});await page.screenshot({path:`${evidence}/short.png`,fullPage:true})
+  await page.setViewportSize({width:390,height:844})
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+  await page.screenshot({path:`${evidence}/mobile.png`,fullPage:true})
+  await page.route('**/api/berths/schedule?**',route => route.fulfill({status:503,body:'Unavailable'}))
+  await page.getByRole('button',{name:'刷新',exact:true}).click()
+  await expect(page.locator('.bp-chart-host [role=alert]')).toContainText('暂时无法读取')
+  await expect(page.locator('.bp-resource-row')).toHaveCount(0)
+})
+test('改日期或搜索途中离页，返回后按新条件重读',async ({page}) => {
+  await login(page)
+  const initial = await page.getByLabel('排期日期',{exact:true}).inputValue()
+  const previous = new Date(`${initial}T00:00:00+08:00`)
+  previous.setTime(previous.getTime()-86400_000+8*3600_000)
+  const changed = previous.toISOString().slice(0,10)
+  let release!:()=>void
+  const hold = new Promise<void>(resolve => { release=resolve })
+  let count=0
+  await page.route('**/api/berths/schedule?**',async route => {count++;if(count===1) await hold;await route.continue().catch(()=>{})})
+  await page.getByLabel('排期日期',{exact:true}).fill(changed)
+  await expect.poll(()=>count).toBe(1)
+  await page.getByRole('navigation',{name:'业务导航',exact:true}).getByRole('button',{name:'总览',exact:true}).click()
+  await page.getByRole('navigation',{name:'业务导航',exact:true}).getByRole('button',{name:'泊位计划',exact:true}).click()
+  await expect.poll(()=>count).toBe(2)
+  await expect(page.locator('.bp-ticks small').first()).toHaveText(changed.slice(5).replace('-','/'))
+  release()
+  await page.getByRole('button',{name:'48小时',exact:true}).click()
+  await expect(page.locator('.bp-ticks small')).toHaveCount(2)
+  const waiting = await (await page.request.get('/api/berths/visits?pageSize=8')).json()
+  const callNo=waiting.items[0].callNo
+  let releaseList!:()=>void
+  const holdList=new Promise<void>(resolve=>{releaseList=resolve});let listCount=0
+  await page.route('**/api/berths/visits?**',async route=>{listCount++;if(listCount===1)await holdList;await route.continue().catch(()=>{})})
+  await page.getByRole('searchbox',{name:'查找泊位到访'}).fill(callNo)
+  await page.locator('.bp-search').getByRole('button',{name:'查询',exact:true}).click()
+  await expect.poll(()=>listCount).toBe(1)
+  await page.getByRole('navigation',{name:'业务导航',exact:true}).getByRole('button',{name:'总览',exact:true}).click()
+  await page.getByRole('navigation',{name:'业务导航',exact:true}).getByRole('button',{name:'泊位计划',exact:true}).click()
+  await expect.poll(()=>listCount).toBe(2)
+  await expect(page.locator('.bp-visits>button')).toHaveCount(1)
+  await expect(page.locator('.bp-query')).toContainText(callNo)
+  releaseList()
+})
+test('预约、泊位和锚地定位同次到访，返回保留锚地搜索',async ({page}) => {
+  await login(page)
+  const all=await (await page.request.get('/api/berths/visits?scope=all&pageSize=100')).json()
+  const visit=all.items.find((v:{queueEntryId:string|null})=>v.queueEntryId)
+  expect(visit).toBeTruthy()
+  await page.getByRole('button',{name:'全部到访',exact:true}).click()
+  await page.getByRole('searchbox',{name:'查找泊位到访'}).fill(visit.callNo)
+  await page.locator('.bp-search').getByRole('button',{name:'查询',exact:true}).click()
+  await expect(page.locator('.bp-visits>button')).toHaveCount(1)
+  await page.locator('.bp-visits>button').click()
+  await expect(page.locator('.bp-detail .bp-call')).toHaveText(visit.callNo)
+  await page.locator('.bp-detail').getByRole('button',{name:'查看锚地停留',exact:true}).click()
+  await expect(page.locator('.aq-detail .aq-call')).toHaveText(visit.callNo)
+  await page.getByRole('searchbox',{name:'查找队列船舶'}).fill(visit.shipName)
+  await page.locator('.aq-journey').getByRole('button',{name:'查看泊位安排',exact:true}).click()
+  await expect(page.locator('.bp-detail .bp-call')).toHaveText(visit.callNo)
+  await expect(page.locator('.bp-query')).toContainText(visit.callNo)
+  await page.locator('.bp-detail').getByRole('button',{name:'查看锚地停留',exact:true}).click()
+  await expect(page.getByRole('searchbox',{name:'查找队列船舶'})).toHaveValue(visit.shipName)
+  await expect(page.locator('.aq-detail .aq-call')).toHaveText(visit.callNo)
+})
+for (const size of [{width:1366,height:768},{width:1920,height:1080},{width:320,height:740}]) {
+  test(`正常缩放布局 ${size.width}×${size.height}`,async ({page}) => {
+    await page.setViewportSize(size);await login(page)
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy()
+    const waiting=await page.locator('.bp-waiting').boundingBox()
+    if(size.width>1050) expect(waiting!.y+waiting!.height).toBeLessThanOrEqual(size.height)
+    await mkdir(evidence,{recursive:true})
+    await page.screenshot({path:`${evidence}/${size.width}.png`,fullPage:true})
+  })
+}
