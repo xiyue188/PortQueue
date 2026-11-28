@@ -15,12 +15,12 @@ async function dragFifthToSecond(page: Page) {
   await page.locator('.aq-sea').evaluate(el=>el.scrollLeft=0)
   // 取消后的让位动画结束，才开始下一次独立拖动。
   await expect.poll(()=>page.locator('.aq-vessel').nth(4).evaluate(el=>{
-    const lane = el.parentElement!, slot = lane.getBoundingClientRect().width / Math.max(5,lane.querySelectorAll('.aq-vessel').length)
+    const lane = el.parentElement!, slot = lane.getBoundingClientRect().width / lane.querySelectorAll('.aq-vessel').length
     return Math.abs(el.getBoundingClientRect().left-lane.getBoundingClientRect().left-slot*4)
   })).toBeLessThan(1)
-  const from = (await page.locator('.aq-grab').nth(4).boundingBox())!, to = (await page.locator('.aq-grab').nth(1).boundingBox())!
-  await page.mouse.move(from.x+22,from.y+22); await page.mouse.down()
-  await page.mouse.move(to.x+22,to.y+22,{steps:14}); await page.mouse.up()
+  const from = (await page.locator('.queue-ship').nth(4).boundingBox())!, to = (await page.locator('.queue-ship').nth(1).boundingBox())!
+  await page.mouse.move(from.x+from.width/2,from.y+from.height/2); await page.mouse.down()
+  await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:14}); await page.mouse.up()
   await expect(page.locator('.aq-reorder[open]')).toBeVisible()
   await expect(page.locator('#aq-new-position')).toHaveValue('2')
 }

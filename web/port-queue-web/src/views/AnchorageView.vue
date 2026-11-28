@@ -23,6 +23,8 @@ const role = computed(() => props.accountSession.session.value?.user?.roleCode ?
 const canRecord = computed(() => ['ADMIN','DISPATCHER','RECORDER'].includes(role.value))
 const canArrange = computed(() => ['ADMIN','DISPATCHER'].includes(role.value))
 const isPresent = computed(() => !!detail.value?.enteredAt && !detail.value.leftAt)
+const canReorderSelected = computed(() => canArrange.value && (queue.value?.items.length ?? 0) > 1
+  && !!queue.value?.items.some(ship => ship.queueEntryId === detail.value?.queueEntryId))
 const matching = computed(() => queue.value?.items.filter(s => `${s.shipName} ${s.callNo} ${s.appointmentNo}`.toLowerCase().includes(query.value.trim().toLowerCase())) ?? [])
 const statusName = (status: string) => ({ WAITING: '待安排', ASSIGNED: '已安排', CANCELLED: '已撤销', LEFT: '已离锚' }[status] ?? status)
 const eventName = (type: string) => ({ ANCHORAGE_ENTER: '实际入锚', ANCHORAGE_LEAVE: '实际离锚', PORT_ENTER: '实际进港', BERTHING: '实际靠泊', UNBERTHING: '实际离泊' }[type] ?? type)
@@ -32,10 +34,10 @@ function waiting(entered: string | null, left: string | null) {
   if (minutes < 0) return '时间待核对'
   return minutes >= 1440 ? `${Math.floor(minutes / 1440)}天${Math.floor(minutes % 1440 / 60)}小时` : `${Math.floor(minutes / 60)}小时${minutes % 60}分`
 }
-const steps = computed(() => !detail.value ? [] : [
-  { title: '预约提交', time: detail.value.submittedAt }, { title: '审核结果', time: detail.value.reviewedAt },
-  { title: '实际入锚', time: detail.value.enteredAt }, { title: '确认靠泊', time: detail.value.confirmedBerthingAt },
-  { title: '实际离锚', time: detail.value.leftAt },
+const steps = computed(() => [
+  { title: '预约提交', time: detail.value?.submittedAt }, { title: '审核结果', time: detail.value?.reviewedAt },
+  { title: '实际入锚', time: detail.value?.enteredAt }, { title: '确认靠泊', time: detail.value?.confirmedBerthingAt },
+  { title: '实际离锚', time: detail.value?.leftAt },
 ])
 async function select(id: string) { await model.select(id); await nextTick(); locateSelected() }
 function locateSelected() { void lane.value?.locateSelected() }
@@ -95,15 +97,30 @@ defineExpose({ refresh, locateAppointment })
                 <div><dt><button v-if="canArrange && isPresent && detail.statusCode !== 'CANCELLED' && area" class="aq-field-action" @click="operation?.open('estimate',area,detail)">人工预计靠泊 <PortIcon name="edit" :size="13"/></button><span v-else>人工预计靠泊</span></dt><dd>{{ formatDate(detail.manualEstimatedBerthingAt) }}</dd></div><div><dt>已确认靠泊</dt><dd>{{ formatDate(detail.confirmedBerthingAt) }}</dd></div>
               </dl>
               <details v-if="detail.legacyEstimatedBerthingAt" class="aq-legacy"><summary>历史预计</summary><p>{{ formatDate(detail.legacyEstimatedBerthingAt) }} · 来源待核</p></details>
-              <div class="aq-actions"><button v-if="canRecord && isPresent && area" class="button button-primary" @click="operation?.open('leave',area,detail)">登记离锚</button><button class="button" :class="{'button-primary': !canRecord || !isPresent}" @click="openTimeline">查看本次到访</button></div>
-              <div class="aq-detail-links"><button v-if="canArrange && queue && queue.items.length > 1 && queue.items.some(s => s.queueEntryId === detail?.queueEntryId)" class="aq-link" @click="lane?.openReorder(detail.queueEntryId)">移至第几位</button><button class="aq-link" @click="emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button></div>
+              <div v-if="(canRecord && isPresent) || canReorderSelected" class="aq-actions">
+                <button v-if="canRecord && isPresent && area" class="button button-primary" @click="operation?.open('leave',area,detail)"><PortIcon name="anchor" :size="18"/>登记离锚</button>
+                <button v-if="canReorderSelected" class="button" @click="lane?.openReorder(detail.queueEntryId)"><PortIcon name="grip" :size="18"/>移至第几位</button>
+              </div>
             </div>
           </template>
           <div v-else class="aq-empty"><p :role="detailError ? 'alert' : undefined">{{ detailError || (detailLoading ? '正在读取到访…' : '选择船舶查看本次到访') }}</p><button v-if="detailError && selectedId" class="button" @click="model.select(selectedId)">重试详情</button></div>
         </aside>
       </div>
-      <section v-if="detail" class="aq-journey glass-panel" aria-label="本次到访"><header><h3>本次到访</h3><button class="aq-link" @click="openTimeline">展开时间线 <PortIcon name="arrow" :size="16"/></button></header>
-        <div class="aq-steps"><button v-for="step in steps" :key="step.title" :class="{ done: !!step.time }" @click="openTimeline"><span class="aq-node"><PortIcon :name="step.time ? 'check' : 'clock'" :size="13"/></span><strong>{{ step.title }}</strong><time>{{ step.time ? formatDate(step.time) : '尚未记录' }}</time></button></div>
+      <!-- 选择异步加载时保留时间线的占位，避免正在拖动的船随主区高度跳动。 -->
+      <section v-if="selectedId" class="aq-journey glass-panel" aria-label="本次到访" :aria-busy="detailLoading">
+        <header><h3>本次到访</h3>
+          <nav aria-label="到访记录">
+            <button class="aq-link" :disabled="!detail" @click="detail && emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button>
+            <button class="aq-link" :disabled="!detail" @click="openTimeline">展开时间线 <PortIcon name="arrow" :size="16"/></button>
+          </nav>
+        </header>
+        <div class="aq-steps">
+          <button v-for="step in steps" :key="step.title" :class="{ done: !!step.time }" :disabled="!detail" @click="openTimeline">
+            <span class="aq-node"><PortIcon :name="step.time ? 'check' : 'clock'" :size="13"/></span>
+            <strong>{{ step.title }}</strong>
+            <time>{{ !detail ? (detailLoading ? '读取中…' : '未能读取') : step.time ? formatDate(step.time) : '尚未记录' }}</time>
+          </button>
+        </div>
       </section>
     </div>
   </section>

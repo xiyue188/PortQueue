@@ -91,9 +91,9 @@ async function reconcile() {
   finally { if (currentGeneration === generation) busy.value = false }
 }
 async function locateSelected() {
-  if (draggingId.value) return
+  if (drag.interacting.value || opened.value) return
   await nextTick(); const element = lane.value?.querySelector<HTMLElement>(`[data-stay="${props.selectedId}"]`)
-  if (!element || !lane.value || draggingId.value) return
+  if (!element || !lane.value || drag.interacting.value || opened.value) return
   const left = element.offsetLeft, right = left+element.offsetWidth
   if (left < lane.value.scrollLeft || right > lane.value.scrollLeft+lane.value.clientWidth)
     lane.value.scrollLeft = Math.max(0,left-(lane.value.clientWidth-element.offsetWidth)/2)
@@ -106,13 +106,27 @@ defineExpose({ locateSelected, openReorder, scrollStart:()=>{if(lane.value)lane.
 
 <template>
   <div ref="lane" class="aq-sea" tabindex="0" aria-label="完整候泊队列，可横向浏览">
-    <div v-if="queue?.items.length" class="aq-lane" :style="{'--slots':Math.max(5,queue.items.length)}">
+    <div v-if="queue?.items.length" class="aq-lane" :style="{'--slots':queue.items.length}">
       <div v-for="(ship,index) in queue.items" :key="ship.queueEntryId" class="aq-vessel" :class="{selected:selectedId===ship.queueEntryId,dim:query&&!matches(ship),'is-dragging':draggingId===ship.queueEntryId}" :data-stay="ship.queueEntryId" :style="{'--slot':order(ship,index)}">
-        <button v-if="allowed && queue.items.length>1" class="aq-grab" :aria-label="`调整${ship.shipName}顺位`" title="拖动调序，或按回车输入位置" @pointerdown="drag.begin($event,ship.queueEntryId)" @pointermove="drag.move" @pointerup="drag.end($event)" @pointercancel="drag.end($event,true)" @lostpointercapture="drag.end($event,true)" @click="($event.detail===0)&&openReorder(ship.queueEntryId)"><span class="aq-rank">{{ preview ? preview.indexOf(ship.queueEntryId)+1 : ship.queuePosition }}</span></button>
+        <button v-if="allowed && queue.items.length>1" class="aq-grab"
+          :aria-label="`调整${ship.shipName}顺位`" title="拖动调序，或点击输入位置"
+          @pointerdown="drag.begin($event,ship.queueEntryId)" @pointermove="drag.move"
+          @pointerup="drag.end($event)" @pointercancel="drag.end($event,true)" @lostpointercapture="drag.end($event,true)"
+          @click="drag.click($event,()=>openReorder(ship.queueEntryId))">
+          <PortIcon name="grip" :size="18"/><span class="aq-rank">{{ preview ? preview.indexOf(ship.queueEntryId)+1 : ship.queuePosition }}</span>
+        </button>
         <span v-else class="aq-rank">{{ ship.queuePosition }}</span>
-        <button class="aq-select" :aria-label="`${ship.shipName}，第${ship.queuePosition}位`" :aria-pressed="selectedId===ship.queueEntryId" @click="emit('select',ship.queueEntryId)"><QueueShip/><strong>{{ ship.shipName }}</strong><span>等待 {{ waiting(ship) }}</span></button>
+        <button class="aq-select" :class="{'can-drag':allowed && queue.items.length>1}"
+          :aria-label="`${ship.shipName}，第${ship.queuePosition}位`" :aria-pressed="selectedId===ship.queueEntryId"
+          :title="allowed && queue.items.length>1 ? '点击查看，拖动调整顺位' : '查看本次停留'"
+          @pointerdown="drag.begin($event,ship.queueEntryId)" @pointermove="drag.move"
+          @pointerup="drag.end($event)" @pointercancel="drag.end($event,true)" @lostpointercapture="drag.end($event,true)"
+          @click="drag.click($event,()=>emit('select',ship.queueEntryId))" @dragstart.prevent>
+          <QueueShip/><strong>{{ ship.shipName }}</strong>
+          <span>{{ draggingId===ship.queueEntryId && preview ? `移至第 ${preview.indexOf(ship.queueEntryId)+1} 位` : `等待 ${waiting(ship)}` }}</span>
+        </button>
       </div>
-      <div v-if="draggingId && preview" class="aq-drop-position" :style="{'--slot':preview.indexOf(draggingId)}"><span>移至第 {{ preview.indexOf(draggingId)+1 }} 位</span></div>
+      <div v-if="draggingId && preview" class="aq-drop-position" :style="{'--slot':preview.indexOf(draggingId)}" aria-hidden="true"></div>
     </div>
     <div v-else class="aq-sea-empty"><PortIcon name="anchor" :size="32"/><p>当前没有候泊船舶</p></div>
   </div>

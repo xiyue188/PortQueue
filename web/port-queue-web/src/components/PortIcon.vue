@@ -25,6 +25,7 @@ const paths: Record<string, string> = {
   close: 'M6 6 18 18M18 6 6 18',
   edit: 'm14 4 6 6M4 20l5-1L21 7l-4-4L5 15z',
   menu: 'M4 6h16M4 12h16M4 18h16',
+  grip: 'M9 5v.1M15 5v.1M9 12v.1M15 12v.1M9 19v.1M15 19v.1',
 }
 </script>
 
