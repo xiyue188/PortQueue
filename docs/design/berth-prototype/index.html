@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PortQueue · 泊位排期交互原型</title>
+  <meta name="description" content="5A独立设计原型。固定合成场景，仅在页面内预览安排，不连接业务数据库。">
+  <link rel="stylesheet" href="prototype.css">
+  <script defer src="scenarios.js"></script><script defer src="prototype.js"></script>
+</head>
+<body>
+  <!-- 已确认视觉：冰蓝玻璃商务工作台。主任务是看资源和编排时间；图形不代表真实港区地图。
+       预览不改正式数据库；实际/确认/候选分层表达，旧确认安排始终保留。
+       原型刻意无认证身份与API写入，后续接入分别按5A—5D验收。 -->
+  <a class="skip" href="#workspace">跳至泊位排期</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="./index.html"><span data-icon="brand"></span><b>PORTQUEUE</b></a>
+      <nav aria-label="业务导航">
+        <button data-nav="总览"><span data-icon="home"></span>总览</button>
+        <button data-nav="进港预约"><span data-icon="ship"></span>进港预约</button>
+        <button data-nav="锚地排队"><span data-icon="anchor"></span>锚地排队</button>
+        <button aria-current="page"><span data-icon="berth"></span>泊位计划</button>
+        <button data-nav="进出港记录"><span data-icon="document"></span>进出港记录</button>
+        <button data-nav="查询统计"><span data-icon="chart"></span>查询统计</button>
+      </nav>
+      <div class="port-signature"><span data-icon="anchor"></span><strong>上海洋山深水港</strong><span>SH–YS</span></div>
+      <button class="quiet reset" id="reset"><span data-icon="refresh"></span>重置预览</button>
+    </aside>
+    <main id="workspace">
+      <header class="topbar">
+        <button class="icon-button menu" id="menu" aria-label="展开业务导航" aria-expanded="false"><span data-icon="menu"></span></button>
+        <h1>泊位计划</h1><button class="prototype-label" id="about">交互原型 <span data-icon="info"></span></button>
+        <div class="search-wrap"><label class="search"><span data-icon="search"></span><input type="search" id="search" aria-label="查找船舶或到访" placeholder="船名 / 到访编号" autocomplete="off" aria-controls="search-results"></label><div id="search-results" class="search-results" hidden></div></div>
+      </header>
+      <div class="page-content">
+        <div class="page-heading"><h2>泊位排期</h2>
+          <div class="date-controls"><button class="icon-button" id="previous" aria-label="前一天"><span data-icon="left"></span></button><label class="date-label"><span class="sr-only">排期日期</span><input type="date" id="date" value="2026-11-28"></label><button class="icon-button" id="next" aria-label="后一天"><span data-icon="right"></span></button><button class="quiet" id="now">回到当前</button></div>
+          <div class="segment" role="group" aria-label="时间范围"><button data-hours="24" aria-pressed="true">24小时</button><button data-hours="48" aria-pressed="false">48小时</button></div>
+        </div>
+        <div class="compact-task" id="compact-task"></div>
+        <div class="work-grid">
+          <section class="schedule-panel glass" aria-labelledby="schedule-title">
+            <div class="panel-toolbar"><h3 id="schedule-title">资源时间轴</h3><div class="view-toggle segment" role="group" aria-label="排期视图"><button data-view="chart" aria-pressed="true">时间轴</button><button data-view="list" aria-pressed="false">明细</button></div></div>
+            <div class="legend" aria-label="排期图例"><span><i class="confirmed"></i>已确认</span><span><i class="executing"></i>执行中</span><span><i class="candidate"></i>候选</span><span><i class="completed"></i>已完成</span><span class="timezone">北京时间</span></div>
+            <div class="axis-scroll" id="axis-scroll" tabindex="0" aria-label="泊位排期，可横向滚动">
+              <div class="axis" id="axis"><div class="ruler" id="ruler"></div><div class="resource-rows" id="resource-rows"></div><div id="drag-feedback" class="drag-feedback" role="status" hidden></div></div>
+            </div>
+            <div class="schedule-list" id="schedule-list" hidden></div>
+            <div class="axis-footer"><span id="range-label"></span><button class="quiet" id="empty-window"><span data-icon="search"></span>查找可用时段</button></div>
+          </section>
+          <aside class="detail glass" id="detail" aria-labelledby="detail-title"></aside>
+        </div>
+        <section class="waiting-panel glass" aria-labelledby="waiting-title"><header><h3 id="waiting-title">待安排到访 <span id="waiting-count"></span></h3><button class="quiet" id="all-visits">全部到访 <span data-icon="arrow"></span></button></header><div class="waiting-visits" id="waiting-visits"></div></section>
+        <p class="feedback" id="feedback" role="status" hidden></p>
+      </div>
+    </main>
+  </div>
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form"><header class="dialog-heading"><h2 id="edit-title">预览安排</h2><button type="button" class="icon-button" data-close aria-label="关闭安排预览"><span data-icon="close"></span></button></header>
+      <p class="dialog-ship" id="edit-ship"></p><p class="old-arrangement" id="old-arrangement"></p>
+      <label class="field">泊位<select id="edit-berth" required></select></label>
+      <div class="time-fields"><label class="field">计划靠泊<input id="edit-start" type="datetime-local" step="60" required></label><label class="field">计划离泊<input id="edit-end" type="datetime-local" step="60" required></label></div>
+      <div class="validation" id="validation" role="status"></div>
+      <label class="field">安排原因<textarea id="edit-reason" rows="2" maxlength="500" placeholder="填写安排或调整的原因" required></textarea></label>
+      <footer class="dialog-footer"><button type="button" class="button" data-close>取消</button><button type="submit" class="button primary" id="apply">应用预览</button></footer>
+    </form>
+  </dialog>
+  <dialog id="visit-dialog" aria-labelledby="visit-title"><header class="dialog-heading"><h2 id="visit-title">本次到访</h2><button class="icon-button" data-close aria-label="关闭到访"><span data-icon="close"></span></button></header><div id="visit-content"></div></dialog>
+  <dialog id="info-dialog" aria-labelledby="info-title"><header class="dialog-heading"><h2 id="info-title">泊位排期 · 交互原型</h2><button class="icon-button" data-close aria-label="关闭设计说明"><span data-icon="close"></span></button></header><div class="info-content"><p>这里使用固定合成场景，参照时刻为2026年11月28日10:30。所有安排只在当前页面预览，刷新后还原，不连接业务数据库。</p><p>可以选择船舶、浏览日期、拖动时间条、换泊位或用表单精确输入。已有确认安排保留，调整另以候选显示。</p><p>正式业务还将校验会话权限、数据库约束和并发结果；当前预览不代表已经办理。</p></div></dialog>
+</body>
+</html>
