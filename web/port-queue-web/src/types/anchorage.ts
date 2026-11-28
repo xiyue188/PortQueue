@@ -22,6 +22,7 @@ export interface AnchorageQueue {
   items: AnchorageStay[]; cancelled: AnchorageStay[]
 }
 export interface AnchorageDetail extends AnchorageStay {
+  planConfirmedAt: string | null
   anchorageName: string; requestedArrivalAt: string; submittedAt: string | null
   reviewedAt: string | null; reviewerName: string | null; appointmentStatusCode: string
   events: { eventId: string; eventTypeCode: string; eventTime: string; queueEntryId: string | null; recordedByName: string | null }[]

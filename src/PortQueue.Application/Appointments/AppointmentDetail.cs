@@ -8,6 +8,7 @@ public sealed class AppointmentDetail
     public string? NextPortId { get; init; }
     public string EditVersion { get; init; } = "0";
     public string AppointmentId { get; init; } = string.Empty;
+    public bool HasAnchorageStay { get; init; }
     public string AppointmentNo { get; init; } = string.Empty;
     public string ShipName { get; init; } = string.Empty;
     public string? ImoNo { get; init; }

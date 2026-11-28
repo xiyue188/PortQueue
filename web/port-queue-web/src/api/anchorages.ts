@@ -26,7 +26,7 @@ export const fetchAnchorageQueue = (anchorageId: string, signal: AbortSignal) =>
     && Number.isInteger(v.occupiedCount) && (v.capacity === null || Number.isInteger(v.capacity)) && typeof v.statusCode === 'string'
     && Array.isArray(v.items) && v.items.every(stay) && Array.isArray(v.cancelled) && v.cancelled.every(stay))
 export const fetchAnchorageStay = (stayId: string, signal: AbortSignal) => read<AnchorageDetail>(`/api/anchorage-stays/${encodeURIComponent(stayId)}`, signal,
-  v => stay(v) && v.queueEntryId === stayId && object(v) && Array.isArray(v.events)
+  v => stay(v) && v.queueEntryId === stayId && object(v) && nullableTime(v.planConfirmedAt) && Array.isArray(v.events)
     && v.events.every(e => object(e) && id(e.eventId) && time(e.eventTime) && typeof e.eventTypeCode === 'string'))
 
 export const fetchAnchorageCandidates = (keyword: string, page: number, signal: AbortSignal) => read<AnchorageCandidates>(

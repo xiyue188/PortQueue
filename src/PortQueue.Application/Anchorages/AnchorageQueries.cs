@@ -47,6 +47,8 @@ public class AnchorageQueueItem
 
 public sealed class AnchorageStayDetail : AnchorageQueueItem
 {
+    // 确认操作时间与预计执行时间分别返回，前者才能构成已发生的时间线节点。
+    public DateTimeOffset? PlanConfirmedAt { get; init; }
     public string AnchorageName { get; init; } = string.Empty;
     public DateTimeOffset RequestedArrivalAt { get; init; }
     public DateTimeOffset? SubmittedAt { get; init; }

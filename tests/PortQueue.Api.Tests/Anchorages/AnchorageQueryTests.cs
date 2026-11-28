@@ -85,6 +85,8 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
 
         using var detail = await GetJson(client, $"/api/anchorage-stays/{scenario.Current}");
         var stay = detail.RootElement;
+        // 确认动作发生在19日，计划靠泊在20日；二者不得混成一个已完成事实。
+        Assert.Equal(new DateTimeOffset(2026, 11, 19, 0, 0, 0, TimeSpan.Zero), stay.GetProperty("planConfirmedAt").GetDateTimeOffset());
         Assert.Equal(scenario.Current.ToString(System.Globalization.CultureInfo.InvariantCulture), stay.GetProperty("queueEntryId").GetString());
         Assert.Equal(scenario.Appointment.ToString(System.Globalization.CultureInfo.InvariantCulture), stay.GetProperty("appointmentId").GetString());
         Assert.True(scenario.Appointment > 9_007_199_254_740_991L);
@@ -193,6 +195,25 @@ public sealed class AnchorageQueryTests(AppointmentDatabaseFixture fixture) : IC
         var member = Assert.Single((await queries.GetQueueAsync(scenario.Anchorage, CancellationToken.None))!.Items
             .Where(q => q.QueueEntryId == detail.QueueEntryId));
         Assert.Null(member.ConfirmedBerthingAt);
+    }
+
+    [Fact]
+    public async Task ClosedStayKeepsItsLastConfirmedPlanWhenLaterRevisionsExist()
+    {
+        var scenario = await SeedScenario();
+        await using var connection = new SqlConnection(fixture.ConnectionString);
+        await connection.ExecuteAsync("""
+            DECLARE @plan bigint=(SELECT berth_plan_id FROM dbo.berth_plan WHERE appointment_id=@appointment);
+            UPDATE dbo.berth_plan_revision SET is_current=0 WHERE berth_plan_id=@plan;
+            INSERT dbo.berth_plan_revision(berth_plan_id,version_no,berth_id,planned_berthing_at,planned_unberthing_at,
+                revision_reason,revised_by,confirmed_by,confirmed_at,is_current)
+            SELECT berth_plan_id,2,berth_id,'2026-11-21T13:00:00','2026-11-21T16:00:00',N'后续安排',revised_by,confirmed_by,'2026-11-20T02:30:00',1
+            FROM dbo.berth_plan_revision WHERE berth_plan_id=@plan AND version_no=1;
+            UPDATE dbo.berth_plan SET plan_status_code='COMPLETED' WHERE berth_plan_id=@plan;
+            """, new { appointment = scenario.Appointment });
+        using var scope = fixture.Factory.Services.CreateScope();
+        var detail = (await scope.ServiceProvider.GetRequiredService<IAnchorageQueries>().GetStayAsync(scenario.History, CancellationToken.None))!;
+        Assert.Equal(new DateTimeOffset(2026,11,20,13,0,0,TimeSpan.Zero), detail.ConfirmedBerthingAt);
     }
 
     [Fact]

@@ -16,6 +16,7 @@ SELECT (
         plan_row.berth_name AS BerthName,CONVERT(varchar(20),plan_row.revision_id) AS ConfirmedRevisionId,
         TODATETIMEOFFSET(aa.requested_arrival_at,'+00:00') AS RequestedArrivalAt,
         TODATETIMEOFFSET(aa.submitted_at,'+00:00') AS SubmittedAt,
+        TODATETIMEOFFSET(plan_row.confirmed_at,'+00:00') AS PlanConfirmedAt,
         TODATETIMEOFFSET(aa.reviewed_at,'+00:00') AS ReviewedAt,
         reviewer.display_name AS ReviewerName,aa.appointment_status_code AS AppointmentStatusCode,
         JSON_QUERY(COALESCE((SELECT CONVERT(varchar(20),e.event_id) AS EventId,e.event_type_code AS EventTypeCode,
@@ -29,11 +30,15 @@ SELECT (
     JOIN dbo.port p ON p.port_id=a.port_id JOIN dbo.port_call pc ON pc.port_call_id=q.port_call_id
     JOIN dbo.arrival_appointment aa ON aa.appointment_id=q.appointment_id
     LEFT JOIN dbo.user_account reviewer ON reviewer.user_id=aa.reviewed_by
-    OUTER APPLY (SELECT bp.* FROM dbo.v_current_berth_plan bp
-        JOIN dbo.berth b ON b.berth_id=bp.berth_id JOIN dbo.terminal t ON t.terminal_id=b.terminal_id
-        WHERE bp.appointment_id=q.appointment_id AND bp.confirmed_at IS NOT NULL
-          AND bp.plan_status_code IN ('CONFIRMED','EXECUTING') AND aa.appointment_status_code='APPROVED'
-          AND t.port_id=a.port_id) plan_row
+    -- 当前停留只用有效当前计划；历史停留保留离锚前最后确认版本，不被后来的安排覆盖。
+    OUTER APPLY (SELECT TOP(1) r.planned_berthing_at,r.planned_unberthing_at,r.confirmed_at,r.revision_id,b.berth_name
+        FROM dbo.berth_plan bp JOIN dbo.berth_plan_revision r ON r.berth_plan_id=bp.berth_plan_id
+        JOIN dbo.berth b ON b.berth_id=r.berth_id JOIN dbo.terminal t ON t.terminal_id=b.terminal_id
+        WHERE bp.appointment_id=q.appointment_id AND r.confirmed_at IS NOT NULL AND t.port_id=a.port_id
+          AND ((q.left_anchorage_at IS NULL AND r.is_current=1
+                AND bp.plan_status_code IN ('CONFIRMED','EXECUTING') AND aa.appointment_status_code='APPROVED')
+            OR (q.left_anchorage_at IS NOT NULL AND r.confirmed_at<=q.left_anchorage_at))
+        ORDER BY r.confirmed_at DESC,r.version_no DESC) plan_row
     WHERE q.queue_entry_id=@QueueEntryId AND p.port_code=@HomePortCode
     FOR JSON PATH,INCLUDE_NULL_VALUES,WITHOUT_ARRAY_WRAPPER
 ) AS Payload;

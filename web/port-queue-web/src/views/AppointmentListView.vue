@@ -185,8 +185,7 @@ onScopeDispose(() => window.removeEventListener('popstate', historyChange))
             <p v-if="saveFeedback" class="save-feedback" role="status">{{ saveFeedback }}</p>
             <AppointmentRegistration ref="registration" :item="detail.item.value ?? undefined" :account-session="accountSession" @saved="registered" @reconcile="reconcileRegistration" />
             <template v-if="selected">
-              <AppointmentDetail :item="selected" :account-session="accountSession" @saved="reviewed" @reconcile="reconcileReview" />
-              <button v-if="accountSession.session.value?.user" class="button" @click="openAnchorage(selected.appointmentId)">查看锚地停留 <PortIcon name="anchor" :size="16"/></button>
+              <AppointmentDetail :item="selected" :account-session="accountSession" @saved="reviewed" @reconcile="reconcileReview" @anchorage="openAnchorage" />
             </template>
             <aside v-else class="glass-panel detail-panel detail-placeholder"><PortIcon name="document" :size="30" /><p v-if="detail.error.value" role="alert">{{ detail.error.value }}</p><p v-else>{{ loading || detail.loading.value ? '正在载入详情…' : '选择预约查看详情' }}</p><button v-if="detail.error.value" class="button" @click="detail.retry">重试详情</button></aside>
           </div>

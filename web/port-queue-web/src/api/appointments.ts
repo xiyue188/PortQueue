@@ -61,6 +61,7 @@ function isDetail(value: unknown): value is AppointmentDetail {
   if (!isItem(value)) return false
   const item = value as AppointmentDetail
   return /^\d+$/.test(item.shipId) && /^\d+$/.test(item.editVersion)
+    && typeof item.hasAnchorageStay === 'boolean'
     && [item.previousPortId, item.nextPortId].every(id => id === null || /^\d+$/.test(id))
     && ['shipType', 'companyName', 'callNo'].every(k => typeof item[k as keyof AppointmentDetail] === 'string')
     && ['lengthM', 'breadthM', 'maxDraftM', 'estimatedOperationHours', 'declaredDraftM', 'priorityLevel'].every(k => Number.isFinite(item[k as keyof AppointmentDetail]))

@@ -114,6 +114,26 @@ public sealed class AppointmentQueryTests(AppointmentDatabaseFixture fixture) : 
     }
 
     [Fact]
+    public async Task DetailExposesActualStayIncludingClosedHistoryOnly()
+    {
+        using var client = fixture.Factory.CreateClient();
+        using var connection = new SqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync();
+        using var command = new SqlCommand("SELECT DISTINCT a.appointment_id,CONVERT(bit,CASE WHEN q.queue_entry_id IS NULL THEN 0 ELSE 1 END) FROM dbo.arrival_appointment a LEFT JOIN dbo.v_anchorage_queue q ON q.appointment_id=a.appointment_id AND q.entered_anchorage_at IS NOT NULL", connection);
+        using var rows = await command.ExecuteReaderAsync();
+        var flags = new List<bool>();
+        while (await rows.ReadAsync())
+        {
+            using var json = JsonDocument.Parse(await client.GetStringAsync($"/api/appointments/{rows.GetInt64(0)}"));
+            var expected = rows.GetBoolean(1);
+            Assert.Equal(expected, json.RootElement.GetProperty("hasAnchorageStay").GetBoolean());
+            flags.Add(expected);
+        }
+        Assert.Contains(true, flags);
+        Assert.Contains(false, flags);
+    }
+
+    [Fact]
     public async Task DetailUsesExactBigintAndPreservesListScope()
     {
         using var client = fixture.Factory.CreateClient();

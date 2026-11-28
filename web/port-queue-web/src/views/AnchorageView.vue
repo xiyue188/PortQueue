@@ -6,7 +6,6 @@ import { useAnchorages } from '../composables/useAnchorages'
 import PortIcon from '../components/PortIcon.vue'
 import AnchorageQueueLane from '../components/AnchorageQueueLane.vue'
 import AnchorageOperation from '../components/AnchorageOperation.vue'
-import { appointmentStatuses } from '../types/appointment'
 import { formatDate } from '../utils/appointmentPresentation'
 import scene from '../assets/port-scene.png'
 const props = defineProps<{ active: boolean; accountSession: SessionClient }>()
@@ -35,15 +34,33 @@ function waiting(entered: string | null, left: string | null) {
   return minutes >= 1440 ? `${Math.floor(minutes / 1440)}天${Math.floor(minutes % 1440 / 60)}小时` : `${Math.floor(minutes / 60)}小时${minutes % 60}分`
 }
 const steps = computed(() => [
-  { title: '预约提交', time: detail.value?.submittedAt }, { title: '审核结果', time: detail.value?.reviewedAt },
-  { title: '实际入锚', time: detail.value?.enteredAt }, { title: '确认靠泊', time: detail.value?.confirmedBerthingAt },
-  { title: '实际离锚', time: detail.value?.leftAt },
-])
+  { key: 'submit', title: '预约提交', time: detail.value?.submittedAt }, { key: 'review', title: '审核结果', time: detail.value?.reviewedAt },
+  { key: 'ANCHORAGE_ENTER', title: '实际入锚', time: detail.value?.enteredAt }, { key: 'plan', title: '计划确认', time: detail.value?.planConfirmedAt },
+  { key: 'ANCHORAGE_LEAVE', title: '实际离锚', time: detail.value?.leftAt },
+// 泊位计划可能先于入锚确认；已发生节点按真实时间排序，未发生节点留在末尾。
+].sort((a,b) => (a.time ? Date.parse(a.time) : Infinity) - (b.time ? Date.parse(b.time) : Infinity)))
+// 展开记录与缩略节点读取同一事实；多次停留保留独立事件，按发生时间阅读。
+const visitRecords = computed(() => {
+  const d = detail.value
+  if (!d) return []
+  return [
+    { key: 'submit', title: '进港预约', time: d.submittedAt, lines: [d.appointmentNo] },
+    { key: 'review', title: '审核记录', time: d.reviewedAt, lines: [`审核人：${d.reviewerName ?? '未登记'}`] },
+    ...d.events.map(e => ({ key: e.queueEntryId === d.queueEntryId ? e.eventTypeCode : e.eventId, title: eventName(e.eventTypeCode), time: e.eventTime,
+      lines: [`记录人：${e.recordedByName ?? '未登记'}${e.queueEntryId === d.queueEntryId ? ' · 本次停留' : ''}`] })),
+    { key: 'plan', title: d.leftAt ? '离锚前最后确认计划' : '计划确认', time: d.planConfirmedAt, lines: [d.berthName ?? '', `计划靠泊：${formatDate(d.confirmedBerthingAt)}`, `计划离泊：${formatDate(d.confirmedUnberthingAt)}`] },
+  ].filter(record => record.time).sort((a,b) => Date.parse(a.time!) - Date.parse(b.time!))
+})
 async function select(id: string) { await model.select(id); await nextTick(); locateSelected() }
 function locateSelected() { void lane.value?.locateSelected() }
 async function changeArea(id: string) { occupancyOpen.value = false; query.value = ''; await model.load(id); await nextTick(); lane.value?.scrollStart() }
 function search() { if (!composing.value && matching.value[0]) void select(matching.value[0].queueEntryId) }
-function openTimeline() { timelineTrigger = document.activeElement as HTMLElement; timeline.value?.showModal() }
+async function openTimeline(key?: string) {
+  timelineTrigger = document.activeElement as HTMLElement; timeline.value?.showModal()
+  await nextTick()
+  const target = Array.from(timeline.value?.querySelectorAll<HTMLDetailsElement>('.aq-history details') ?? []).find(el => el.dataset.record === key)
+  if (target) { target.open = true; target.querySelector('summary')?.focus(); target.scrollIntoView({ block: 'nearest' }) }
+}
 function closeTimeline() { timeline.value?.close(); timelineTrigger?.focus({preventScroll:true}) }
 async function refresh() { if (identity.value) await model.load(); await nextTick(); locateSelected() }
 function reconcileSaved() { emit('changed'); void refresh() }
@@ -94,7 +111,7 @@ defineExpose({ refresh, locateAppointment })
             <div class="aq-scene" :style="{ backgroundImage: `url(${scene})` }"></div>
             <div class="aq-detail-body"><div class="aq-identity"><h2>{{ detail.shipName }}</h2><span class="aq-state" :class="{assigned:detail.statusCode === 'ASSIGNED'}">{{ statusName(detail.statusCode) }}</span></div><span class="aq-call">{{ detail.callNo }}</span>
               <dl class="aq-facts"><div><dt>实际入锚</dt><dd>{{ formatDate(detail.enteredAt) }}</dd></div><div><dt>{{ detail.leftAt ? '本段停留' : '已等待' }}</dt><dd>{{ waiting(detail.enteredAt,detail.leftAt) }}</dd></div>
-                <div><dt><button v-if="canArrange && isPresent && detail.statusCode !== 'CANCELLED' && area" class="aq-field-action" @click="operation?.open('estimate',area,detail)">人工预计靠泊 <PortIcon name="edit" :size="13"/></button><span v-else>人工预计靠泊</span></dt><dd>{{ formatDate(detail.manualEstimatedBerthingAt) }}</dd></div><div><dt>已确认靠泊</dt><dd>{{ formatDate(detail.confirmedBerthingAt) }}</dd></div>
+                <div><dt><button v-if="canArrange && isPresent && detail.statusCode !== 'CANCELLED' && area" class="aq-field-action" @click="operation?.open('estimate',area,detail)">人工预计靠泊 <PortIcon name="edit" :size="13"/></button><span v-else>人工预计靠泊</span></dt><dd>{{ formatDate(detail.manualEstimatedBerthingAt) }}</dd></div><div><dt>计划靠泊</dt><dd>{{ formatDate(detail.confirmedBerthingAt) }}</dd></div>
               </dl>
               <details v-if="detail.legacyEstimatedBerthingAt" class="aq-legacy"><summary>历史预计</summary><p>{{ formatDate(detail.legacyEstimatedBerthingAt) }} · 来源待核</p></details>
               <div v-if="(canRecord && isPresent) || canReorderSelected" class="aq-actions">
@@ -111,11 +128,11 @@ defineExpose({ refresh, locateAppointment })
         <header><h3>本次到访</h3>
           <nav aria-label="到访记录">
             <button class="aq-link" :disabled="!detail" @click="detail && emit('appointment',detail.appointmentId)">查看进港预约 <PortIcon name="document" :size="16"/></button>
-            <button class="aq-link" :disabled="!detail" @click="openTimeline">展开时间线 <PortIcon name="arrow" :size="16"/></button>
+            <button class="aq-link" :disabled="!detail" @click="openTimeline()">展开时间线 <PortIcon name="arrow" :size="16"/></button>
           </nav>
         </header>
         <div class="aq-steps">
-          <button v-for="step in steps" :key="step.title" :class="{ done: !!step.time }" :disabled="!detail" @click="openTimeline">
+          <button v-for="step in steps" :key="step.title" :class="{ done: !!step.time }" :disabled="!detail || !step.time" @click="openTimeline(step.key)">
             <span class="aq-node"><PortIcon :name="step.time ? 'check' : 'clock'" :size="13"/></span>
             <strong>{{ step.title }}</strong>
             <time>{{ !detail ? (detailLoading ? '读取中…' : '未能读取') : step.time ? formatDate(step.time) : '尚未记录' }}</time>
@@ -127,10 +144,11 @@ defineExpose({ refresh, locateAppointment })
   <dialog ref="timeline" class="aq-dialog" aria-labelledby="aq-visit-title" @cancel.prevent="closeTimeline">
     <header><h2 id="aq-visit-title">{{ detail?.shipName }} · 本次到访</h2><button class="icon-button" aria-label="关闭到访时间线" @click="closeTimeline"><PortIcon name="close"/></button></header>
     <p class="aq-call">{{ detail?.callNo }}</p>
-    <div class="aq-history"><details open><summary>进港预约 <time>{{ formatDate(detail?.submittedAt ?? null) }}</time></summary><p>{{ detail?.appointmentNo }}</p><button class="aq-link" @click="closeTimeline(); detail && emit('appointment', detail.appointmentId)">打开预约 <PortIcon name="arrow" :size="16"/></button></details>
-      <details><summary>审核记录 <time>{{ formatDate(detail?.reviewedAt ?? null) }}</time></summary><p>{{ detail?.reviewerName ?? '尚无审核人' }} · {{ appointmentStatuses.find(s => s.code === detail?.appointmentStatusCode)?.label }}</p></details>
-      <details v-for="event in detail?.events" :key="event.eventId"><summary>{{ eventName(event.eventTypeCode) }} <time>{{ formatDate(event.eventTime) }}</time></summary><p>记录人：{{ event.recordedByName }}<span v-if="event.queueEntryId === detail?.queueEntryId"> · 本次停留</span></p></details>
-      <details v-if="detail?.confirmedBerthingAt"><summary>已确认泊位 <time>{{ formatDate(detail.confirmedBerthingAt) }}</time></summary><p>{{ detail.berthName }} · {{ formatDate(detail.confirmedUnberthingAt) }} 结束</p></details>
+    <div class="aq-history"><details v-for="record in visitRecords" :key="record.key" :data-record="record.key" :open="record.key === 'submit'">
+      <summary>{{ record.title }} <time>{{ formatDate(record.time ?? null) }}</time></summary>
+      <p v-for="(line,index) in record.lines" :key="index">{{ line }}</p>
+      <button v-if="record.key === 'submit'" class="aq-link" @click="closeTimeline(); detail && emit('appointment',detail.appointmentId)">打开预约 <PortIcon name="arrow" :size="16"/></button>
+    </details>
     </div>
   </dialog>
   <AnchorageOperation ref="operation" :account-session="accountSession" :active="active" @saved="afterSaved" @refresh="reconcileSaved"/>

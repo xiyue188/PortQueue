@@ -57,5 +57,10 @@ GRANT SELECT ON dbo.anchorage(anchorage_code,anchorage_name,status_code,capacity
 GRANT SELECT ON dbo.anchorage_queue_entry(queue_entry_id,manual_estimated_berthing_at,estimate_version) TO portqueue_app;
 GRANT EXECUTE ON dbo.usp_set_anchorage_estimate TO portqueue_app;
 GRANT SELECT ON dbo.berth(berth_id,terminal_id) TO portqueue_app;
+-- 4阶段历史停留：读取离锚前最后确认版本，不能只依赖当前版本视图。
+GRANT SELECT ON dbo.berth(berth_name) TO portqueue_app;
+GRANT SELECT ON dbo.berth_plan(berth_plan_id,appointment_id,plan_status_code) TO portqueue_app;
+GRANT SELECT ON dbo.berth_plan_revision(berth_plan_id,revision_id,version_no,berth_id,
+    planned_berthing_at,planned_unberthing_at,confirmed_at,is_current) TO portqueue_app;
 COMMIT TRANSACTION;
 GO

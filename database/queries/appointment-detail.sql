@@ -5,6 +5,9 @@ SELECT CONVERT(varchar(20), s.ship_id) AS ShipId, CONVERT(varchar(20),pc.previou
         (table_name='arrival_appointment' AND record_id=CONVERT(varchar(100),aa.appointment_id)) OR
         (table_name='port_call' AND record_id=CONVERT(varchar(100),pc.port_call_id)))) AS EditVersion,
     CONVERT(varchar(20), aa.appointment_id) AS AppointmentId,
+    CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM dbo.v_anchorage_queue q
+        WHERE q.appointment_id=aa.appointment_id AND q.entered_anchorage_at IS NOT NULL)
+        THEN 1 ELSE 0 END) AS HasAnchorageStay,
     aa.appointment_no AS AppointmentNo, s.ship_name AS ShipName, s.imo_no AS ImoNo, s.mmsi AS Mmsi,
     TODATETIMEOFFSET(aa.requested_arrival_at, '+00:00') AS RequestedArrivalAt,
     TODATETIMEOFFSET(aa.requested_departure_at, '+00:00') AS RequestedDepartureAt,
