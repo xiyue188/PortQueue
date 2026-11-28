@@ -62,5 +62,10 @@ GRANT SELECT ON dbo.berth(berth_name) TO portqueue_app;
 GRANT SELECT ON dbo.berth_plan(berth_plan_id,appointment_id,plan_status_code) TO portqueue_app;
 GRANT SELECT ON dbo.berth_plan_revision(berth_plan_id,revision_id,version_no,berth_id,
     planned_berthing_at,planned_unberthing_at,confirmed_at,is_current) TO portqueue_app;
+-- 5A：资源时间轴及版本详情；仅追加查询实际需要的列，保留禁止直接写表。
+GRANT SELECT ON dbo.terminal(terminal_name,status_code) TO portqueue_app;
+GRANT SELECT ON dbo.berth(berth_code,length_m,max_draft_m,max_dwt,status_code) TO portqueue_app;
+GRANT SELECT ON dbo.berth_ship_type(berth_id,ship_type_item_id,relation_status) TO portqueue_app;
+GRANT SELECT ON dbo.berth_plan_revision(revision_reason,revised_by,revised_at,confirmed_by) TO portqueue_app;
 COMMIT TRANSACTION;
 GO

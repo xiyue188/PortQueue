@@ -31,6 +31,9 @@
     <EmbeddedResource Include="../../database/queries/anchorage-queue.sql" LogicalName="PortQueue.Queries.AnchorageQueue.sql" />
     <EmbeddedResource Include="../../database/queries/anchorage-stay.sql" LogicalName="PortQueue.Queries.AnchorageStay.sql" />
     <EmbeddedResource Include="../../database/queries/anchorage-entry-candidates.sql" LogicalName="PortQueue.Queries.AnchorageEntryCandidates.sql" />
+    <EmbeddedResource Include="../../database/queries/berth-schedule.sql" LogicalName="PortQueue.Queries.BerthSchedule.sql" />
+    <EmbeddedResource Include="../../database/queries/berth-visits.sql" LogicalName="PortQueue.Queries.BerthVisits.sql" />
+    <EmbeddedResource Include="../../database/queries/berth-visit.sql" LogicalName="PortQueue.Queries.BerthVisit.sql" />
   </ItemGroup>
 
 </Project>

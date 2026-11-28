@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IRegistrationOptions, SqlRegistrationOptions>();
         services.AddScoped<PortQueue.Application.Anchorages.IAnchorageQueries, PortQueue.Infrastructure.Anchorages.SqlAnchorageQueries>();
         services.AddScoped<PortQueue.Application.Anchorages.IAnchorageOperations, PortQueue.Infrastructure.Anchorages.SqlAnchorageOperations>();
+        services.AddScoped<PortQueue.Application.Berths.IBerthQueries, PortQueue.Infrastructure.Berths.SqlBerthQueries>();
         return services;
     }
 }
